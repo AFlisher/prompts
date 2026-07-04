@@ -6,21 +6,23 @@ import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'style_details_screen.dart';
 
-class ArabicStylesScreen extends StatefulWidget {
+class AllStylesScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleDarkMode;
+  final String title;
 
-  const ArabicStylesScreen({
+  const AllStylesScreen({
     super.key,
     required this.isDarkMode,
     required this.onToggleDarkMode,
+    this.title = 'All Styles',
   });
 
   @override
-  State<ArabicStylesScreen> createState() => _ArabicStylesScreenState();
+  State<AllStylesScreen> createState() => _AllStylesScreenState();
 }
 
-class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
+class _AllStylesScreenState extends State<AllStylesScreen> {
   late bool _isDark;
 
   @override
@@ -38,6 +40,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
   Widget build(BuildContext context) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.white;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
+    final styles = StyleData.allStyles;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -59,40 +62,34 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
                 child: Row(
                   children: [
-                    _CircleIconButton(
-                      icon: Icons.arrow_back,
+                    GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.pop(context);
                       },
-                      isDarkMode: _isDark,
-                    ),
-                    const SizedBox(width: 25),
-                    const Icon(
-                      Icons.auto_awesome,
-                      color: Color(0xFFE735F6),
-                      size: 38,
-                    ),
-                    Transform.translate(
-                      offset: const Offset(-7, 0),
-                      child: Text(
-                        'Arabic Style',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 27,
-                          fontWeight: FontWeight.w900,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.22),
-                              blurRadius: 2,
-                              offset: const Offset(1, 1),
-                            ),
-                          ],
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                          ),
                         ),
+                        child: Icon(Icons.arrow_back,
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                            size: 16),
                       ),
                     ),
-                    const Spacer(),
-                    Icon(Icons.menu_rounded, color: textColor, size: 24),
+                    const SizedBox(width: 25),
+                    Text(
+                      widget.title,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -108,14 +105,14 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final style = StyleData.arabicStyles[index];
-                    return _ArabicStyleTile(
+                    final style = styles[index];
+                    return _StyleTile(
                       style: style,
                       isDarkMode: _isDark,
                       onTap: () => _openDetails(context, style),
                     );
                   },
-                  childCount: StyleData.arabicStyles.length,
+                  childCount: styles.length,
                 ),
               ),
             ),
@@ -140,22 +137,22 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
   }
 }
 
-class _ArabicStyleTile extends StatefulWidget {
+class _StyleTile extends StatefulWidget {
   final StyleModel style;
   final bool isDarkMode;
   final VoidCallback onTap;
 
-  const _ArabicStyleTile({
+  const _StyleTile({
     required this.style,
     required this.isDarkMode,
     required this.onTap,
   });
 
   @override
-  State<_ArabicStyleTile> createState() => _ArabicStyleTileState();
+  State<_StyleTile> createState() => _StyleTileState();
 }
 
-class _ArabicStyleTileState extends State<_ArabicStyleTile> {
+class _StyleTileState extends State<_StyleTile> {
   bool _pressed = false;
 
   @override
@@ -203,36 +200,6 @@ class _ArabicStyleTileState extends State<_ArabicStyleTile> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isDarkMode;
-
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-    required this.isDarkMode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border:
-              Border.all(color: isDarkMode ? AppTheme.white : AppTheme.black),
-        ),
-        child: Icon(icon,
-            color: isDarkMode ? AppTheme.white : AppTheme.black, size: 16),
       ),
     );
   }

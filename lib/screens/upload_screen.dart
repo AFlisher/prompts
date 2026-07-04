@@ -22,12 +22,24 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
+  late bool _isDark;
   String? _selectedImagePath;
   bool _isGenerating = false;
   double _generationProgress = 0.0;
   String _generationStatus = 'Uploading photo...';
   bool _generationComplete = false;
   Timer? _generationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _isDark = widget.isDarkMode;
+  }
+
+  void _toggleDark() {
+    setState(() => _isDark = !_isDark);
+    widget.onToggleDarkMode?.call();
+  }
 
   final List<String> _mockGallery = [
     'assets/images/style_stussy.jpg',
@@ -81,10 +93,9 @@ class _UploadScreenState extends State<UploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDarkMode;
-    final bgColor = isDark ? AppTheme.black : AppTheme.white;
-    final textColor = isDark ? AppTheme.white : AppTheme.black;
-    final surfaceColor = isDark ? AppTheme.darkCard : AppTheme.lightGray;
+    final bgColor = _isDark ? AppTheme.black : AppTheme.white;
+    final textColor = _isDark ? AppTheme.white : AppTheme.black;
+    final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -100,8 +111,8 @@ class _UploadScreenState extends State<UploadScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AppHeader(
-                      isDarkMode: isDark,
-                      onToggleDarkMode: widget.onToggleDarkMode ?? () {},
+                      isDarkMode: _isDark,
+                      onToggleDarkMode: _toggleDark,
                     ),
                     const SizedBox(height: 18),
                     _PageTitleRow(
@@ -113,7 +124,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                     const SizedBox(height: 18),
                     _PhotoActionCard(
-                      isDark: isDark,
+                      isDark: _isDark,
                       icon: Icons.camera_alt_outlined,
                       title: 'Take a photo',
                       subtitle: 'click here to use your camera to take pic',
@@ -121,7 +132,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                     const SizedBox(height: 14),
                     _PhotoActionCard(
-                      isDark: isDark,
+                      isDark: _isDark,
                       icon: Icons.image_outlined,
                       title: 'Upload photo',
                       subtitle: 'click here to upload pic from your gallery',
@@ -131,7 +142,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     _SectionTitle(text: 'Crop & adjust', color: textColor),
                     const SizedBox(height: 12),
                     _CropPreview(
-                      isDark: isDark,
+                      isDark: _isDark,
                       imagePath: _selectedImagePath,
                       onClear: _selectedImagePath != null
                           ? () {
@@ -181,7 +192,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       'Successfully applied ${widget.style.name} to your photo.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                            color: _isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
                     ),
                     const SizedBox(height: 36),
@@ -199,7 +210,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: textColor,
                               side: BorderSide(
-                                color: isDark ? Colors.white24 : Colors.black12,
+                                color: _isDark ? Colors.white24 : Colors.black12,
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -222,9 +233,9 @@ class _UploadScreenState extends State<UploadScreen> {
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
-                                  isDark ? AppTheme.white : AppTheme.black,
+                                  _isDark ? AppTheme.white : AppTheme.black,
                               foregroundColor:
-                                  isDark ? AppTheme.black : AppTheme.white,
+                                  _isDark ? AppTheme.black : AppTheme.white,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius:
@@ -255,7 +266,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: _GenerateStyleButton(
                     enabled: _selectedImagePath != null,
-                    isDark: isDark,
+                    isDark: _isDark,
                     onTap: _startGeneration,
                   ),
                 ),
@@ -322,9 +333,8 @@ class _UploadScreenState extends State<UploadScreen> {
   void _showCameraPicker() => _showMockSheet('Take Photo with Camera');
 
   void _showMockSheet(String title) {
-    final isDark = widget.isDarkMode;
-    final bgColor = isDark ? AppTheme.darkCard : AppTheme.white;
-    final textColor = isDark ? AppTheme.white : AppTheme.black;
+    final bgColor = _isDark ? AppTheme.darkCard : AppTheme.white;
+    final textColor = _isDark ? AppTheme.white : AppTheme.black;
 
     showModalBottomSheet(
       context: context,
@@ -500,7 +510,7 @@ class _PhotoActionCardState extends State<_PhotoActionCard> {
         scale: _pressed ? 0.98 : 1,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
           decoration: _MetallicStyles.cardDecoration(isDark: widget.isDark),
           child: Row(
             children: [
@@ -680,7 +690,7 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
             decoration: _MetallicStyles.buttonDecoration(isDark: widget.isDark),
             child: Row(
               children: [
-                const SizedBox(width: 22),
+                const SizedBox(width: 26),
                 const Icon(Icons.auto_awesome, color: Colors.white, size: 30),
                 Expanded(
                   child: Text(

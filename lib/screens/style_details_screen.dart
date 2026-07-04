@@ -24,17 +24,24 @@ class StyleDetailsScreen extends StatefulWidget {
 
 class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
   late bool _isFavorite;
+  late bool _isDark;
   bool _tryButtonPressed = false;
 
   @override
   void initState() {
     super.initState();
     _isFavorite = widget.style.isFavorite;
+    _isDark = widget.isDarkMode;
+  }
+
+  void _toggleDark() {
+    setState(() => _isDark = !_isDark);
+    widget.onToggleDarkMode?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDarkMode;
+    final isDark = _isDark;
     final bgColor = isDark ? AppTheme.black : AppTheme.white;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
 
@@ -49,17 +56,18 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                 padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
                 child: AppHeader(
                   isDarkMode: isDark,
-                  onToggleDarkMode: widget.onToggleDarkMode ?? () {},
+                  onToggleDarkMode: _toggleDark,
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(68, 16, 32, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 26),
                 child: _HeroStyleCard(
                   style: widget.style,
                   isFavorite: _isFavorite,
                   isDarkMode: isDark,
+                  marginTop: 16,
                   onBack: () {
                     HapticFeedback.lightImpact();
                     Navigator.pop(context);
@@ -71,7 +79,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(76, 14, 40, 12),
+                padding: const EdgeInsets.fromLTRB(26, 20, 26, 12),
                 child: Text(
                   'PHOTO GUIDELINES',
                   style: TextStyle(
@@ -90,12 +98,12 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
               ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.fromLTRB(78, 0, 40, 10),
+              padding: EdgeInsets.symmetric(horizontal: 26),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 30,
-                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 10,
                   childAspectRatio: 1.28,
                 ),
                 delegate: SliverChildListDelegate.fixed([
@@ -128,7 +136,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(76, 0, 40, 26),
+                padding: const EdgeInsets.fromLTRB(26, 0, 26, 26),
                 child: _TryButton(
                   pressed: _tryButtonPressed,
                   onTapDown: () => setState(() => _tryButtonPressed = true),
@@ -141,8 +149,8 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                       MaterialPageRoute(
                         builder: (context) => UploadScreen(
                           style: widget.style,
-                          isDarkMode: widget.isDarkMode,
-                          onToggleDarkMode: widget.onToggleDarkMode ?? () {},
+                          isDarkMode: _isDark,
+                          onToggleDarkMode: _toggleDark,
                         ),
                       ),
                     );
@@ -187,6 +195,7 @@ class _HeroStyleCard extends StatelessWidget {
   final StyleModel style;
   final bool isFavorite;
   final bool isDarkMode;
+  final double marginTop;
   final VoidCallback onBack;
   final VoidCallback onShare;
   final VoidCallback onFavorite;
@@ -195,6 +204,7 @@ class _HeroStyleCard extends StatelessWidget {
     required this.style,
     required this.isFavorite,
     required this.isDarkMode,
+    this.marginTop = 0,
     required this.onBack,
     required this.onShare,
     required this.onFavorite,
@@ -207,6 +217,7 @@ class _HeroStyleCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        SizedBox(height: marginTop),
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: SizedBox(

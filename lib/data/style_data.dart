@@ -1,7 +1,28 @@
 import '../models/style_model.dart';
 
 class StyleData {
-  static const List<StyleModel> arabicStyles = [
+  static List<StyleModel> _arabicStyles = _defaultArabicStyles;
+  static List<StyleModel> _trendingStyles = _defaultTrendingStyles;
+  static List<StyleModel> _moreStyles = _defaultMoreStyles;
+
+  static List<StyleModel> get arabicStyles => _arabicStyles;
+  static List<StyleModel> get trendingStyles => _trendingStyles;
+  static List<StyleModel> get moreStyles => _moreStyles;
+
+  static List<StyleModel> get allStyles =>
+      [..._trendingStyles, ..._moreStyles];
+
+  static void updateStyles({
+    List<StyleModel>? arabicStyles,
+    List<StyleModel>? trendingStyles,
+    List<StyleModel>? moreStyles,
+  }) {
+    if (arabicStyles != null) _arabicStyles = arabicStyles;
+    if (trendingStyles != null) _trendingStyles = trendingStyles;
+    if (moreStyles != null) _moreStyles = moreStyles;
+  }
+
+  static const _defaultArabicStyles = [
     StyleModel(
       id: 'syrian',
       name: 'Syrian Style',
@@ -84,7 +105,7 @@ class StyleData {
     ),
   ];
 
-  static const List<StyleModel> trendingStyles = [
+  static const _defaultTrendingStyles = [
     StyleModel(
       id: 'arabic',
       name: 'Arabic Style',
@@ -213,7 +234,7 @@ class StyleData {
     ),
   ];
 
-  static const List<StyleModel> moreStyles = [
+  static const _defaultMoreStyles = [
     StyleModel(
       id: 'uzi_more',
       name: 'Uzi Style',
