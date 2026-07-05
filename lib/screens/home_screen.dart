@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/style_model.dart';
@@ -8,6 +8,8 @@ import '../widgets/search_bar_widget.dart' as custom;
 import 'arabic_styles_screen.dart';
 import 'style_details_screen.dart';
 import 'all_styles_screen.dart';
+import 'paywall_screen.dart';
+import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -27,6 +29,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _searchQuery = '';
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFadeAnim;
+
+  List<StyleModel> _filterStyles(List<StyleModel> list) {
+    if (_searchQuery.isEmpty) return list;
+    return list
+        .where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -48,19 +57,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  List<StyleModel> get _filteredTrending {
-    if (_searchQuery.isEmpty) return StyleData.trendingStyles;
-    return StyleData.trendingStyles
-        .where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
-  }
 
-  List<StyleModel> get _filteredMore {
-    if (_searchQuery.isEmpty) return StyleData.moreStyles;
-    return StyleData.moreStyles
-        .where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,67 +90,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(26, 20, 26, 10),
-                  child: _SectionHeader(
-                    title: 'Trending Styles',
-                    textColor: textColor,
-                    onSeeAll: () => _openAllStyles('Trending Styles'),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 278,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 26),
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final style = _filteredTrending[index];
-                      return _HomeStyleCard(
-                        style: style,
-                        width: index == 0 ? 198 : 154,
-                        isDarkMode: isDark,
-                        onTap: () => _onStyleTapped(style),
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(width: 26),
-                    itemCount: _filteredTrending.length,
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(26, 18, 26, 10),
-                  child: _SectionHeader(
-                    title: 'More Styles',
-                    textColor: textColor,
-                    onSeeAll: () => _openAllStyles('More Styles'),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(26, 0, 26, 28),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.8,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final style = _filteredMore[index];
-                      return _HomeStyleCardVertical(
-                        style: style,
-                        isDarkMode: isDark,
-                        onTap: () => _onStyleTapped(style),
-                      );
-                    },
-                    childCount: _filteredMore.length,
-                  ),
+              ...StyleProvider.of(context).categories.map(
+                (category) => _buildHorizontalSection(
+                  title: category.name,
+                  styles: category.styles,
+                  textColor: textColor,
+                  isDark: isDark,
                 ),
               ),
             ],
@@ -163,7 +105,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openAllStyles(String title) {
+  Widget _buildHorizontalSection({
+    required String title,
+    required List<StyleModel> styles,
+    required Color textColor,
+    required bool isDark,
+  }) {
+    final filtered = _filterStyles(styles);
+    if (filtered.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
+            child: _SectionHeader(
+              title: title,
+              textColor: textColor,
+              onSeeAll: () => _openAllStyles(title, styles),
+            ),
+          ),
+          SizedBox(
+            height: 278,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 26),
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemBuilder: (context, index) {
+                final style = filtered[index];
+                return _HomeStyleCard(
+                  style: style,
+                  width: index == 0 ? 198 : 154,
+                  isDarkMode: isDark,
+                  onTap: () => _onStyleTapped(style),
+                );
+              },
+              separatorBuilder: (_, __) => const SizedBox(width: 26),
+              itemCount: filtered.length,
+              cacheExtent: 1000,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openAllStyles(String title, List<StyleModel> styles) {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
@@ -172,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
           title: title,
+          styles: styles,
         ),
       ),
     );
@@ -408,3 +396,5 @@ class _HomeStyleCardState extends State<_HomeStyleCard> {
     );
   }
 }
+
+

@@ -5,17 +5,21 @@ import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'style_details_screen.dart';
+import 'paywall_screen.dart';
+import '../main.dart';
 
 class AllStylesScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleDarkMode;
   final String title;
+  final List<StyleModel>? styles;
 
   const AllStylesScreen({
     super.key,
     required this.isDarkMode,
     required this.onToggleDarkMode,
     this.title = 'All Styles',
+    this.styles,
   });
 
   @override
@@ -40,7 +44,11 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
   Widget build(BuildContext context) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.white;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
-    final styles = StyleData.allStyles;
+    final styles = widget.styles ??
+        StyleProvider.of(context)
+            .categories
+            .expand((c) => c.styles)
+            .toList();
 
     return Scaffold(
       backgroundColor: bgColor,

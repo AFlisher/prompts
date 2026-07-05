@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import '../main.dart';
+import 'paywall_screen.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -41,22 +45,24 @@ class _UploadScreenState extends State<UploadScreen> {
     widget.onToggleDarkMode?.call();
   }
 
-  final List<String> _mockGallery = [
-    'assets/images/style_stussy.jpg',
-    'assets/images/style_90s.jpg',
-    'assets/images/style_toon.jpg',
-    'assets/images/style_ps2.jpg',
-    'assets/images/style_uzi.jpg',
-    'assets/images/style_arabic.jpg',
-  ];
-
-  void _selectMockImage(String path) {
-    HapticFeedback.lightImpact();
-    setState(() => _selectedImagePath = path);
-  }
-
   void _startGeneration() {
     if (_selectedImagePath == null) return;
+    
+    final creditManager = CreditProvider.of(context);
+    if (creditManager.credits <= 0) {
+      HapticFeedback.lightImpact();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaywallScreen(isDarkMode: _isDark),
+        ),
+      );
+      return;
+    }
+
+    // Deduct 1 credit
+    creditManager.useCredit();
+
     HapticFeedback.mediumImpact();
     setState(() {
       _isGenerating = true;
@@ -106,7 +112,7 @@ class _UploadScreenState extends State<UploadScreen> {
               bottom: false,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(26, 12, 26, 120),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -114,7 +120,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       isDarkMode: _isDark,
                       onToggleDarkMode: _toggleDark,
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     _PageTitleRow(
                       textColor: textColor,
                       onBack: () {
@@ -122,7 +128,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         Navigator.pop(context);
                       },
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     _PhotoActionCard(
                       isDark: _isDark,
                       icon: Icons.camera_alt_outlined,
@@ -130,7 +136,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       subtitle: 'click here to use your camera to take pic',
                       onTap: _showCameraPicker,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     _PhotoActionCard(
                       isDark: _isDark,
                       icon: Icons.image_outlined,
@@ -138,9 +144,9 @@ class _UploadScreenState extends State<UploadScreen> {
                       subtitle: 'click here to upload pic from your gallery',
                       onTap: _showGalleryPicker,
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 24),
                     _SectionTitle(text: 'Crop & adjust', color: textColor),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     _CropPreview(
                       isDark: _isDark,
                       imagePath: _selectedImagePath,
@@ -159,7 +165,7 @@ class _UploadScreenState extends State<UploadScreen> {
           if (_generationComplete)
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 26),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -179,7 +185,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
                     Text(
                       'Generation Complete!',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -195,7 +201,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             color: _isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
                     ),
-                    const SizedBox(height: 36),
+                    const SizedBox(height: 32),
                     Row(
                       children: [
                         Expanded(
@@ -212,7 +218,7 @@ class _UploadScreenState extends State<UploadScreen> {
                               side: BorderSide(
                                 color: _isDark ? Colors.white24 : Colors.black12,
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius:
                                     BorderRadius.circular(AppTheme.radiusMedium),
@@ -224,7 +230,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
@@ -236,7 +242,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                   _isDark ? AppTheme.white : AppTheme.black,
                               foregroundColor:
                                   _isDark ? AppTheme.black : AppTheme.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius:
                                     BorderRadius.circular(AppTheme.radiusMedium),
@@ -257,13 +263,13 @@ class _UploadScreenState extends State<UploadScreen> {
 
           if (!_generationComplete && !_isGenerating)
             Positioned(
-              left: 26,
-              right: 26,
+              left: 24,
+              right: 24,
               bottom: 0,
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: 20),
                   child: _GenerateStyleButton(
                     enabled: _selectedImagePath != null,
                     isDark: _isDark,
@@ -328,86 +334,82 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  void _showGalleryPicker() => _showMockSheet('Select Photo from Gallery');
-
-  void _showCameraPicker() => _showMockSheet('Take Photo with Camera');
-
-  void _showMockSheet(String title) {
-    final bgColor = _isDark ? AppTheme.darkCard : AppTheme.white;
-    final textColor = _isDark ? AppTheme.white : AppTheme.black;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: bgColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: textColor),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Select one of the local mock assets to simulate picking an image:',
-                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _mockGallery.length,
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        onTap: () {
-                          _selectMockImage(_mockGallery[index]);
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 80,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.asset(
-                              _mockGallery[index],
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+  Future<void> _showCameraPicker() async {
+    try {
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(source: ImageSource.camera);
+      if (xFile != null) {
+        HapticFeedback.lightImpact();
+        setState(() => _selectedImagePath = xFile.path);
+      }
+    } on PlatformException catch (e) {
+      if (e.code == 'camera_access_denied') {
+        _showPermissionDeniedSnackBar(
+          'Camera access denied',
+          'Please enable camera permission in your device Settings to take photos.',
         );
-      },
+      } else {
+        _showPermissionDeniedSnackBar(
+          'Camera error',
+          'Could not open the camera. Please try again.',
+        );
+      }
+    }
+  }
+
+  Future<void> _showGalleryPicker() async {
+    try {
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(source: ImageSource.gallery);
+      if (xFile != null) {
+        HapticFeedback.lightImpact();
+        setState(() => _selectedImagePath = xFile.path);
+      }
+    } on PlatformException catch (e) {
+      if (e.code == 'photo_access_denied') {
+        _showPermissionDeniedSnackBar(
+          'Gallery access denied',
+          'Please enable photo library permission in your device Settings to upload photos.',
+        );
+      } else {
+        _showPermissionDeniedSnackBar(
+          'Gallery error',
+          'Could not open the gallery. Please try again.',
+        );
+      }
+    }
+  }
+
+  void _showPermissionDeniedSnackBar(String title, String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        backgroundColor: _isDark ? const Color(0xFF2C2C2C) : const Color(0xFF323232),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 }
@@ -510,7 +512,7 @@ class _PhotoActionCardState extends State<_PhotoActionCard> {
         scale: _pressed ? 0.98 : 1,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: _MetallicStyles.cardDecoration(isDark: widget.isDark),
           child: Row(
             children: [
@@ -619,10 +621,10 @@ class _CropPreview extends StatelessWidget {
                 ),
               ],
             )
-          : Stack(
+              : Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(imagePath!, fit: BoxFit.cover),
+                Image.file(File(imagePath!), fit: BoxFit.cover),
                 if (onClear != null)
                   Positioned(
                     top: 10,
@@ -690,8 +692,8 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
             decoration: _MetallicStyles.buttonDecoration(isDark: widget.isDark),
             child: Row(
               children: [
-                const SizedBox(width: 26),
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 30),
+                const SizedBox(width: 24),
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
                 Expanded(
                   child: Text(
                     'Generate Style',
@@ -703,7 +705,7 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
                         ),
                   ),
                 ),
-                const SizedBox(width: 52),
+                const SizedBox(width: 52 ),
               ],
             ),
           ),

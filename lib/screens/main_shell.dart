@@ -34,7 +34,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       case 1:
         return MyCreationsScreen(isDarkMode: _isDarkMode);
       case 2:
-        return FavoritesScreen(isDarkMode: _isDarkMode);
+        return FavoritesScreen(
+          isDarkMode: _isDarkMode,
+          onToggleDarkMode: () => setState(() => _isDarkMode = !_isDarkMode),
+        );
       case 3:
         return ProfileScreen(isDarkMode: _isDarkMode);
       default:
@@ -173,26 +176,6 @@ class _GlassNavBarState extends State<_GlassNavBar>
             ),
             child: Stack(
               children: [
-                AnimatedBuilder(
-                  animation: _indicatorAnim,
-                  builder: (context, child) {
-                    final fromX = _indicatorX(_previousIndex);
-                    final toX = _indicatorX(widget.currentIndex);
-                    final x = fromX + (toX - fromX) * _indicatorAnim.value;
-                    return Padding(
-                      padding: EdgeInsets.only(left: x),
-                      child: Container(
-                        width: 64,
-                        height: 36,
-                        margin: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentPurple.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    );
-                  },
-                ),
                 Row(
                   children: [
                     for (final i in indices)

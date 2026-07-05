@@ -5,6 +5,8 @@ import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'style_details_screen.dart';
+import '../main.dart';
+import '../data/dynamic_style_manager.dart';
 
 class ArabicStylesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -39,6 +41,13 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     final bgColor = _isDark ? AppTheme.black : AppTheme.white;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
 
+    final categories = StyleProvider.of(context).categories;
+    final arabicCategory = categories.firstWhere(
+      (c) => c.id == 'arabic',
+      orElse: () => CategoryModel(id: 'arabic', name: 'Arabic Styles', styles: []),
+    );
+    final styles = arabicCategory.styles;
+
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
@@ -59,36 +68,32 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
                 child: Row(
                   children: [
-                    _CircleIconButton(
-                      icon: Icons.arrow_back,
+                    GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.pop(context);
                       },
-                      isDarkMode: _isDark,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                          ),
+                        ),
+                        child: Icon(Icons.arrow_back,
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                            size: 16),
+                      ),
                     ),
                     const SizedBox(width: 25),
-                    const Icon(
-                      Icons.auto_awesome,
-                      color: Color(0xFFE735F6),
-                      size: 38,
-                    ),
-                    Transform.translate(
-                      offset: const Offset(-7, 0),
-                      child: Text(
-                        'Arabic Style',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 27,
-                          fontWeight: FontWeight.w900,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.22),
-                              blurRadius: 2,
-                              offset: const Offset(1, 1),
-                            ),
-                          ],
-                        ),
+                    Text(
+                      'Arabic Styles',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const Spacer(),
@@ -108,14 +113,14 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final style = StyleData.arabicStyles[index];
+                    final style = styles[index];
                     return _ArabicStyleTile(
                       style: style,
                       isDarkMode: _isDark,
                       onTap: () => _openDetails(context, style),
                     );
                   },
-                  childCount: StyleData.arabicStyles.length,
+                  childCount: styles.length,
                 ),
               ),
             ),

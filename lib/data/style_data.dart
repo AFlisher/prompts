@@ -4,22 +4,44 @@ class StyleData {
   static List<StyleModel> _arabicStyles = _defaultArabicStyles;
   static List<StyleModel> _trendingStyles = _defaultTrendingStyles;
   static List<StyleModel> _moreStyles = _defaultMoreStyles;
+  static List<StyleModel> _couplesStyles = _defaultCouplesStyles;
+  static List<StyleModel> _fantasyStyles = _defaultFantasyStyles;
+  static List<StyleModel> _vintageStyles = _defaultVintageStyles;
+  static List<StyleModel> _darkMoodyStyles = _defaultDarkMoodyStyles;
 
   static List<StyleModel> get arabicStyles => _arabicStyles;
   static List<StyleModel> get trendingStyles => _trendingStyles;
   static List<StyleModel> get moreStyles => _moreStyles;
+  static List<StyleModel> get couplesStyles => _couplesStyles;
+  static List<StyleModel> get fantasyStyles => _fantasyStyles;
+  static List<StyleModel> get vintageStyles => _vintageStyles;
+  static List<StyleModel> get darkMoodyStyles => _darkMoodyStyles;
 
-  static List<StyleModel> get allStyles =>
-      [..._trendingStyles, ..._moreStyles];
+  static List<StyleModel> get allStyles => [
+        ..._trendingStyles,
+        ..._moreStyles,
+        ..._couplesStyles,
+        ..._fantasyStyles,
+        ..._vintageStyles,
+        ..._darkMoodyStyles,
+      ];
 
   static void updateStyles({
     List<StyleModel>? arabicStyles,
     List<StyleModel>? trendingStyles,
     List<StyleModel>? moreStyles,
+    List<StyleModel>? couplesStyles,
+    List<StyleModel>? fantasyStyles,
+    List<StyleModel>? vintageStyles,
+    List<StyleModel>? darkMoodyStyles,
   }) {
     if (arabicStyles != null) _arabicStyles = arabicStyles;
     if (trendingStyles != null) _trendingStyles = trendingStyles;
     if (moreStyles != null) _moreStyles = moreStyles;
+    if (couplesStyles != null) _couplesStyles = couplesStyles;
+    if (fantasyStyles != null) _fantasyStyles = fantasyStyles;
+    if (vintageStyles != null) _vintageStyles = vintageStyles;
+    if (darkMoodyStyles != null) _darkMoodyStyles = darkMoodyStyles;
   }
 
   static const _defaultArabicStyles = [
@@ -337,6 +359,230 @@ class StyleData {
         'assets/images/style_uzi.jpg',
         'assets/images/style_90s.jpg',
         'assets/images/style_toon.jpg',
+      ],
+    ),
+  ];
+
+  // ── Couples Styles ──────────────────────────────────────────────
+  static const _defaultCouplesStyles = [
+    StyleModel(
+      id: 'couple_romantic',
+      name: 'Romantic Glow',
+      imagePath: 'assets/images/style_90s.jpg',
+      description:
+          'Soft warm tones, bokeh lights, and a dreamy haze that wraps two people in golden-hour intimacy.',
+      examples: [
+        'assets/images/style_90s.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_toon.jpg',
+        'assets/images/style_stussy.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'couple_anime',
+      name: 'Anime Duo',
+      imagePath: 'assets/images/style_toon.jpg',
+      description:
+          'Transform your couple photo into a vibrant anime scene with cherry blossoms and cel-shaded lines.',
+      examples: [
+        'assets/images/style_toon.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_ps2.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'couple_vintage',
+      name: 'Vintage Pair',
+      imagePath: 'assets/images/style_stussy.jpg',
+      description:
+          'Old Hollywood glamour with sepia washes, soft vignettes, and classic film-stock grain for two.',
+      examples: [
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_ps2.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'couple_comic',
+      name: 'Comic Love',
+      imagePath: 'assets/images/style_uzi.jpg',
+      description:
+          'Bold pop-art comic panels with halftone dots, speech bubbles, and vivid superhero-poster colors.',
+      examples: [
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_toon.jpg',
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_90s.jpg',
+      ],
+    ),
+  ];
+
+  // ── Fantasy Styles ──────────────────────────────────────────────
+  static const _defaultFantasyStyles = [
+    StyleModel(
+      id: 'fantasy_elf',
+      name: 'Elven Portrait',
+      imagePath: 'assets/images/style_arabic.jpg',
+      description:
+          'Enchanted forest lighting with pointed-ear overlays, mystical runes, and ethereal bloom effects.',
+      examples: [
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_toon.jpg',
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_uzi.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'fantasy_dragon',
+      name: 'Dragon Rider',
+      imagePath: 'assets/images/style_uzi.jpg',
+      description:
+          'Epic cinematic composition with fire-breathing dragon silhouettes, smoldering embers, and dark skies.',
+      examples: [
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_ps2.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'fantasy_wizard',
+      name: 'Wizard Academy',
+      imagePath: 'assets/images/style_ps2.jpg',
+      description:
+          'Magical school aesthetic with floating candles, spell particles, enchanted robes, and gothic arches.',
+      examples: [
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_toon.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_stussy.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'fantasy_fairy',
+      name: 'Fairy Garden',
+      imagePath: 'assets/images/style_toon.jpg',
+      description:
+          'Whimsical miniature world with glowing wings, flower crowns, soft pastel palette, and sparkle dust.',
+      examples: [
+        'assets/images/style_toon.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_uzi.jpg',
+      ],
+    ),
+  ];
+
+  // ── Vintage Styles ──────────────────────────────────────────────
+  static const _defaultVintageStyles = [
+    StyleModel(
+      id: 'vintage_polaroid',
+      name: 'Polaroid',
+      imagePath: 'assets/images/style_90s.jpg',
+      description:
+          'Instant-camera look with white borders, faded colors, light leaks, and that authentic throwback feel.',
+      examples: [
+        'assets/images/style_90s.jpg',
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_toon.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'vintage_film',
+      name: 'Film Noir',
+      imagePath: 'assets/images/style_ps2.jpg',
+      description:
+          'Classic black-and-white detective era with harsh shadows, venetian blinds light, and cigarette smoke.',
+      examples: [
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_arabic.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'vintage_70s',
+      name: '70s Retro',
+      imagePath: 'assets/images/style_stussy.jpg',
+      description:
+          'Groovy sunburnt tones, oversaturated oranges and browns, disco shimmer, and grainy 35mm texture.',
+      examples: [
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_toon.jpg',
+        'assets/images/style_uzi.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'vintage_daguerreotype',
+      name: 'Daguerreotype',
+      imagePath: 'assets/images/style_arabic.jpg',
+      description:
+          'The earliest photographic process look with silvered surfaces, mirror-like sheen, and antique framing.',
+      examples: [
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_stussy.jpg',
+      ],
+    ),
+  ];
+
+  // ── Dark & Moody Styles ─────────────────────────────────────────
+  static const _defaultDarkMoodyStyles = [
+    StyleModel(
+      id: 'dark_gothic',
+      name: 'Gothic',
+      imagePath: 'assets/images/style_uzi.jpg',
+      description:
+          'Dark cathedral aesthetic with deep blacks, crimson accents, ornate architecture, and vampiric allure.',
+      examples: [
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_stussy.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'dark_grunge',
+      name: 'Grunge',
+      imagePath: 'assets/images/style_stussy.jpg',
+      description:
+          'Raw 90s Seattle grunge with torn paper textures, desaturated palette, heavy grain, and rebel energy.',
+      examples: [
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_90s.jpg',
+        'assets/images/style_ps2.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'dark_horror',
+      name: 'Horror',
+      imagePath: 'assets/images/style_ps2.jpg',
+      description:
+          'Creepy atmospheric horror with VHS static, distorted faces, eerie green tint, and found-footage feel.',
+      examples: [
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_stussy.jpg',
+        'assets/images/style_toon.jpg',
+      ],
+    ),
+    StyleModel(
+      id: 'dark_shadow',
+      name: 'Shadow Art',
+      imagePath: 'assets/images/style_arabic.jpg',
+      description:
+          'Dramatic silhouette art with deep contrast, rim lighting, smoke effects, and cinematic mystery.',
+      examples: [
+        'assets/images/style_arabic.jpg',
+        'assets/images/style_uzi.jpg',
+        'assets/images/style_ps2.jpg',
+        'assets/images/style_90s.jpg',
       ],
     ),
   ];

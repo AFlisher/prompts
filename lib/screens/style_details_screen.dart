@@ -5,6 +5,7 @@ import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'upload_screen.dart';
+import '../main.dart';
 
 class StyleDetailsScreen extends StatefulWidget {
   final StyleModel style;
@@ -23,14 +24,12 @@ class StyleDetailsScreen extends StatefulWidget {
 }
 
 class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
-  late bool _isFavorite;
   late bool _isDark;
   bool _tryButtonPressed = false;
 
   @override
   void initState() {
     super.initState();
-    _isFavorite = widget.style.isFavorite;
     _isDark = widget.isDarkMode;
   }
 
@@ -65,7 +64,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 26),
                 child: _HeroStyleCard(
                   style: widget.style,
-                  isFavorite: _isFavorite,
+                  isFavorite: FavoritesProvider.of(context).isFavorite(widget.style.id),
                   isDarkMode: isDark,
                   marginTop: 16,
                   onBack: () {
@@ -136,7 +135,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 0, 26, 26),
+                padding: const EdgeInsets.fromLTRB(26, 20, 26, 26),
                 child: _TryButton(
                   pressed: _tryButtonPressed,
                   onTapDown: () => setState(() => _tryButtonPressed = true),
@@ -166,12 +165,12 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
 
   void _toggleFavorite() {
     HapticFeedback.mediumImpact();
-    setState(() => _isFavorite = !_isFavorite);
+    final nowFavorite = FavoritesProvider.of(context).toggleFavorite(widget.style.id);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content:
-            Text(_isFavorite ? 'Added to favorites' : 'Removed from favorites'),
+            Text(nowFavorite ? 'Added to favorites' : 'Removed from favorites'),
         duration: const Duration(milliseconds: 900),
         behavior: SnackBarBehavior.floating,
       ),
@@ -226,15 +225,32 @@ class _HeroStyleCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  style.imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: AppTheme.lightGray,
-                      child: const Icon(Icons.image_outlined),
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FullScreenImageViewer(
+                          imagePath: style.imagePath,
+                          heroTag: 'hero_style_img_${style.id}',
+                        ),
+                      ),
                     );
                   },
+                  child: Hero(
+                    tag: 'hero_style_img_${style.id}',
+                    child: Image.asset(
+                      style.imagePath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: AppTheme.lightGray,
+                          child: const Icon(Icons.image_outlined),
+                        );
+                      },
+                    ),
+                  ),
                 ),
                 Positioned(
                   left: 10,
@@ -478,6 +494,70 @@ class _TryButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class FullScreenImageViewer extends StatelessWidget {
+  final String imagePath;
+  final String heroTag;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imagePath,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Zoomable interactive image viewer
+          Center(
+            child: Hero(
+              tag: heroTag,
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.image_outlined, color: Colors.white, size: 64);
+                  },
+                ),
+              ),
+            ),
+          ),
+          
+          // Float close button
+          Positioned(
+            top: 20,
+            left: 20,
+            child: SafeArea(
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
