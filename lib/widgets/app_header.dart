@@ -17,6 +17,10 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
+    final profile = ProfileProvider.of(context).profile;
+    final initials = (profile?.fullName ?? '').trim().isNotEmpty
+        ? profile!.fullName![0].toUpperCase()
+        : 'U';
 
     return Row(
       children: [
@@ -82,24 +86,34 @@ class AppHeader extends StatelessWidget {
               Container(
                 width: 28,
                 height: 28,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
+                      ? null
+                      : const LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  image: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(profile.avatarUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: const Center(
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                child: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
+                    ? null
+                    : Center(
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

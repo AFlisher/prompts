@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
+import '../widgets/simulated_store_pay.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -60,10 +61,24 @@ class _PaywallScreenState extends State<PaywallScreen> {
       _isLoading = true;
     });
 
-    // Simulate payment transaction verification animation
-    await Future.delayed(const Duration(milliseconds: 1800));
+    // Show simulated iOS App Store or Google Play Store billing sheet
+    final purchased = await showSimulatedStorePaySheet(
+      context: context,
+      packTitle: selectedPack['title'] as String,
+      price: selectedPack['price'] as String,
+      credits: creditsToAdded,
+      isDarkMode: widget.isDarkMode,
+      platform: Theme.of(context).platform,
+    );
 
     if (!mounted) return;
+
+    if (!purchased) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
     final creditManager = CreditProvider.of(context);
     await creditManager.addCredits(creditsToAdded);

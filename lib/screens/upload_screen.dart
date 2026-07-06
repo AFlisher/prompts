@@ -7,6 +7,10 @@ import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import '../main.dart';
+import '../data/creations_manager.dart';
+import '../utils/gallery_saver.dart';
+import '../widgets/success_hud.dart';
+import 'image_preview_screen.dart';
 import 'paywall_screen.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -60,7 +64,7 @@ class _UploadScreenState extends State<UploadScreen> {
       return;
     }
 
-    // Deduct 1 credit
+    // Deduct 1 credit locally
     creditManager.useCredit();
 
     HapticFeedback.mediumImpact();
@@ -86,6 +90,19 @@ class _UploadScreenState extends State<UploadScreen> {
           _generationComplete = true;
           timer.cancel();
           HapticFeedback.heavyImpact();
+
+          // Add to creations dynamically
+          final creationsManager = CreationsProvider.of(context);
+          creationsManager.addCreation(
+            CreationItem(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              styleId: widget.style.id,
+              styleName: widget.style.name,
+              imagePath: widget.style.imagePath,
+              originalImagePath: _selectedImagePath,
+              createdAt: DateTime.now(),
+            ),
+          );
         }
       });
     });
@@ -95,6 +112,28 @@ class _UploadScreenState extends State<UploadScreen> {
   void dispose() {
     _generationTimer?.cancel();
     super.dispose();
+  }
+
+  void _saveToGallery() async {
+    HapticFeedback.mediumImpact();
+
+    final savedPath = await GallerySaver.saveImage(
+      assetPath: widget.style.imagePath,
+    );
+
+    if (!mounted) return;
+
+    if (savedPath != null) {
+      HapticFeedback.vibrate();
+      SuccessHUD.show(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save image. Check storage permissions.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -169,19 +208,60 @@ class _UploadScreenState extends State<UploadScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      height: 380,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: surfaceColor,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                        boxShadow: AppTheme.heavyShadow,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                        child: Image.asset(
-                          widget.style.imagePath,
-                          fit: BoxFit.cover,
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ImagePreviewScreen(
+                              assetPath: widget.style.imagePath,
+                              title: widget.style.name,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        height: 380,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: surfaceColor,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                          boxShadow: AppTheme.heavyShadow,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.asset(
+                                widget.style.imagePath,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                bottom: 16,
+                                right: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Tap to zoom',
+                                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -201,7 +281,29 @@ class _UploadScreenState extends State<UploadScreen> {
                             color: _isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _saveToGallery,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        minimumSize: const Size(double.infinity, 0),
+                        elevation: 0,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.download_rounded),
+                          SizedBox(width: 8),
+                          Text('Save to Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -235,6 +337,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           child: ElevatedButton(
                             onPressed: () {
                               HapticFeedback.mediumImpact();
+                              CreationsProvider.of(context).setTab(1); // Set active tab to creations
                               Navigator.popUntil(context, (route) => route.isFirst);
                             },
                             style: ElevatedButton.styleFrom(
@@ -249,7 +352,7 @@ class _UploadScreenState extends State<UploadScreen> {
                               ),
                             ),
                             child: const Text(
-                              'Go to Home',
+                              'View Creations',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),

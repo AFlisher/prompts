@@ -34,7 +34,10 @@ class CreditManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool shouldSaveToFile = true;
+
   Future<void> save() async {
+    if (!shouldSaveToFile) return;
     try {
       final file = await _localFile;
       final content = json.encode({

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 
@@ -9,10 +10,12 @@ class LandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LandingScreen> {
+  Timer? _navTimer;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    _navTimer = Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -20,6 +23,12 @@ class _LandingScreenState extends State<LandingScreen> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _navTimer?.cancel();
+    super.dispose();
   }
 
   @override

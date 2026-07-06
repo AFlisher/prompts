@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'data/favorites_manager.dart';
 import 'data/dynamic_style_manager.dart';
 import 'data/credit_manager.dart';
+import 'data/creations_manager.dart';
+import 'data/profile_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 
-const String supabaseUrl = 'https://qsvftsmpqsilmpeyacqn.supabase.co';
-const String supabaseAnonKey = 'sb_publishable_fZfVdgp1JtG6F_EXak0xiA_nEMVl0GT';
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase (with credentials placeholders)
   try {
+    // تحميل ملف .env
+    await dotenv.load(fileName: ".env");
+
+    // تهيئة Supabase
     await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
+      url: dotenv.env['SUPABASE_URL']!,
+      anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
     );
+
+    debugPrint("✅ Supabase Connected");
   } catch (e) {
-    debugPrint('Supabase initialization failed: $e');
+    debugPrint("❌ Supabase Initialization Error: $e");
   }
 
-  SystemChrome.setPreferredOrientations([
+  await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
   runApp(const PrombtApp());
 }
 
@@ -40,7 +47,22 @@ class FavoritesProvider extends InheritedNotifier<FavoritesManager> {
 
   static FavoritesManager of(BuildContext context) {
     final provider =
-        context.dependOnInheritedWidgetOfExactType<FavoritesProvider>();
+    context.dependOnInheritedWidgetOfExactType<FavoritesProvider>();
+    return provider!.notifier!;
+  }
+}
+
+/// Provides [CreationsManager] to the widget tree via InheritedNotifier.
+class CreationsProvider extends InheritedNotifier<CreationsManager> {
+  const CreationsProvider({
+    super.key,
+    required CreationsManager notifier,
+    required super.child,
+  }) : super(notifier: notifier);
+
+  static CreationsManager of(BuildContext context) {
+    final provider =
+    context.dependOnInheritedWidgetOfExactType<CreationsProvider>();
     return provider!.notifier!;
   }
 }
@@ -55,7 +77,7 @@ class StyleProvider extends InheritedNotifier<DynamicStyleManager> {
 
   static DynamicStyleManager of(BuildContext context) {
     final provider =
-        context.dependOnInheritedWidgetOfExactType<StyleProvider>();
+    context.dependOnInheritedWidgetOfExactType<StyleProvider>();
     return provider!.notifier!;
   }
 }
@@ -70,8 +92,26 @@ class CreditProvider extends InheritedNotifier<CreditManager> {
 
   static CreditManager of(BuildContext context) {
     final provider =
-        context.dependOnInheritedWidgetOfExactType<CreditProvider>();
+    context.dependOnInheritedWidgetOfExactType<CreditProvider>();
     return provider!.notifier!;
+  }
+}
+
+/// Provides [ProfileManager] to the widget tree via InheritedNotifier.
+class ProfileProvider extends InheritedNotifier<ProfileManager> {
+  const ProfileProvider({
+    super.key,
+    required ProfileManager notifier,
+    required super.child,
+  }) : super(notifier: notifier);
+
+  static ProfileManager of(BuildContext context) {
+    final provider =
+    context.dependOnInheritedWidgetOfExactType<ProfileProvider>();
+    if (provider == null) {
+      return ProfileManager();
+    }
+    return provider.notifier!;
   }
 }
 
@@ -86,12 +126,15 @@ class _PrombtAppState extends State<PrombtApp> {
   final _favoritesManager = FavoritesManager();
   final _styleManager = DynamicStyleManager();
   final _creditManager = CreditManager();
+  final _creationsManager = CreationsManager();
+  final _profileManager = ProfileManager();
 
   @override
   void initState() {
     super.initState();
     _styleManager.init();
     _creditManager.init();
+    _creationsManager.init();
   }
 
   @override
@@ -99,24 +142,32 @@ class _PrombtAppState extends State<PrombtApp> {
     _favoritesManager.dispose();
     _styleManager.dispose();
     _creditManager.dispose();
+    _creationsManager.dispose();
+    _profileManager.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StyleProvider(
-      notifier: _styleManager,
-      child: CreditProvider(
-        notifier: _creditManager,
-        child: FavoritesProvider(
-          notifier: _favoritesManager,
-          child: MaterialApp(
-            title: 'StyliAI — AI Photo Styles',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.dark,
-            home: const LandingScreen(),
+    return ProfileProvider(
+      notifier: _profileManager,
+      child: StyleProvider(
+        notifier: _styleManager,
+        child: CreditProvider(
+          notifier: _creditManager,
+          child: FavoritesProvider(
+            notifier: _favoritesManager,
+            child: CreationsProvider(
+              notifier: _creationsManager,
+              child: MaterialApp(
+                title: 'StyliAI — AI Photo Styles',
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: ThemeMode.dark,
+                home: const LandingScreen(),
+              ),
+            ),
           ),
         ),
       ),

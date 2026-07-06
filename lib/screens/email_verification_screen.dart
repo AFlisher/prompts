@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,125 +8,126 @@ import 'main_shell.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
+  final VoidCallback? onVerified;
 
-  const EmailVerificationScreen({super.key, required this.email});
+  const EmailVerificationScreen({
+    super.key,
+    required this.email,
+    this.onVerified,
+  });
 
   @override
   State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  
+  StreamSubscription<AuthState>? _authSubscription;
   bool _isLoading = false;
+  int _cooldownSeconds = 60;
+  Timer? _timer;
+  bool _canResend = false;
 
   @override
-  void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
+  void initState() {
+    super.initState();
+    _startCooldown();
+    
+    // Subscribe to auth state changes to auto-detect verification when deep links are triggered
+    try {
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final Session? session = data.session;
+        if (session != null) {
+          _handleVerificationSuccess();
+        }
+      });
+    } catch (e) {
+      debugPrint("Supabase not initialized in this environment: $e");
     }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
-    super.dispose();
   }
 
-  void _handleOtpVerify() async {
-    // Collect the 6 digits code
-    final code = _controllers.map((c) => c.text).join();
-    if (code.length < 6) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter all 6 digits of the verification code'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
+  void _startCooldown() {
+    setState(() {
+      _cooldownSeconds = 60;
+      _canResend = false;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_cooldownSeconds > 0) {
+        setState(() {
+          _cooldownSeconds--;
+        });
+      } else {
+        setState(() {
+          _canResend = true;
+        });
+        _timer?.cancel();
+      }
+    });
+  }
 
-    HapticFeedback.mediumImpact();
+  void _handleVerificationSuccess() {
+    if (!mounted) return;
+    HapticFeedback.vibrate();
+    
+    if (widget.onVerified != null) {
+      widget.onVerified!();
+    } else {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _handleResendLink() async {
+    if (!_canResend || _isLoading) return;
+
+    HapticFeedback.lightImpact();
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Supabase Verify OTP Call
-      final response = await Supabase.instance.client.auth.verifyOTP(
-        email: widget.email,
-        token: code,
-        type: OtpType.signup,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (response.session != null) {
-        // Verification Successful -> Route to Dashboard
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const MainShell()),
-          (route) => false,
-        );
-      } else {
-        throw const AuthException('Verification failed, please check your code and try again.');
-      }
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('An error occurred: $error'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _resendCode() async {
-    HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).clearSnackBars();
-    
-    try {
+      final isRecovery = widget.onVerified != null;
       await Supabase.instance.client.auth.resend(
-        type: OtpType.signup,
+        type: isRecovery ? OtpType.recovery : OtpType.signup,
         email: widget.email,
       );
+
       if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification code resent to your email.'),
+          content: Text('Verification link resent to your email.'),
           behavior: SnackBarBehavior.floating,
         ),
+      );
+      _startCooldown();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to resend: $e'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(e.toString())),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -132,169 +135,311 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? AppTheme.black : AppTheme.white;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
-    final boxBg = isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
     return Scaffold(
       backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
-                  icon: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
-                  onPressed: () => Navigator.pop(context),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
                 ),
-              ),
-              const SizedBox(height: 20),
-              
-              Text(
-                'Verify Email',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'We\'ve sent a 6-digit confirmation code to:\n${widget.email}',
-                style: TextStyle(
-                  color: AppTheme.mediumGray,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              // 6 Digits pin inputs
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: 48,
-                    height: 56,
-                    child: TextFormField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(1),
-                      ],
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: boxBg,
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          if (index < 5) {
-                            _focusNodes[index + 1].requestFocus();
-                          } else {
-                            _focusNodes[index].unfocus();
-                            _handleOtpVerify();
-                          }
-                        } else {
-                          if (index > 0) {
-                            _focusNodes[index - 1].requestFocus();
-                          }
-                        }
-                      },
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 40),
-
-              // Confirm button
-              SizedBox(
-                height: 56,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentPurple.withValues(alpha: 0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleOtpVerify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                          )
-                        : const Text(
-                            'Confirm & Verify',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 10),
+                        Text(
+                          'Verify Email',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'We\'ve sent a verification link to:\n${widget.email}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.mediumGray,
+                            fontSize: 15,
+                            height: 1.4,
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Custom holographic indicator
+                        const Center(
+                          child: _HologramVerificationIndicator(),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        Text(
+                          'Waiting for verification link detection...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.mediumGray,
+                            fontSize: 14,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 32),
+
+                        // Resend button
+                        SizedBox(
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: (_canResend && !_isLoading) ? _handleResendLink : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentPurple,
+                              disabledBackgroundColor: AppTheme.accentPurple.withOpacity(0.2),
+                              foregroundColor: Colors.white,
+                              disabledForegroundColor: Colors.white38,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                                  )
+                                : Text(
+                                    _canResend ? 'Resend Link' : 'Resend in ${_cooldownSeconds}s',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 16),
+
+                        // Back to Sign In Option
+                        SizedBox(
+                          height: 56,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.popUntil(context, (route) => route.isFirst);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Back to Sign In',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
-
-              // Resend code option
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Didn\'t get the code? ',
-                    style: TextStyle(color: AppTheme.mediumGray, fontSize: 14),
-                  ),
-                  GestureDetector(
-                    onTap: _resendCode,
-                    child: const Text(
-                      'Resend Code',
-                      style: TextStyle(
-                        color: AppTheme.accentPurple,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _HologramVerificationIndicator extends StatefulWidget {
+  const _HologramVerificationIndicator();
+
+  @override
+  State<_HologramVerificationIndicator> createState() => _HologramVerificationIndicatorState();
+}
+
+class _HologramVerificationIndicatorState extends State<_HologramVerificationIndicator>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late AnimationController _rotationController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _rotationAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+
+    _pulseAnimation = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
+      CurvedAnimation(parent: _rotationController, curve: Curves.linear),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 220,
+      width: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Ripple circles
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final t = _pulseController.value;
+              return Stack(
+                alignment: Alignment.center,
+                children: List.generate(3, (index) {
+                  final scale = 1.0 + (index * 0.45) + (t * 0.45);
+                  final opacity = (0.45 - (index * 0.15) - (t * 0.15)).clamp(0.0, 0.45);
+                  return Container(
+                    width: 90 * scale,
+                    height: 90 * scale,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.accentPurple.withOpacity(opacity),
+                        width: 1.5,
+                      ),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+          
+          // Rotating outer ring
+          AnimatedBuilder(
+            animation: _rotationAnimation,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _rotationAnimation.value,
+                child: SizedBox(
+                  width: 160,
+                  height: 160,
+                  child: CustomPaint(
+                    painter: _RadarRingPainter(color: AppTheme.accentPurple),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Central pulsing icon
+          ScaleTransition(
+            scale: _pulseAnimation,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accentPurple.withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.mark_email_read_outlined,
+                color: Colors.white,
+                size: 38,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadarRingPainter extends CustomPainter {
+  final Color color;
+  _RadarRingPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Draw some arcs to represent the rotating radar segments
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      0,
+      math.pi * 0.35,
+      false,
+      paint,
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      math.pi,
+      math.pi * 0.35,
+      false,
+      paint,
+    );
+
+    // Draw small orbiting dot
+    final dotPaint = Paint()
+      ..color = const Color(0xFFE735F6)
+      ..style = PaintingStyle.fill;
+    
+    final dotX = center.dx + radius * math.cos(math.pi * 0.35);
+    final dotY = center.dy + radius * math.sin(math.pi * 0.35);
+    canvas.drawCircle(Offset(dotX, dotY), 4, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

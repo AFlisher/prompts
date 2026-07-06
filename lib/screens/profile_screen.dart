@@ -7,6 +7,8 @@ import 'notifications_screen.dart';
 import 'privacy_screen.dart';
 import '../main.dart';
 import 'paywall_screen.dart';
+import '../models/profile_model.dart';
+import '../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -19,11 +21,15 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late bool _isDark;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
     _isDark = widget.isDarkMode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ProfileProvider.of(context).loadProfile();
+    });
   }
 
   void _openEditProfile() {
@@ -56,13 +62,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.white;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
+
+    final profileManager = ProfileProvider.of(context);
+    final profile = profileManager.profile;
+
+    if (profileManager.isLoading) {
+      return Scaffold(
+        backgroundColor: bgColor,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
+          ),
+        ),
+      );
+    }
+
+    if (profileManager.errorMessage != null) {
+      return Scaffold(
+        backgroundColor: bgColor,
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load profile',
+                  style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  profileManager.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppTheme.mediumGray, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => profileManager.loadProfile(force: true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentPurple,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Determine the user's name display
+    final displayName = (profile?.fullName ?? '').trim().isNotEmpty
+        ? profile!.fullName!.trim()
+        : 'Ahmed';
+
+    // Get initials for standard avatar placeholder
+    final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -88,31 +154,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Center(
                 child: Column(
                   children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.accentPurple, Color(0xFF3B82F6)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'A',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
+                    profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
+                        ? Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(28),
+                              image: DecorationImage(
+                                image: NetworkImage(profile.avatarUrl!),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.accentPurple, Color(0xFF3B82F6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: Center(
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 14),
                     Text(
-                      'Ahmed',
+                      displayName,
                       style: TextStyle(
                         color: textColor,
                         fontSize: 22,
@@ -121,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Credits: ${CreditProvider.of(context).credits} · ✨ AI Style Explorer',
+                      'Credits: ${profile?.credits ?? 0} · ✨ AI Style Explorer',
                       style: TextStyle(
                         color: AppTheme.mediumGray,
                         fontSize: 13,
@@ -279,15 +357,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(ctx);
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginScreen(),
-                              ),
-                              (route) => false,
-                            );
+                            profileManager.clear();
+                            await _authService.signOut();
+                            if (mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
+                                ),
+                                (route) => false,
+                              );
+                            }
                           },
                           child: const Text(
                             'Sign Out',

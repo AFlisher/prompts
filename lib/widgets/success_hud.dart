@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+
+class SuccessHUD {
+  static void show(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (ctx) {
+        // Auto dismiss after 1300 milliseconds
+        Future.delayed(const Duration(milliseconds: 1300), () {
+          if (ctx.mounted) {
+            Navigator.of(ctx).pop();
+          }
+        });
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F1F21),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white10, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  )
+                ],
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: Colors.greenAccent,
+                    size: 48,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Saved successfully!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

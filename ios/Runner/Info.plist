@@ -51,6 +51,8 @@
 	<string>Prombt needs access to your camera to take photos for AI style generation.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Prombt needs access to your photo library to select photos for AI style generation.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Prombt needs access to your photo library to save styled photos.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

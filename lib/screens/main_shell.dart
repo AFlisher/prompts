@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../main.dart';
 import 'home_screen.dart';
 import 'creations_screen.dart';
 import 'favorites_screen.dart';
@@ -15,17 +16,10 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
-  int _currentIndex = 0;
   bool _isDarkMode = false;
 
-  void _onNavigate(int index) {
-    if (index == _currentIndex) return;
-    HapticFeedback.lightImpact();
-    setState(() => _currentIndex = index);
-  }
-
-  Widget _buildScreen() {
-    switch (_currentIndex) {
+  Widget _buildScreen(int currentIndex) {
+    switch (currentIndex) {
       case 0:
         return HomeScreen(
           isDarkMode: _isDarkMode,
@@ -51,6 +45,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final bgColor = _isDarkMode ? AppTheme.black : AppTheme.white;
+    final creationsManager = CreationsProvider.of(context);
+    final currentIndex = creationsManager.currentTab;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -71,14 +67,17 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           );
         },
         child: KeyedSubtree(
-          key: ValueKey<int>(_currentIndex),
-          child: _buildScreen(),
+          key: ValueKey<int>(currentIndex),
+          child: _buildScreen(currentIndex),
         ),
       ),
       bottomNavigationBar: _GlassNavBar(
-        currentIndex: _currentIndex,
+        currentIndex: currentIndex,
         isDarkMode: _isDarkMode,
-        onTap: _onNavigate,
+        onTap: (index) {
+          HapticFeedback.lightImpact();
+          creationsManager.setTab(index);
+        },
       ),
     );
   }
