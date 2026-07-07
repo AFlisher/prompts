@@ -7,6 +7,8 @@ import 'home_screen.dart';
 import 'creations_screen.dart';
 import 'favorites_screen.dart';
 import 'profile_screen.dart';
+import 'login_screen.dart';
+import '../services/auth_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -17,6 +19,20 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          CreationsProvider.of(context).setTab(0);
+        } catch (e) {
+          debugPrint("Error resetting creations tab on MainShell init: $e");
+        }
+      }
+    });
+  }
 
   Widget _buildScreen(int currentIndex) {
     switch (currentIndex) {
@@ -44,6 +60,25 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService();
+    if (authService.currentUser == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      });
+      return const Scaffold(
+        backgroundColor: AppTheme.black,
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.accentPurple),
+        ),
+      );
+    }
+
     final bgColor = _isDarkMode ? AppTheme.black : AppTheme.white;
     final creationsManager = CreationsProvider.of(context);
     final currentIndex = creationsManager.currentTab;

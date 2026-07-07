@@ -4,9 +4,9 @@ import '../theme/app_theme.dart';
 import 'main_shell.dart';
 import 'email_verification_screen.dart';
 import '../services/auth_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String? prefilledEmail;
+  const RegisterScreen({super.key, this.prefilledEmail});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -22,6 +22,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreeToTerms = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.prefilledEmail != null) {
+      _emailController.text = widget.prefilledEmail!;
+    }
+  }
 
   @override
   void dispose() {
@@ -127,7 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: boxBg,
-                    hintText: 'Ahmed',
+                    hintText: 'Your Name',
                     hintStyle: TextStyle(color: AppTheme.mediumGray),
                     prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),

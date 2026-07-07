@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   final AuthService _authService = AuthService();
 
@@ -134,25 +136,58 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  void _showGoogleSignIn() {
+  Future<void> _handleGoogleSignIn() async {
     HapticFeedback.mediumImpact();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _GoogleSignInSheet(
-        onSelectAccount: (email) {
-          Navigator.pop(context);
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (!mounted) return;
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const MainShell()),
-              (route) => false,
-            );
-          });
-        },
-      ),
-    );
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      final googleSignIn = GoogleSignIn(
+        serverClientId: '393948547098-qji62u4235f83e72eio9vi1fp4a9lmu9.apps.googleusercontent.com',
+      );
+
+      // Sign out first to force account picker every time
+      await googleSignIn.signOut();
+      final googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled the picker
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        throw AuthException('Google sign-in failed: could not obtain ID token.');
+      }
+
+      final response = await _authService.signInWithGoogle(idToken);
+      final user = response.user;
+
+      if (user == null) {
+        throw AuthException('Google sign-in failed: no user returned.');
+      }
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (route) => false,
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in failed: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
   }
 
   @override
@@ -319,8 +354,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     SizedBox(
                       height: 56,
                       child: OutlinedButton.icon(
-                        onPressed: _showGoogleSignIn,
-                        icon: const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF4285F4))),
+                        onPressed: (_isLoading || _isGoogleLoading) ? null : _handleGoogleSignIn,
+                        icon: _isGoogleLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF4285F4)),
+                              )
+                            : const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF4285F4))),
                         label: Text('Continue with Google', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
@@ -351,44 +392,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GoogleSignInSheet extends StatelessWidget {
-  final void Function(String email) onSelectAccount;
-  const _GoogleSignInSheet({required this.onSelectAccount});
-
-  @override
-  Widget build(BuildContext context) {
-    final accounts = ['ahmed@gmail.com', 'ahmedfjd11@gmail.com'];
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C1C2E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20),
-          const Text('Choose an account', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          const Text('to continue to StyliAI', style: TextStyle(color: Colors.white54, fontSize: 13)),
-          const SizedBox(height: 20),
-          ...accounts.map((email) => ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppTheme.accentPurple,
-              child: Text(email[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-            title: Text(email, style: const TextStyle(color: Colors.white, fontSize: 14)),
-            subtitle: const Text('Google Account', style: TextStyle(color: Colors.white54, fontSize: 12)),
-            onTap: () => onSelectAccount(email),
-          )),
-          const SizedBox(height: 8),
-        ],
       ),
     );
   }

@@ -131,13 +131,6 @@ void main() {
       expect(find.text('Full Name'), findsOneWidget);
     });
 
-    testWidgets('renders Username editable field', (tester) async {
-      await tester.pumpWidget(wrapWithProviders(
-        const EditProfileScreen(isDarkMode: true),
-      ));
-      await tester.pump();
-      expect(find.text('Username'), findsOneWidget);
-    });
 
     testWidgets('renders Bio editable field', (tester) async {
       await tester.pumpWidget(wrapWithProviders(

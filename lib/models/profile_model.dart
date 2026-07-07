@@ -3,6 +3,7 @@ class Profile {
   final String? fullName;
   final String? email;
   final String? avatarUrl;
+  final String? provider;
   final int credits;
   final DateTime? createdAt;
 
@@ -11,6 +12,7 @@ class Profile {
     this.fullName,
     this.email,
     this.avatarUrl,
+    this.provider,
     required this.credits,
     this.createdAt,
   });
@@ -21,6 +23,7 @@ class Profile {
       fullName: json['full_name'] as String?,
       email: json['email'] as String?,
       avatarUrl: json['avatar_url'] as String?,
+      provider: json['provider'] as String?,
       credits: json['credits'] as int? ?? 0,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -34,6 +37,7 @@ class Profile {
       'full_name': fullName,
       'email': email,
       'avatar_url': avatarUrl,
+      'provider': provider,
       'credits': credits,
       'created_at': createdAt?.toIso8601String(),
     };

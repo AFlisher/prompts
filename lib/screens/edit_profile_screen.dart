@@ -22,7 +22,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
 
   final _nameController = TextEditingController();
-  final _usernameController = TextEditingController(text: '@ahmed');
   final _bioController = TextEditingController(text: 'AI Style Explorer ✨');
 
   @override
@@ -42,7 +41,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -324,14 +322,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Full Name',
                 controller: _nameController,
                 icon: Icons.person_outline_rounded,
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-              ),
-              const SizedBox(height: 12),
-              _buildEditableField(
-                label: 'Username',
-                controller: _usernameController,
-                icon: Icons.alternate_email_rounded,
                 surfaceColor: surfaceColor,
                 textColor: textColor,
               ),

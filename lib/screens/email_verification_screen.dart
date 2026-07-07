@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
+import '../services/auth_service.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -21,28 +21,17 @@ class EmailVerificationScreen extends StatefulWidget {
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
-  StreamSubscription<AuthState>? _authSubscription;
   bool _isLoading = false;
   int _cooldownSeconds = 60;
   Timer? _timer;
+  Timer? _verificationTimer;
   bool _canResend = false;
 
   @override
   void initState() {
     super.initState();
     _startCooldown();
-    
-    // Subscribe to auth state changes to auto-detect verification when deep links are triggered
-    try {
-      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-        final Session? session = data.session;
-        if (session != null) {
-          _handleVerificationSuccess();
-        }
-      });
-    } catch (e) {
-      debugPrint("Supabase not initialized in this environment: $e");
-    }
+    _startVerificationCheck();
   }
 
   void _startCooldown() {
@@ -67,17 +56,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   void _handleVerificationSuccess() {
     if (!mounted) return;
-    HapticFeedback.vibrate();
-    
-    if (widget.onVerified != null) {
-      widget.onVerified!();
-    } else {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
-        (route) => false,
-      );
-    }
+
+    HapticFeedback.heavyImpact();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Email verified successfully. Please sign in."),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    Navigator.popUntil(context, (route) => route.isFirst);
   }
 
   Future<void> _handleResendLink() async {
@@ -89,11 +78,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
 
     try {
-      final isRecovery = widget.onVerified != null;
-      await Supabase.instance.client.auth.resend(
-        type: isRecovery ? OtpType.recovery : OtpType.signup,
-        email: widget.email,
-      );
+      await AuthService().resendVerification(widget.email);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
@@ -104,11 +89,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         ),
       );
       _startCooldown();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -123,10 +103,25 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     }
   }
 
+  void _startVerificationCheck() {
+    _verificationTimer =
+        Timer.periodic(const Duration(seconds: 2), (timer) async {
+          try {
+            final isVerified = await AuthService().checkVerificationStatus(widget.email);
+            if (isVerified) {
+              timer.cancel();
+              _handleVerificationSuccess();
+            }
+          } catch (e) {
+            debugPrint('Verification check failed: $e');
+          }
+        });
+  }
+
   @override
   void dispose() {
-    _authSubscription?.cancel();
     _timer?.cancel();
+    _verificationTimer?.cancel();
     super.dispose();
   }
 

@@ -5,6 +5,7 @@ import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
 import 'privacy_screen.dart';
+import 'change_password_screen.dart';
 import '../main.dart';
 import 'paywall_screen.dart';
 import '../models/profile_model.dart';
@@ -58,6 +59,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => PrivacyScreen(isDarkMode: _isDark),
+      ),
+    );
+  }
+
+  void _openChangePassword() {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangePasswordScreen(isDarkMode: _isDark),
       ),
     );
   }
@@ -266,6 +277,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 surface: surfaceColor,
                 onTap: _openEditProfile,
               ),
+              if (profile?.provider == 'email') ...[
+                const SizedBox(height: 10),
+                _SettingsTile(
+                  icon: Icons.lock_outline_rounded,
+                  label: 'Change Password',
+                  isDark: _isDark,
+                  textColor: textColor,
+                  surface: surfaceColor,
+                  onTap: _openChangePassword,
+                ),
+              ],
               const SizedBox(height: 10),
               _SettingsTile(
                 icon: Icons.notifications_outlined,

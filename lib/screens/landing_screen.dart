@@ -1,6 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'main_shell.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -10,24 +11,51 @@ class LandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LandingScreen> {
-  Timer? _navTimer;
-
   @override
   void initState() {
     super.initState();
-    _navTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
-    });
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final startTime = DateTime.now();
+
+    final authService = AuthService();
+    bool isSessionRestored = false;
+    try {
+      isSessionRestored = await authService.ensureValidSession();
+    } catch (e) {
+      debugPrint("[LandingScreen] Error verifying session during auto-login: $e");
+    }
+
+    final elapsed = DateTime.now().difference(startTime);
+    const minDuration = Duration(milliseconds: 2000); // minimum 2 seconds splash duration
+    if (elapsed < minDuration) {
+      await Future.delayed(minDuration - elapsed);
+    }
+
+    if (!mounted) return;
+
+    if (isSessionRestored && authService.currentUser != null) {
+      debugPrint("[LandingScreen] Auto-login successful. Navigating to Home.");
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
+    } else {
+      debugPrint("[LandingScreen] Auto-login failed or no session. Navigating to Login.");
+      // Ensure we clear any stale tokens or cached session on failure
+      await authService.signOut();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
   }
 
   @override
   void dispose() {
-    _navTimer?.cancel();
     super.dispose();
   }
 

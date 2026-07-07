@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import '../models/profile_model.dart';
+import 'package:flutter/foundation.dart';
+import 'auth_service.dart';
 
 class ProfileService {
   final SupabaseClient? _client = _safeGetClient();
@@ -18,6 +20,7 @@ class ProfileService {
   User? get currentUser => _client?.auth.currentUser;
 
   Future<Profile> getProfile() async {
+    await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
       // Fallback profile for widget testing when Supabase is not initialized
@@ -40,10 +43,13 @@ class ProfileService {
         .eq('id', user.id)
         .single();
 
-    return Profile.fromJson(response);
+    final profile = Profile.fromJson(response);
+    debugPrint("[ProfileService] Loaded profile: email=${profile.email}, provider=${profile.provider}");
+    return profile;
   }
 
   Future<Profile> uploadAvatar(File file) async {
+    await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
       // Mock upload for tests
@@ -119,6 +125,7 @@ class ProfileService {
   }
 
   Future<Profile> updateProfile({String? fullName, String? avatarUrl}) async {
+    await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
       return Profile(
