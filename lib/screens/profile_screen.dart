@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
@@ -29,7 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _isDark = widget.isDarkMode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ProfileProvider.of(context).loadProfile();
+      ProfileProvider.read(context).loadProfile();
     });
   }
 
@@ -172,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(28),
                               image: DecorationImage(
-                                image: NetworkImage(profile.avatarUrl!),
+                                image: CachedNetworkImageProvider(profile.avatarUrl!),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -210,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Credits: ${profile?.credits ?? 0} · ✨ AI Style Explorer',
+                      'Credits: ${CreditProvider.of(context).credits} · ✨ AI Style Explorer',
                       style: TextStyle(
                         color: AppTheme.mediumGray,
                         fontSize: 13,

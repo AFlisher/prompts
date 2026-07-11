@@ -28,7 +28,6 @@ class ProfileService {
         id: 'test-id',
         fullName: 'Ahmed',
         email: 'ahmed@example.com',
-        credits: 103,
       );
     }
 
@@ -58,7 +57,6 @@ class ProfileService {
         fullName: 'Ahmed',
         email: 'ahmed@example.com',
         avatarUrl: 'https://example.com/mock-avatar.jpg',
-        credits: 103,
       );
     }
 
@@ -133,7 +131,6 @@ class ProfileService {
         fullName: fullName ?? 'Ahmed',
         email: 'ahmed@example.com',
         avatarUrl: avatarUrl,
-        credits: 103,
       );
     }
 
