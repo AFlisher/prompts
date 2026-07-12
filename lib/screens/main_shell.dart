@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
@@ -20,7 +19,18 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   bool _isDarkMode = false;
-  bool _navCollapsed = false;
+
+  // Isolated from this State's own setState so toggling it only rebuilds
+  // the nav bar (via the ValueListenableBuilder in build()) - never the
+  // active tab's screen.
+  final ValueNotifier<bool> _navCollapsed = ValueNotifier<bool>(false);
+
+  // Hysteresis: only flip _navCollapsed once the user has scrolled a
+  // meaningful distance in one direction, so a handful of stray pixels
+  // (or the natural jitter at the start of a drag) can't toggle it.
+  double _scrollAccumulator = 0;
+  double? _lastPixels;
+  static const double _collapseThreshold = 24.0;
 
   bool _handleScrollNotification(ScrollNotification notification) {
     // depth == 0 means this notification comes from the tab's own primary
@@ -28,14 +38,38 @@ class _MainShellState extends State<MainShell> {
     // bubbling through Scrollable ancestors increments depth, so nested
     // scroll views never trigger this.
     if (notification.depth != 0) return false;
-    if (notification is UserScrollNotification) {
-      final direction = notification.direction;
-      if (direction == ScrollDirection.reverse && !_navCollapsed) {
-        setState(() => _navCollapsed = true);
-      } else if (direction == ScrollDirection.forward && _navCollapsed) {
-        setState(() => _navCollapsed = false);
+
+    if (notification is ScrollUpdateNotification) {
+      final pixels = notification.metrics.pixels;
+      final lastPixels = _lastPixels;
+      _lastPixels = pixels;
+      if (lastPixels == null) return false;
+
+      // Compute delta from the absolute scroll offset ourselves - pixels
+      // increasing unambiguously means the content is advancing (scrolling
+      // down) regardless of how scrollDelta's own sign is reported.
+      final delta = pixels - lastPixels;
+      if (delta == 0) return false;
+
+      // A reversal discards whatever progress had built up toward the old
+      // direction's threshold, rather than letting it partially cancel out.
+      if (_scrollAccumulator != 0 && (delta > 0) != (_scrollAccumulator > 0)) {
+        _scrollAccumulator = 0;
       }
+      _scrollAccumulator += delta;
+
+      if (_scrollAccumulator > _collapseThreshold) {
+        _navCollapsed.value = true;
+        _scrollAccumulator = 0;
+      } else if (_scrollAccumulator < -_collapseThreshold) {
+        _navCollapsed.value = false;
+        _scrollAccumulator = 0;
+      }
+    } else if (notification is ScrollEndNotification) {
+      _scrollAccumulator = 0;
+      _lastPixels = null;
     }
+
     return false;
   }
 
@@ -51,6 +85,12 @@ class _MainShellState extends State<MainShell> {
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _navCollapsed.dispose();
+    super.dispose();
   }
 
   Widget _buildScreen(int currentIndex) {
@@ -104,39 +144,59 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      extendBody: true,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.02),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
+      // No bottomNavigationBar slot: Scaffold wraps that slot in its own
+      // Material surface, which paints an opaque rectangle behind whatever
+      // widget is given to it - exactly the "rectangle behind the glass
+      // bar" this was meant to avoid. A plain Stack overlay has no such
+      // surface, so only the nav bar's own rounded shape is ever painted.
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.02),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<int>(currentIndex),
+                  child: _buildScreen(currentIndex),
+                ),
               ),
-            );
-          },
-          child: KeyedSubtree(
-            key: ValueKey<int>(currentIndex),
-            child: _buildScreen(currentIndex),
+            ),
           ),
-        ),
-      ),
-      bottomNavigationBar: _GlassNavBar(
-        currentIndex: currentIndex,
-        isDarkMode: _isDarkMode,
-        collapsed: _navCollapsed,
-        onTap: (index) {
-          HapticFeedback.lightImpact();
-          creationsManager.setTab(index);
-        },
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _navCollapsed,
+              builder: (context, collapsed, _) {
+                return _GlassNavBar(
+                  currentIndex: currentIndex,
+                  isDarkMode: _isDarkMode,
+                  collapsed: collapsed,
+                  onTap: (index) {
+                    HapticFeedback.lightImpact();
+                    creationsManager.setTab(index);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
