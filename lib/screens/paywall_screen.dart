@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../widgets/simulated_store_pay.dart';
+import '../widgets/watch_ad_button.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -270,7 +271,71 @@ class _PaywallScreenState extends State<PaywallScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 36),
+                        const SizedBox(height: 20),
+
+                        // Watch-ad-for-credit card (Roadmap Item 3.2)
+                        AnimatedBuilder(
+                          animation: creditManager,
+                          builder: (context, _) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: widget.isDarkMode ? AppTheme.darkCard : AppTheme.lightGray,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppTheme.accentPurple.withValues(alpha: 0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.play_circle_fill_rounded, color: AppTheme.accentPurple, size: 22),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'Watch Ads for a Free Credit',
+                                        style: TextStyle(color: textColor, fontWeight: FontWeight.w800, fontSize: 15),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  if (creditManager.dailyLimitReached)
+                                    Text(
+                                      "You've claimed today's free credit. Come back tomorrow!",
+                                      style: TextStyle(color: textColor.withValues(alpha: 0.6), fontSize: 13),
+                                    )
+                                  else ...[
+                                    Row(
+                                      children: List.generate(2, (i) {
+                                        final filled = i < creditManager.adsProgress;
+                                        return Expanded(
+                                          child: Container(
+                                            height: 8,
+                                            margin: EdgeInsets.only(right: i == 0 ? 8 : 0),
+                                            decoration: BoxDecoration(
+                                              color: filled
+                                                  ? AppTheme.accentPurple
+                                                  : (widget.isDarkMode ? Colors.grey[800] : Colors.grey[300]),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${creditManager.adsProgress}/2 ads watched today - watch 2 for 1 free credit',
+                                      style: TextStyle(color: textColor.withValues(alpha: 0.6), fontSize: 12),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    WatchAdButton(creditManager: creditManager),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
