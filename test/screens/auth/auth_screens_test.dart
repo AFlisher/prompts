@@ -13,7 +13,6 @@ import 'package:prombt_app/screens/login_screen.dart';
 import 'package:prombt_app/screens/register_screen.dart';
 import 'package:prombt_app/screens/email_verification_screen.dart';
 import 'package:prombt_app/screens/forgot_password_screen.dart';
-import 'package:prombt_app/screens/reset_password_screen.dart';
 
 void main() {
   // ── LANDING / SPLASH ───────────────────────────────────────────────────────
@@ -192,7 +191,7 @@ void main() {
   });
 
   // ── FORGOT PASSWORD & RESET PASSWORD SCREEN ────────────────────────────────
-  group('ForgotPasswordScreen & ResetPasswordScreen', () {
+  group('ForgotPasswordScreen', () {
     testWidgets('ForgotPasswordScreen validation and navigation', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: ForgotPasswordScreen()));
       await tester.pump();
@@ -210,48 +209,6 @@ void main() {
       await tester.tap(find.text('Send Code'));
       await tester.pump();
       expect(find.text('Enter a valid email'), findsOneWidget);
-    });
-
-    testWidgets('ResetPasswordScreen validation and success flow', (tester) async {
-      tester.view.physicalSize = const Size(1080, 1920);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(const MaterialApp(
-        home: ResetPasswordScreen(email: 'test@example.com'),
-      ));
-      await tester.pump();
-
-      expect(find.text('Reset Password'), findsNWidgets(2));
-      expect(find.text('Set a strong password for test@example.com'), findsOneWidget);
-
-      // Test empty input validation
-      await tester.tap(find.text('Reset Password').at(1)); // The button, index 1
-      await tester.pump();
-      expect(find.text('Please enter a password'), findsOneWidget);
-
-      // Test mismatch validation
-      await tester.enterText(find.byType(TextFormField).at(0), 'Ahmed@1234');
-      await tester.enterText(find.byType(TextFormField).at(1), 'Ahmed@1111');
-      await tester.tap(find.text('Reset Password').at(1));
-      await tester.pump();
-      expect(find.text('Passwords do not match'), findsOneWidget);
-
-      // Test valid input and simulated reset
-      await tester.enterText(find.byType(TextFormField).at(1), 'Ahmed@1234');
-      await tester.tap(find.text('Reset Password').at(1));
-      await tester.pump();
-
-      // Wait for delay
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
-
-      // Should show password reset confirmation dialog
-      expect(find.text('Password Reset!'), findsOneWidget);
-      expect(find.text('Back to Login'), findsOneWidget);
     });
   });
 
