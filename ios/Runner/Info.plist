@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- AdMob App ID - currently Google's public TEST App ID (Roadmap Item 3.1).
+	     Replace with the real AdMob App ID before release. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Prombt needs access to your camera to take photos for AI style generation.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
