@@ -18,6 +18,15 @@ import 'package:prombt_app/data/credit_manager.dart';
 import 'package:prombt_app/data/favorites_manager.dart';
 import 'package:prombt_app/data/dynamic_style_manager.dart';
 import 'package:prombt_app/data/creations_manager.dart';
+import 'package:prombt_app/models/credit_pack.dart';
+
+// PaywallScreen fetches its pack list from the backend, which isn't reachable
+// in tests - this fixture stands in via PaywallScreen.fetchPacksOverride.
+Future<List<CreditPack>> _fakeCreditPacks() async => [
+      CreditPack(id: 'starter', name: 'Starter Pack', credits: 10, priceDisplay: '\$1.99'),
+      CreditPack(id: 'pro', name: 'Pro Pack', credits: 50, priceDisplay: '\$4.99', badge: 'Best Value'),
+      CreditPack(id: 'max', name: 'Max Pack', credits: 100, priceDisplay: '\$8.99', badge: 'Save 25%'),
+    ];
 
 Widget wrapWithProviders(Widget widget) {
   final favManager    = FavoritesManager();
@@ -101,41 +110,46 @@ void main() {
   group('PaywallScreen (Buy Credits)', () {
     testWidgets('renders without crashing', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        const PaywallScreen(isDarkMode: true),
+        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
+      await tester.pump(); // let the fake pack fetch resolve
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('renders Starter credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        const PaywallScreen(isDarkMode: true),
+        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
+      await tester.pump(); // let the fake pack fetch resolve
       expect(find.textContaining('Starter'), findsOneWidget);
     });
 
     testWidgets('renders Pro credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        const PaywallScreen(isDarkMode: true),
+        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
+      await tester.pump(); // let the fake pack fetch resolve
       expect(find.textContaining('Pro'), findsOneWidget);
     });
 
     testWidgets('renders Max credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        const PaywallScreen(isDarkMode: true),
+        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
+      await tester.pump(); // let the fake pack fetch resolve
       expect(find.textContaining('Max'), findsOneWidget);
     });
 
     testWidgets('renders in light mode without overflow', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        const PaywallScreen(isDarkMode: false),
+        PaywallScreen(isDarkMode: false, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
+      await tester.pump(); // let the fake pack fetch resolve
       expect(tester.takeException(), isNull);
     });
 
@@ -151,10 +165,11 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          const PaywallScreen(isDarkMode: true),
+          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
-        
+        await tester.pump(); // let the fake pack fetch resolve
+
         final buyButton = find.byType(ElevatedButton);
         await tester.tap(buyButton);
         await tester.pump(); // trigger tap
@@ -200,10 +215,11 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          const PaywallScreen(isDarkMode: true),
+          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
-        
+        await tester.pump(); // let the fake pack fetch resolve
+
         final buyButton = find.byType(ElevatedButton);
         await tester.tap(buyButton);
         await tester.pump(); // trigger tap

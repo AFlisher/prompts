@@ -2,60 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
+import '../models/credit_pack.dart';
+import '../services/api_service.dart';
 import '../widgets/simulated_store_pay.dart';
 import '../widgets/watch_ad_button.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool isDarkMode;
 
-  const PaywallScreen({super.key, required this.isDarkMode});
+  /// Overrides the credit-pack data source. Only intended for widget tests,
+  /// which have no real backend to fetch from.
+  final Future<List<CreditPack>> Function()? fetchPacksOverride;
+
+  const PaywallScreen({super.key, required this.isDarkMode, this.fetchPacksOverride});
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
 }
 
 class _PaywallScreenState extends State<PaywallScreen> {
-  // Available credit packs
-  final List<Map<String, dynamic>> _packs = [
-    {
-      'id': 'starter',
-      'title': 'Starter Pack',
-      'credits': 10,
-      'price': '\$1.99',
-      'badge': null,
-      'desc': 'Perfect for a quick experiment',
-    },
-    {
-      'id': 'pro',
-      'title': 'Pro Pack',
-      'credits': 50,
-      'price': '\$4.99',
-      'badge': 'Best Value',
-      'desc': 'Popular for creative explorers',
-    },
-    {
-      'id': 'max',
-      'title': 'Max Pack',
-      'credits': 100,
-      'price': '\$8.99',
-      'badge': 'Save 25%',
-      'desc': 'For serious power creators',
-    },
-  ];
+  final ApiService _apiService = ApiService();
 
-  late String _selectedPackId;
+  List<CreditPack> _packs = [];
+  bool _isLoadingPacks = true;
+  String? _packsError;
+
+  String? _selectedPackId;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Default select the 'pro' pack
-    _selectedPackId = 'pro';
+    _fetchPacks();
+  }
+
+  Future<void> _fetchPacks() async {
+    setState(() {
+      _isLoadingPacks = true;
+      _packsError = null;
+    });
+    try {
+      final packs = await (widget.fetchPacksOverride?.call() ?? _apiService.getCreditPacks());
+      if (!mounted) return;
+      setState(() {
+        _packs = packs;
+        // Default-select the pack with a badge (e.g. "Best Value") if one
+        // exists, otherwise the first pack.
+        _selectedPackId = packs.isEmpty
+            ? null
+            : packs.firstWhere((p) => p.badge != null, orElse: () => packs.first).id;
+        _isLoadingPacks = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _packsError = 'Failed to load credit packs.';
+        _isLoadingPacks = false;
+      });
+    }
   }
 
   void _handlePurchase(BuildContext context) async {
-    final selectedPack = _packs.firstWhere((p) => p['id'] == _selectedPackId);
-    final creditsToAdded = selectedPack['credits'] as int;
+    final selectedPack = _packs.firstWhere((p) => p.id == _selectedPackId);
+    final creditsToAdded = selectedPack.credits;
 
     HapticFeedback.mediumImpact();
     setState(() {
@@ -65,8 +74,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     // Show simulated iOS App Store or Google Play Store billing sheet
     final purchased = await showSimulatedStorePaySheet(
       context: context,
-      packTitle: selectedPack['title'] as String,
-      price: selectedPack['price'] as String,
+      packTitle: selectedPack.name,
+      price: selectedPack.priceDisplay,
       credits: creditsToAdded,
       isDarkMode: widget.isDarkMode,
       platform: Theme.of(context).platform,
@@ -342,27 +351,52 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
 
                 // Credit packs selector
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 26),
-                    child: Column(
-                      children: _packs.map((pack) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildPackCard(
-                            packId: pack['id'] as String,
-                            title: pack['title'] as String,
-                            credits: pack['credits'] as int,
-                            price: pack['price'] as String,
-                            badge: pack['badge'] as String?,
-                            desc: pack['desc'] as String,
-                            textColor: textColor,
+                if (_isLoadingPacks)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: CircularProgressIndicator(color: AppTheme.accentPurple)),
+                    ),
+                  )
+                else if (_packsError != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 20),
+                      child: Column(
+                        children: [
+                          Text(_packsError!, style: TextStyle(color: textColor)),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _fetchPacks,
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentPurple),
+                            child: const Text('Retry', style: TextStyle(color: Colors.white)),
                           ),
-                        );
-                      }).toList(),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 26),
+                      child: Column(
+                        children: _packs.map((pack) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildPackCard(
+                              packId: pack.id,
+                              title: pack.name,
+                              credits: pack.credits,
+                              price: pack.priceDisplay,
+                              badge: pack.badge,
+                              desc: pack.description ?? '',
+                              textColor: textColor,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
-                ),
 
                 const SliverToBoxAdapter(child: SizedBox(height: 40)),
 
@@ -371,7 +405,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 26),
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : () => _handlePurchase(context),
+                      onPressed: (_isLoading || _selectedPackId == null) ? null : () => _handlePurchase(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.accentPurple,
                         padding: const EdgeInsets.symmetric(vertical: 18),
@@ -404,9 +438,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildFooterLink('Terms of Service', textColor),
-                        _buildFooterLink('Privacy Policy', textColor),
-                        _buildFooterLink('Restore Purchases', textColor),
+                        _buildFooterLink(
+                          'Terms of Service',
+                          textColor,
+                          () => _showNotYetAvailable(context, 'Terms of Service'),
+                        ),
+                        _buildFooterLink(
+                          'Privacy Policy',
+                          textColor,
+                          () => _showNotYetAvailable(context, 'Privacy Policy'),
+                        ),
+                        _buildFooterLink(
+                          'Restore Purchases',
+                          textColor,
+                          () => _showNotYetAvailable(context, 'Restore Purchases', reason: 'real purchases are not live yet'),
+                        ),
                       ],
                     ),
                   ),
@@ -540,14 +586,33 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  Widget _buildFooterLink(String text, Color textColor) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: textColor.withValues(alpha: 0.4),
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        decoration: TextDecoration.underline,
+  Widget _buildFooterLink(String text, Color textColor, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor.withValues(alpha: 0.4),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+    );
+  }
+
+  // No real Terms of Service / Privacy Policy pages exist yet (see
+  // LEGAL_REQUIREMENTS.md - a release blocker), and real purchases aren't
+  // live yet either - these links are honestly non-functional rather than
+  // pointing at an invented URL.
+  void _showNotYetAvailable(BuildContext context, String label, {String? reason}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reason != null ? '$label is not available yet - $reason.' : '$label is not available yet.'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
