@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'main_shell.dart';
 
@@ -85,7 +86,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   margin: const EdgeInsets.only(right: 8),
                   child: const Icon(
                     Icons.auto_awesome_rounded,
-                    color: Color(0xFFE735F6),
+                    color: AppTheme.accentPink,
                     size: 36,
                   ),
                 ),

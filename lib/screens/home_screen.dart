@@ -200,8 +200,8 @@ class _SectionHeader extends StatelessWidget {
         return Row(
           children: [
             Icon(
-              Icons.auto_awesome,
-              color: const Color(0xFFE735F6),
+              Icons.auto_awesome_rounded,
+              color: AppTheme.accentPink,
               size: compact ? 24 : 30,
             ),
             const SizedBox(width: 2),
@@ -246,75 +246,6 @@ class _SectionHeader extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _HomeStyleCardVertical extends StatefulWidget {
-  final StyleModel style;
-  final bool isDarkMode;
-  final VoidCallback onTap;
-
-  const _HomeStyleCardVertical({
-    required this.style,
-    required this.isDarkMode,
-    required this.onTap,
-  });
-
-  @override
-  State<_HomeStyleCardVertical> createState() => _HomeStyleCardVerticalState();
-}
-
-class _HomeStyleCardVerticalState extends State<_HomeStyleCardVertical> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 110),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  widget.style.imagePath,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: AppTheme.lightGray,
-                      child: const Icon(Icons.image_outlined),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.style.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

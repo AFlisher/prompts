@@ -49,7 +49,7 @@ class AppHeader extends StatelessWidget {
                 child: Icon(
                   isDarkMode
                       ? Icons.light_mode_rounded
-                      : Icons.dark_mode_outlined,
+                      : Icons.dark_mode_rounded,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -91,7 +91,7 @@ class AppHeader extends StatelessWidget {
                   gradient: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
                       ? null
                       : const LinearGradient(
-                          colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                          colors: [AppTheme.accentPurple, AppTheme.accentBlue],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),

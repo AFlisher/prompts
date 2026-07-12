@@ -75,7 +75,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showImageSourceSheet() {
     HapticFeedback.mediumImpact();
-    final bgColor = _isDark ? const Color(0xFF1C1C2E) : Colors.white;
+    final bgColor = _isDark ? AppTheme.darkCard : AppTheme.white;
     final textColor = _isDark ? Colors.white : AppTheme.black;
 
     showModalBottomSheet(
@@ -215,10 +215,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Navigator.pop(context);
                     },
                     child: Container(
-                      width: 36, height: 36,
+                      width: 22, height: 22,
                       decoration: BoxDecoration(
-                        color: surfaceColor,
                         shape: BoxShape.circle,
+                        border: Border.all(color: textColor),
                       ),
                       child: Icon(Icons.arrow_back_ios_new_rounded,
                           color: textColor, size: 16),
@@ -227,12 +227,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(width: 16),
                   Text(
                     'Edit Profile',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
                   ),
                 ],
               ),
@@ -251,7 +246,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         decoration: BoxDecoration(
                           gradient: _profileImage == null && (profile?.avatarUrl == null || profile!.avatarUrl!.trim().isEmpty)
                               ? const LinearGradient(
-                                  colors: [AppTheme.accentPurple, Color(0xFF3B82F6)],
+                                  colors: [AppTheme.accentPurple, AppTheme.accentBlue],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
@@ -290,7 +285,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           height: 34,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                              colors: [AppTheme.accentPurple, AppTheme.accentPink],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -350,7 +345,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                      colors: [AppTheme.accentPurple, AppTheme.accentPink],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
@@ -547,7 +542,7 @@ class _ImageSourceTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF252540) : const Color(0xFFF3F3F8),
+          color: isDark ? AppTheme.darkSurface : AppTheme.lightGray,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -557,7 +552,7 @@ class _ImageSourceTile extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                  colors: [AppTheme.accentPurple, AppTheme.accentPink],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

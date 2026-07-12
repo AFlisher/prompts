@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class SuccessHUD {
   static void show(BuildContext context) {
@@ -21,7 +22,7 @@ class SuccessHUD {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
               decoration: BoxDecoration(
-                color: const Color(0xFF1F1F21),
+                color: AppTheme.darkCard,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white10, width: 1),
                 boxShadow: [

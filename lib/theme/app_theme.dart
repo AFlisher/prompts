@@ -10,6 +10,8 @@ class AppTheme {
   static const Color lightGray = Color(0xFFF0F0F0);
   static const Color mediumGray = Color(0xFF8A8A8A);
   static const Color accentPurple = Color(0xFF7C3AED);
+  static const Color accentPink = Color(0xFFE735F6);
+  static const Color accentBlue = Color(0xFF3B82F6);
 
   // Border radii
   static const double radiusSmall = 12.0;

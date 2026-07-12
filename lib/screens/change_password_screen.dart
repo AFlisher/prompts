@@ -116,11 +116,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         Navigator.pop(context);
                       },
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 22,
+                        height: 22,
                         decoration: BoxDecoration(
-                          color: surfaceColor,
                           shape: BoxShape.circle,
+                          border: Border.all(color: textColor),
                         ),
                         child: Icon(Icons.arrow_back_ios_new_rounded,
                             color: textColor, size: 16),
@@ -129,12 +129,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     const SizedBox(width: 16),
                     Text(
                       'Change Password',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
                     ),
                   ],
                 ),
@@ -207,7 +202,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                        colors: [AppTheme.accentPurple, AppTheme.accentPink],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),

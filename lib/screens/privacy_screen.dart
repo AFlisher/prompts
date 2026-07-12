@@ -53,7 +53,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                           color: _isDark ? AppTheme.white : AppTheme.black,
                         ),
                       ),
-                      child: Icon(Icons.arrow_back,
+                      child: Icon(Icons.arrow_back_ios_new_rounded,
                           color: _isDark ? AppTheme.white : AppTheme.black,
                           size: 16),
                     ),
@@ -61,12 +61,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   const SizedBox(width: 16),
                   Text(
                     'Privacy',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
                   ),
                 ],
               ),
@@ -77,6 +72,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 isDark: _isDark,
                 textColor: textColor,
                 surfaceColor: surfaceColor,
+                onTap: () => _showNotYetAvailable('Privacy Policy'),
               ),
               const SizedBox(height: 10),
               _LinkTile(
@@ -85,6 +81,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 isDark: _isDark,
                 textColor: textColor,
                 surfaceColor: surfaceColor,
+                onTap: () => _showNotYetAvailable('Terms of Service'),
               ),
               const SizedBox(height: 10),
               _LinkTile(
@@ -93,6 +90,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 isDark: _isDark,
                 textColor: Colors.redAccent,
                 surfaceColor: surfaceColor,
+                onTap: () => _showNotYetAvailable('Delete Account'),
               ),
               const SizedBox(height: 24),
               Padding(
@@ -135,6 +133,19 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       ),
     );
   }
+
+  // No real Delete Account / Privacy Policy / Terms of Service destinations
+  // exist yet (see LEGAL_REQUIREMENTS.md - a release blocker); this matches
+  // Paywall's footer-link pattern of an honest placeholder rather than a
+  // dead tap target with no feedback at all.
+  void _showNotYetAvailable(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label is not available yet.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 }
 
 class _LinkTile extends StatelessWidget {
@@ -143,6 +154,7 @@ class _LinkTile extends StatelessWidget {
   final bool isDark;
   final Color textColor;
   final Color surfaceColor;
+  final VoidCallback onTap;
 
   const _LinkTile({
     required this.icon,
@@ -150,36 +162,43 @@ class _LinkTile extends StatelessWidget {
     required this.isDark,
     required this.textColor,
     required this.surfaceColor,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: textColor, size: 20),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: textColor, size: 20),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: AppTheme.mediumGray,
-            size: 18,
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.mediumGray,
+              size: 18,
+            ),
+          ],
+        ),
       ),
     );
   }

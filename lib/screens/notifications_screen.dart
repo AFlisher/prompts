@@ -51,22 +51,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             color: _isDark ? AppTheme.white : AppTheme.black,
                           ),
                         ),
-                        child: Icon(Icons.arrow_back,
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
                             color: _isDark ? AppTheme.white : AppTheme.black,
                             size: 16),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Text(
-                      'Notifications',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                    Expanded(
+                      child: Text(
+                        'Notifications',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _openSettings(textColor, surfaceColor),
                       child: Container(
@@ -155,7 +154,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _NotificationItem(
                   icon: Icons.person_outline_rounded,
-                  iconColor: const Color(0xFF3B82F6),
+                  iconColor: AppTheme.accentBlue,
                   title: 'Welcome to StyliAI',
                   subtitle: 'Start exploring styles and transform your photos',
                   time: '3d ago',
@@ -171,7 +170,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _NotificationItem(
                   icon: Icons.tips_and_updates_rounded,
-                  iconColor: const Color(0xFFE735F6),
+                  iconColor: AppTheme.accentPink,
                   title: 'Pro Tip',
                   subtitle: 'Try using natural lighting for better AI results',
                   time: '5d ago',

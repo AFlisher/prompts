@@ -239,7 +239,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                        colors: [AppTheme.accentPurple, AppTheme.accentPink],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),

@@ -213,7 +213,7 @@ class _FavoriteStyleCard extends StatelessWidget {
                       ),
                       child: const Icon(
                         Icons.favorite_rounded,
-                        color: Color(0xFFEC4899),
+                        color: AppTheme.accentPink,
                         size: 18,
                       ),
                     ),

@@ -17,7 +17,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
+class _MainShellState extends State<MainShell> {
   bool _isDarkMode = false;
 
   @override
@@ -133,42 +133,7 @@ class _GlassNavBar extends StatefulWidget {
   State<_GlassNavBar> createState() => _GlassNavBarState();
 }
 
-class _GlassNavBarState extends State<_GlassNavBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _indicatorAnim;
-
-  int _previousIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _indicatorAnim = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    );
-    _animController.value = 1;
-  }
-
-  @override
-  void didUpdateWidget(_GlassNavBar old) {
-    super.didUpdateWidget(old);
-    if (widget.currentIndex != old.currentIndex) {
-      _previousIndex = old.currentIndex;
-      _animController.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
+class _GlassNavBarState extends State<_GlassNavBar> {
   @override
   Widget build(BuildContext context) {
     final indices = [0, 1, 2, 3];
@@ -257,19 +222,13 @@ class _GlassNavBarState extends State<_GlassNavBar>
     );
   }
 
-  double _indicatorX(int index) {
-    final totalWidth = MediaQuery.of(context).size.width - 32;
-    final tabWidth = totalWidth / 4;
-    return tabWidth * index + (tabWidth - 64) / 2;
-  }
-
   IconData _iconFor(int index, {required bool selected}) {
     switch (index) {
       case 0:
         return selected ? Icons.home_rounded : Icons.home_outlined;
       case 1:
         return selected
-            ? Icons.auto_awesome
+            ? Icons.auto_awesome_rounded
             : Icons.auto_awesome_outlined;
       case 2:
         return selected

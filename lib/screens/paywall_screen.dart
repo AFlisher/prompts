@@ -197,9 +197,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: IconButton(
-                        icon: Icon(Icons.close_rounded, color: textColor.withValues(alpha: 0.6), size: 28),
-                        onPressed: () => Navigator.pop(context),
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: textColor.withValues(alpha: 0.6)),
+                          ),
+                          child: Icon(Icons.close_rounded, color: textColor.withValues(alpha: 0.6), size: 16),
+                        ),
                       ),
                     ),
                   ),
@@ -216,7 +227,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                              colors: [AppTheme.accentPurple, AppTheme.accentPink],
                             ),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
@@ -232,16 +243,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         const SizedBox(height: 24),
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Colors.white, Color(0xFFE735F6)],
+                            colors: [Colors.white, AppTheme.accentPink],
                           ).createShader(bounds),
-                          child: const Text(
+                          child: Text(
                             'BUY CREDITS',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                  color: Colors.white,
+                                  letterSpacing: 1.5,
+                                ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -533,7 +542,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE735F6),
+                            color: AppTheme.accentPink,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -573,7 +582,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 Text(
                   '$credits Credits',
                   style: const TextStyle(
-                    color: Color(0xFFE735F6),
+                    color: AppTheme.accentPink,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),

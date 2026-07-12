@@ -164,12 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 'Profile',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
               ),
               const SizedBox(height: 28),
 
@@ -194,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 90,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [AppTheme.accentPurple, Color(0xFF3B82F6)],
+                                colors: [AppTheme.accentPurple, AppTheme.accentBlue],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -311,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 10),
               _SettingsTile(
-                icon: Icons.notifications_outlined,
+                icon: Icons.notifications_none_rounded,
                 label: 'Notifications',
                 isDark: _isDark,
                 textColor: textColor,
@@ -320,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 10),
               _SettingsTile(
-                icon: Icons.privacy_tip_outlined,
+                icon: Icons.privacy_tip_rounded,
                 label: 'Privacy',
                 isDark: _isDark,
                 textColor: textColor,
@@ -347,11 +342,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 32,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                            colors: [AppTheme.accentPurple, AppTheme.accentPink],
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
                       ),
                     ),
                     children: [
@@ -551,7 +546,7 @@ class _ProBannerCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+            colors: [AppTheme.accentPurple, AppTheme.accentPink],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

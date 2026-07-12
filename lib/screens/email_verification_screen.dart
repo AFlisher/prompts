@@ -369,7 +369,7 @@ class _HologramVerificationIndicatorState extends State<_HologramVerificationInd
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                  colors: [AppTheme.accentPurple, AppTheme.accentPink],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -427,7 +427,7 @@ class _RadarRingPainter extends CustomPainter {
 
     // Draw small orbiting dot
     final dotPaint = Paint()
-      ..color = const Color(0xFFE735F6)
+      ..color = AppTheme.accentPink
       ..style = PaintingStyle.fill;
     
     final dotX = center.dx + radius * math.cos(math.pi * 0.35);

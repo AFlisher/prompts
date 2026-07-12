@@ -256,7 +256,7 @@ class _HeroStyleCard extends StatelessWidget {
                   left: 10,
                   top: 10,
                   child: _GlassActionButton(
-                    icon: Icons.arrow_back,
+                    icon: Icons.arrow_back_ios_new_rounded,
                     onTap: onBack,
                     isDarkMode: isDarkMode,
                   ),
@@ -265,7 +265,7 @@ class _HeroStyleCard extends StatelessWidget {
                   right: 48,
                   top: 10,
                   child: _GlassActionButton(
-                    icon: Icons.share,
+                    icon: Icons.share_rounded,
                     onTap: onShare,
                     isDarkMode: isDarkMode,
                   ),
@@ -274,7 +274,7 @@ class _HeroStyleCard extends StatelessWidget {
                   right: 10,
                   top: 10,
                   child: _GlassActionButton(
-                    icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+                    icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                     iconColor: isFavorite ? Colors.redAccent : null,
                     onTap: onFavorite,
                     isDarkMode: isDarkMode,
@@ -464,7 +464,7 @@ class _TryButton extends StatelessWidget {
           height: 54,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF7C3AED), Color(0xFFE735F6)],
+              colors: [AppTheme.accentPurple, AppTheme.accentPink],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
@@ -482,7 +482,7 @@ class _TryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+              const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
               const SizedBox(width: 8),
               Text(
                 'Try This Style',

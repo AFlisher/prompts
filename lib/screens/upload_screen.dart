@@ -397,7 +397,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           Center(
                             child: CircularProgressIndicator(
                               value: _generationProgress,
-                              color: const Color(0xFFEC4899),
+                              color: AppTheme.accentPink,
                               strokeWidth: 4,
                             ),
                           ),
@@ -505,7 +505,7 @@ class _UploadScreenState extends State<UploadScreen> {
             ),
           ],
         ),
-        backgroundColor: _isDark ? const Color(0xFF2C2C2C) : const Color(0xFF323232),
+        backgroundColor: AppTheme.darkSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -539,7 +539,7 @@ class _PageTitleRow extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: textColor, width: 1.5),
             ),
-            child: Icon(Icons.arrow_back, color: textColor, size: 16),
+            child: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 16),
           ),
         ),
         const SizedBox(width: 12),
@@ -796,7 +796,7 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
             child: Row(
               children: [
                 const SizedBox(width: 24),
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+                const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
                 Expanded(
                   child: Text(
                     'Generate Style',

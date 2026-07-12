@@ -167,7 +167,7 @@ class _IOSAppStoreSheetState extends State<_IOSAppStoreSheet> {
                   height: 56,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.accentPurple, Color(0xFFE735F6)],
+                      colors: [AppTheme.accentPurple, AppTheme.accentPink],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),

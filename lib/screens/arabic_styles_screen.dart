@@ -82,7 +82,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                             color: _isDark ? AppTheme.white : AppTheme.black,
                           ),
                         ),
-                        child: Icon(Icons.arrow_back,
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
                             color: _isDark ? AppTheme.white : AppTheme.black,
                             size: 16),
                       ),
