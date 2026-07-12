@@ -9,6 +9,7 @@ import 'privacy_screen.dart';
 import 'change_password_screen.dart';
 import '../main.dart';
 import 'paywall_screen.dart';
+import 'wallet_history_screen.dart';
 import '../models/profile_model.dart';
 import '../services/auth_service.dart';
 
@@ -70,6 +71,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => ChangePasswordScreen(isDarkMode: _isDark),
+      ),
+    );
+  }
+
+  void _openWalletHistory() {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WalletHistoryScreen(isDarkMode: _isDark),
       ),
     );
   }
@@ -289,6 +300,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: _openChangePassword,
                 ),
               ],
+              const SizedBox(height: 10),
+              _SettingsTile(
+                icon: Icons.receipt_long_rounded,
+                label: 'Transaction History',
+                isDark: _isDark,
+                textColor: textColor,
+                surface: surfaceColor,
+                onTap: _openWalletHistory,
+              ),
               const SizedBox(height: 10),
               _SettingsTile(
                 icon: Icons.notifications_outlined,
