@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/credit_manager.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 
 /// The "Watch an Ad for a Free Credit" button, reactive to [CreditManager]'s
 /// ad-watching state. Shared between the not-enough-credits sheet
@@ -58,11 +59,7 @@ class WatchAdButton extends StatelessWidget {
               creditManager.isWatchingAd ? 'Loading Ad...' : 'Watch an Ad for a Free Credit',
               style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.w900, fontSize: 15),
             ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppTheme.accentPurple, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
+            style: AppButtonStyles.secondaryOutlined(),
           ),
         );
       },

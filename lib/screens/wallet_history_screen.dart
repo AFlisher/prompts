@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/wallet.dart';
 import '../services/wallet_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 
 class WalletHistoryScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -113,7 +114,7 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadHistory,
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentPurple),
+                style: AppButtonStyles.primary(),
                 child: const Text('Retry', style: TextStyle(color: Colors.white)),
               ),
             ],

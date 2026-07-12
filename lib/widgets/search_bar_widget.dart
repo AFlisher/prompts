@@ -39,15 +39,7 @@ class _SearchBarState extends State<SearchBar> {
                 : Colors.transparent,
             width: 1.5,
           ),
-          boxShadow: _isFocused
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
+          boxShadow: _isFocused ? AppTheme.cardShadow : [],
         ),
         child: TextField(
           controller: _controller,

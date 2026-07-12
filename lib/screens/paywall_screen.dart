@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../main.dart';
 import '../models/credit_pack.dart';
 import '../services/api_service.dart';
@@ -143,10 +144,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 Navigator.pop(ctx); // Close dialog
                 Navigator.pop(context); // Close Purchase Screen
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentPurple,
+              style: AppButtonStyles.primary(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: const Text('Start Creating', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
@@ -377,7 +376,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           const SizedBox(height: 12),
                           ElevatedButton(
                             onPressed: _fetchPacks,
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentPurple),
+                            style: AppButtonStyles.primary(),
                             child: const Text('Retry', style: TextStyle(color: Colors.white)),
                           ),
                         ],
@@ -415,10 +414,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 26),
                     child: ElevatedButton(
                       onPressed: (_isLoading || _selectedPackId == null) ? null : () => _handlePurchase(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentPurple,
+                      style: AppButtonStyles.primary(
                         padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         elevation: 4,
                         shadowColor: AppTheme.accentPurple.withValues(alpha: 0.5),
                       ),

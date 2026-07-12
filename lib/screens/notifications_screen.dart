@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_bottom_sheet.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -67,7 +68,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () => _openSettings(textColor, surfaceColor),
+                      onTap: () => _openSettings(textColor),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -188,17 +189,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  void _openSettings(Color textColor, Color surfaceColor) {
+  void _openSettings(Color textColor) {
     HapticFeedback.selectionClick();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return _NotificationSettingsSheet(textColor: textColor);
-      },
+    showAppBottomSheet(
+      context,
+      isDarkMode: _isDark,
+      contentBuilder: (context) => _NotificationSettingsSheet(textColor: textColor),
     );
   }
 }
@@ -222,58 +218,46 @@ class _NotificationSettingsSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.mediumGray.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Notification Settings',
+          style: TextStyle(
+            color: widget.textColor,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Notification Settings',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _SheetToggle(
-            label: 'Push Notifications',
-            value: _push,
-            textColor: widget.textColor,
-            onChanged: (v) => setState(() => _push = v),
-          ),
-          const SizedBox(height: 16),
-          _SheetToggle(
-            label: 'Email Notifications',
-            value: _email,
-            textColor: widget.textColor,
-            onChanged: (v) => setState(() => _email = v),
-          ),
-          const SizedBox(height: 16),
-          _SheetToggle(
-            label: 'Promotions',
-            value: _promotions,
-            textColor: widget.textColor,
-            onChanged: (v) => setState(() => _promotions = v),
-          ),
-          const SizedBox(height: 16),
-          _SheetToggle(
-            label: 'Tips & Tricks',
-            value: _tips,
-            textColor: widget.textColor,
-            onChanged: (v) => setState(() => _tips = v),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 24),
+        _SheetToggle(
+          label: 'Push Notifications',
+          value: _push,
+          textColor: widget.textColor,
+          onChanged: (v) => setState(() => _push = v),
+        ),
+        const SizedBox(height: 16),
+        _SheetToggle(
+          label: 'Email Notifications',
+          value: _email,
+          textColor: widget.textColor,
+          onChanged: (v) => setState(() => _email = v),
+        ),
+        const SizedBox(height: 16),
+        _SheetToggle(
+          label: 'Promotions',
+          value: _promotions,
+          textColor: widget.textColor,
+          onChanged: (v) => setState(() => _promotions = v),
+        ),
+        const SizedBox(height: 16),
+        _SheetToggle(
+          label: 'Tips & Tricks',
+          value: _tips,
+          textColor: widget.textColor,
+          onChanged: (v) => setState(() => _tips = v),
+        ),
+      ],
     );
   }
 }

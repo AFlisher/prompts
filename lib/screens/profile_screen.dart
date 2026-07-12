@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
+import '../widgets/app_icon_dialog.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
@@ -10,7 +12,6 @@ import 'change_password_screen.dart';
 import '../main.dart';
 import 'paywall_screen.dart';
 import 'wallet_history_screen.dart';
-import '../models/profile_model.dart';
 import '../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -129,12 +130,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => profileManager.loadProfile(force: true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentPurple,
+                  style: AppButtonStyles.primary(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                   child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
@@ -368,57 +365,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 surface: surfaceColor,
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: _isDark ? AppTheme.darkCard : AppTheme.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      title: Text(
-                        'Sign Out',
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      content: Text(
-                        'Are you sure you want to sign out?',
-                        style: TextStyle(color: AppTheme.mediumGray),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(color: AppTheme.mediumGray),
+                  showAppIconDialog(
+                    context,
+                    icon: Icons.logout_rounded,
+                    iconColor: Colors.redAccent,
+                    title: 'Sign Out',
+                    message: 'Are you sure you want to sign out?',
+                    isDarkMode: _isDark,
+                    secondaryLabel: 'Cancel',
+                    primaryLabel: 'Sign Out',
+                    primaryColor: Colors.redAccent,
+                    onPrimaryPressed: () async {
+                      profileManager.clear();
+                      await _authService.signOut();
+                      if (mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            profileManager.clear();
-                            await _authService.signOut();
-                            if (mounted) {
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginScreen(),
-                                ),
-                                (route) => false,
-                              );
-                            }
-                          },
-                          child: const Text(
-                            'Sign Out',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                          (route) => false,
+                        );
+                      }
+                    },
                   );
                 },
               ),

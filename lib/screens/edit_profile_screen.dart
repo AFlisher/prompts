@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_bottom_sheet.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
 
@@ -75,63 +76,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showImageSourceSheet() {
     HapticFeedback.mediumImpact();
-    final bgColor = _isDark ? AppTheme.darkCard : AppTheme.white;
     final textColor = _isDark ? Colors.white : AppTheme.black;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 20),
-            Text('Change Profile Photo',
-                style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _ImageSourceTile(
-                    icon: Icons.camera_alt_rounded,
-                    label: 'Camera',
-                    isDark: _isDark,
-                    onTap: () => _pickImage(ImageSource.camera),
-                  ),
+    showAppBottomSheet(
+      context,
+      isDarkMode: _isDark,
+      contentBuilder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Change Profile Photo',
+              style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _ImageSourceTile(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  isDark: _isDark,
+                  onTap: () => _pickImage(ImageSource.camera),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _ImageSourceTile(
-                    icon: Icons.photo_library_rounded,
-                    label: 'Gallery',
-                    isDark: _isDark,
-                    onTap: () => _pickImage(ImageSource.gallery),
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _ImageSourceTile(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  isDark: _isDark,
+                  onTap: () => _pickImage(ImageSource.gallery),
                 ),
-              ],
-            ),
-            if (_profileImage != null) ...[
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: () {
-                  setState(() => _profileImage = null);
-                  Navigator.pop(context);
-                },
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                label: const Text('Remove Photo', style: TextStyle(color: Colors.redAccent)),
               ),
             ],
+          ),
+          if (_profileImage != null) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                setState(() => _profileImage = null);
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              label: const Text('Remove Photo', style: TextStyle(color: Colors.redAccent)),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

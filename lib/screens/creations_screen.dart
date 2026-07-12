@@ -6,6 +6,8 @@ import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
+import '../widgets/app_bottom_sheet.dart';
+import '../theme/app_button_styles.dart';
 import 'image_preview_screen.dart';
 
 class MyCreationsScreen extends StatelessWidget {
@@ -268,34 +270,16 @@ class MyCreationsScreen extends StatelessWidget {
   }
 
   void _showCreationDetailSheet(BuildContext context, CreationItem item) {
-    final sheetBg = isDarkMode ? const Color(0xFF161618) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
 
-    showModalBottomSheet(
-      context: context,
+    showAppBottomSheet(
+      context,
+      isDarkMode: isDarkMode,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: sheetBg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + MediaQuery.of(context).padding.bottom),
-          child: Column(
+      contentBuilder: (context) {
+        return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top drag indicator
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-
               // Creation details title
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -471,13 +455,7 @@ class MyCreationsScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentPurple,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                      ),
+                      style: AppButtonStyles.primary(),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -491,20 +469,8 @@ class MyCreationsScreen extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-        );
+          );
       },
-    );
-  }
-}
-
-// Helper extension to make standard OutlinedButton build easier
-extension on ButtonStyle {
-  OutlinedButton buildOutlinedButton({required VoidCallback onPressed, required Widget child}) {
-    return OutlinedButton(
-      style: this,
-      onPressed: onPressed,
-      child: child,
     );
   }
 }
