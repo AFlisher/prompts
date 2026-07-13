@@ -10,6 +10,7 @@ import 'favorites_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
 import '../services/auth_service.dart';
+import '../services/theme_preference_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -19,7 +20,12 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  bool _isDarkMode = false;
+  bool _isDarkMode = ThemePreferenceService.isDarkMode;
+
+  void _toggleDarkMode() {
+    setState(() => _isDarkMode = !_isDarkMode);
+    ThemePreferenceService.setIsDarkMode(_isDarkMode);
+  }
 
   // Isolated from this State's own setState so toggling it only rebuilds
   // the nav bar (via the ValueListenableBuilder in build()) - never the
@@ -99,21 +105,21 @@ class _MainShellState extends State<MainShell> {
       case 0:
         return HomeScreen(
           isDarkMode: _isDarkMode,
-          onToggleDarkMode: () => setState(() => _isDarkMode = !_isDarkMode),
+          onToggleDarkMode: _toggleDarkMode,
         );
       case 1:
         return MyCreationsScreen(isDarkMode: _isDarkMode);
       case 2:
         return FavoritesScreen(
           isDarkMode: _isDarkMode,
-          onToggleDarkMode: () => setState(() => _isDarkMode = !_isDarkMode),
+          onToggleDarkMode: _toggleDarkMode,
         );
       case 3:
         return ProfileScreen(isDarkMode: _isDarkMode);
       default:
         return HomeScreen(
           isDarkMode: _isDarkMode,
-          onToggleDarkMode: () => setState(() => _isDarkMode = !_isDarkMode),
+          onToggleDarkMode: _toggleDarkMode,
         );
     }
   }

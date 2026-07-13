@@ -10,9 +10,12 @@ import 'data/creations_manager.dart';
 import 'data/profile_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
+import 'services/theme_preference_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await ThemePreferenceService.load();
 
   try {
     // تحميل ملف .env
