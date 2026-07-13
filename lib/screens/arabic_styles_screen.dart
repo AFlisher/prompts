@@ -38,7 +38,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _isDark ? AppTheme.black : AppTheme.white;
+    final bgColor = _isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
 
     final categories = StyleProvider.of(context).categories;

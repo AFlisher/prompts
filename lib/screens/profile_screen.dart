@@ -89,7 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _isDark ? AppTheme.black : AppTheme.white;
+    final bgColor = _isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 

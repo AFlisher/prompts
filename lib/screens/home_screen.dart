@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final bgColor = isDark ? AppTheme.black : AppTheme.white;
+    final bgColor = isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
 
     return Scaffold(

@@ -158,7 +158,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = widget.isDarkMode ? AppTheme.black : AppTheme.white;
+    final bgColor = widget.isDarkMode ? AppTheme.black : AppTheme.lightBackground;
     final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
     final creditManager = CreditProvider.of(context);
 

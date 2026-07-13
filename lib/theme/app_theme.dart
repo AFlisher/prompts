@@ -7,6 +7,10 @@ class AppTheme {
   static const Color darkCard = Color(0xFF141414);
   static const Color darkSurface = Color(0xFF1C1C1C);
   static const Color white = Color(0xFFFFFFFF);
+  // Primary Light Theme scaffold/background color - deliberately distinct
+  // from `white`, which stays pure white for cards/dialogs/sheets so those
+  // surfaces remain visibly lighter than the page behind them.
+  static const Color lightBackground = Color(0xFFFFFAF3);
   static const Color lightGray = Color(0xFFF0F0F0);
   static const Color mediumGray = Color(0xFF8A8A8A);
   static const Color accentPurple = Color(0xFF7C3AED);
@@ -56,7 +60,7 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    scaffoldBackgroundColor: white,
+    scaffoldBackgroundColor: lightBackground,
     colorScheme: const ColorScheme.light(
       primary: black,
       secondary: accentPurple,

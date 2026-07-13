@@ -18,7 +18,7 @@ class MyCreationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDarkMode ? AppTheme.black : AppTheme.white;
+    final bgColor = isDarkMode ? AppTheme.black : AppTheme.lightBackground;
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
     final creationsManager = CreationsProvider.of(context);
     final creations = creationsManager.creations;

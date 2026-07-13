@@ -145,7 +145,7 @@ class _MainShellState extends State<MainShell> {
       );
     }
 
-    final bgColor = _isDarkMode ? AppTheme.black : AppTheme.white;
+    final bgColor = _isDarkMode ? AppTheme.black : AppTheme.lightBackground;
     final creationsManager = CreationsProvider.of(context);
     final currentIndex = creationsManager.currentTab;
 
