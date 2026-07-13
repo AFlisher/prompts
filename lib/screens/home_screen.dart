@@ -259,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     style: style,
                     isDarkMode: isDark,
                     onTap: () => _onStyleTapped(style),
+                    cardWidth: 135,
                   ),
                 );
               },

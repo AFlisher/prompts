@@ -50,6 +50,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     final bgColor = widget.isDarkMode ? AppTheme.black : AppTheme.lightBackground;
     final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
     final favManager = FavoritesProvider.of(context);
+    // Matches the GridView below: crossAxisCount 2, 20px padding each side,
+    // 12px crossAxisSpacing.
+    final cardWidth = (MediaQuery.sizeOf(context).width - 40 - 12) / 2;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -140,6 +143,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     return StyleCard(
                       style: style,
                       isDarkMode: widget.isDarkMode,
+                      cardWidth: cardWidth,
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.push(

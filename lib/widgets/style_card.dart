@@ -20,6 +20,16 @@ class StyleCard extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onTap;
 
+  /// The card's rendered width (logical pixels), already known by every
+  /// caller from their own fixed-width or grid layout. Passed in explicitly
+  /// so the image can be decoded at roughly its displayed size without a
+  /// LayoutBuilder - measuring via LayoutBuilder forces this widget's whole
+  /// image Stack to be built during the layout phase instead of the normal
+  /// build phase, which was the real cause of a residual scroll-jank cost
+  /// (previously misattributed to image decode, confirmed via profiling to
+  /// be a LAYOUT-phase cost instead).
+  final double cardWidth;
+
   /// When provided, renders a heart button in place of the Trending/Premium
   /// badges (Favorites screen's "remove" affordance takes their spot).
   final VoidCallback? onUnfavorite;
@@ -29,6 +39,7 @@ class StyleCard extends StatefulWidget {
     required this.style,
     required this.isDarkMode,
     required this.onTap,
+    required this.cardWidth,
     this.onUnfavorite,
   });
 
@@ -44,6 +55,19 @@ class _StyleCardState extends State<StyleCard> {
     final style = widget.style;
     final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
     final showPromoBadges = widget.onUnfavorite == null;
+
+    // Decode the image at roughly its displayed size (in device pixels)
+    // rather than its native resolution - cover images are typically much
+    // larger than this thumbnail box, and decoding every one at full size is
+    // a common cause of scroll jank when many cards build at once. cardWidth
+    // is already known by the caller, so this only needs a normal build-time
+    // MediaQuery read - no LayoutBuilder (whose layout-phase rebuild cost
+    // was the real, profiler-confirmed source of a residual scroll-jank
+    // regression) is needed to find it.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (widget.cardWidth * dpr).round();
+    final cacheHeight =
+        (widget.cardWidth / StyleCard.imageAspectRatio * dpr).round();
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -62,62 +86,48 @@ class _StyleCardState extends State<StyleCard> {
               aspectRatio: StyleCard.imageAspectRatio,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Decode at the card's actual rendered size (in device
-                    // pixels) rather than the image's native resolution -
-                    // cover images are typically much larger than this
-                    // thumbnail box, and decoding every one at full size is
-                    // what causes scroll jank when several cards build at
-                    // once.
-                    final dpr = MediaQuery.of(context).devicePixelRatio;
-                    final cacheWidth = (constraints.maxWidth * dpr).round();
-                    final cacheHeight = (constraints.maxHeight * dpr).round();
-
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: buildStyleImage(
-                            style.displayImage,
-                            fit: BoxFit.cover,
-                            memCacheWidth: cacheWidth,
-                            memCacheHeight: cacheHeight,
-                          ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: buildStyleImage(
+                        style.displayImage,
+                        fit: BoxFit.cover,
+                        memCacheWidth: cacheWidth,
+                        memCacheHeight: cacheHeight,
+                      ),
+                    ),
+                    if (showPromoBadges && style.isTrending)
+                      const Positioned(
+                        top: 8,
+                        left: 8,
+                        child: _CardBadge(
+                          label: 'Trending',
+                          color: Color(0xFFFF5E5E),
+                          textColor: Colors.white,
                         ),
-                        if (showPromoBadges && style.isTrending)
-                          const Positioned(
-                            top: 8,
-                            left: 8,
-                            child: _CardBadge(
-                              label: 'Trending',
-                              color: Color(0xFFFF5E5E),
-                              textColor: Colors.white,
-                            ),
-                          ),
-                        if (showPromoBadges && style.isPro)
-                          const Positioned(
-                            top: 8,
-                            right: 8,
-                            child: _CardBadge(
-                              label: 'Premium',
-                              color: Color(0xFFFFD700),
-                              textColor: Colors.black,
-                            ),
-                          ),
-                        if (widget.onUnfavorite != null)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
-                          ),
-                        Positioned(
-                          bottom: 8,
-                          left: 8,
-                          child: _CreditBadge(creditCost: style.creditCost),
+                      ),
+                    if (showPromoBadges && style.isPro)
+                      const Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _CardBadge(
+                          label: 'Premium',
+                          color: Color(0xFFFFD700),
+                          textColor: Colors.black,
                         ),
-                      ],
-                    );
-                  },
+                      ),
+                    if (widget.onUnfavorite != null)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
+                      ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: _CreditBadge(creditCost: style.creditCost),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -54,6 +54,9 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     );
     final styles = arabicCategory.styles;
     final isCategoryLoading = styleManager.isCategoryLoading('arabic');
+    // Matches the SliverGrid below: crossAxisCount 2, 20px padding each
+    // side, 12px crossAxisSpacing.
+    final cardWidth = (MediaQuery.sizeOf(context).width - 40 - 12) / 2;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -139,6 +142,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                         style: style,
                         isDarkMode: _isDark,
                         onTap: () => _openDetails(context, style),
+                        cardWidth: cardWidth,
                       );
                     },
                     childCount: styles.length,
