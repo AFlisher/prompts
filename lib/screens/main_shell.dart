@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../widgets/floating_nav_bar_metrics.dart';
 import '../main.dart';
 import 'home_screen.dart';
 import 'creations_screen.dart';
@@ -141,6 +142,7 @@ class _MainShellState extends State<MainShell> {
     final bgColor = _isDarkMode ? AppTheme.black : AppTheme.white;
     final creationsManager = CreationsProvider.of(context);
     final currentIndex = creationsManager.currentTab;
+    final outerMediaQuery = MediaQuery.of(context);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -152,27 +154,39 @@ class _MainShellState extends State<MainShell> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.0, 0.02),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: KeyedSubtree(
-                  key: ValueKey<int>(currentIndex),
-                  child: _buildScreen(currentIndex),
+            // Overrides the bottom safe-area inset every tab screen's own
+            // SafeArea already reads, so the floating bar's full footprint
+            // (its height + margin + the real inset) is reserved
+            // automatically - no per-screen padding needed, now or for any
+            // screen added under this Stack later.
+            child: MediaQuery(
+              data: outerMediaQuery.copyWith(
+                padding: outerMediaQuery.padding.copyWith(
+                  bottom: FloatingNavBarMetrics.bottomClearance(context),
+                ),
+              ),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(currentIndex),
+                    child: _buildScreen(currentIndex),
+                  ),
                 ),
               ),
             ),
@@ -228,7 +242,12 @@ class _GlassNavBarState extends State<_GlassNavBar> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 8),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        bottomInset + FloatingNavBarMetrics.floatingMargin,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
@@ -242,7 +261,9 @@ class _GlassNavBarState extends State<_GlassNavBar> {
           child: AnimatedContainer(
             duration: _collapseDuration,
             curve: Curves.easeInOut,
-            height: widget.collapsed ? 56 : 72,
+            height: widget.collapsed
+                ? FloatingNavBarMetrics.collapsedHeight
+                : FloatingNavBarMetrics.expandedHeight,
             decoration: BoxDecoration(
               color: widget.isDarkMode
                   ? Colors.white.withValues(alpha: 0.08)
