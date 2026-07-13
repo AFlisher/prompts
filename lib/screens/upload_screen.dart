@@ -12,6 +12,11 @@ import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
 import 'image_preview_screen.dart';
 import 'paywall_screen.dart';
+import '../utils/image_helper.dart';
+import '../data/credit_manager.dart';
+import '../services/api_service.dart';
+import '../widgets/watch_ad_button.dart';
+import '../widgets/app_bottom_sheet.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -37,6 +42,7 @@ class _UploadScreenState extends State<UploadScreen> {
   String _generationStatus = 'Uploading photo...';
   bool _generationComplete = false;
   Timer? _generationTimer;
+  bool _isCheckingBalance = false;
 
   @override
   void initState() {
@@ -49,23 +55,41 @@ class _UploadScreenState extends State<UploadScreen> {
     widget.onToggleDarkMode?.call();
   }
 
-  void _startGeneration() {
+  void _startGeneration() async {
     if (_selectedImagePath == null) return;
-    
+
     final creditManager = CreditProvider.of(context);
-    if (creditManager.credits <= 0) {
-      HapticFeedback.lightImpact();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PaywallScreen(isDarkMode: _isDark),
-        ),
-      );
-      return;
+    
+    setState(() {
+      _isCheckingBalance = true;
+    });
+
+    try {
+      // 1. Fetch current wallet balance from backend
+      await creditManager.fetchWallet();
+    } catch (e) {
+      debugPrint("Error checking wallet balance: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingBalance = false;
+        });
+      }
     }
 
-    // Deduct 1 credit locally
-    creditManager.useCredit();
+    if (!mounted) return;
+
+    // 2. If balance >= style cost, proceed to actual generation
+    if (creditManager.balance >= widget.style.creditCost) {
+      _startGenerationActual(creditManager);
+    } else {
+      // 3. Otherwise, prompt Not Enough Credits bottom sheet
+      _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+    }
+  }
+
+  void _startGenerationActual(CreditManager creditManager) async {
+    final apiService = ApiService();
 
     HapticFeedback.mediumImpact();
     setState(() {
@@ -74,38 +98,163 @@ class _UploadScreenState extends State<UploadScreen> {
       _generationStatus = 'Uploading photo...';
     });
 
-    _generationTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    // Start local progress bar simulation for smooth UI rendering
+    _generationTimer?.cancel();
+    _generationTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
+      if (!mounted || !_isGenerating) {
+        timer.cancel();
+        return;
+      }
       setState(() {
-        _generationProgress += 0.025;
+        if (_generationProgress < 0.9) {
+          _generationProgress += 0.02;
+        }
         if (_generationProgress >= 0.25 && _generationProgress < 0.5) {
           _generationStatus = 'Analyzing facial features...';
         } else if (_generationProgress >= 0.5 && _generationProgress < 0.75) {
           _generationStatus =
               'Applying ${widget.style.name.replaceAll(' Style', '')} style layers...';
-        } else if (_generationProgress >= 0.75 && _generationProgress < 0.95) {
+        } else if (_generationProgress >= 0.75 && _generationProgress < 0.9) {
           _generationStatus = 'Refining shadows and details...';
-        } else if (_generationProgress >= 1.0) {
-          _generationProgress = 1.0;
-          _isGenerating = false;
-          _generationComplete = true;
-          timer.cancel();
-          HapticFeedback.heavyImpact();
-
-          // Add to creations dynamically
-          final creationsManager = CreationsProvider.of(context);
-          creationsManager.addCreation(
-            CreationItem(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              styleId: widget.style.id,
-              styleName: widget.style.name,
-              imagePath: widget.style.imagePath,
-              originalImagePath: _selectedImagePath,
-              createdAt: DateTime.now(),
-            ),
-          );
         }
       });
     });
+
+    try {
+      // 4. Trigger backend generation pipeline which validates and deducts balance
+      final generatedImageUrl = await apiService.generateStyleImage(
+        _selectedImagePath!,
+        widget.style.id,
+      );
+
+      // Cancel local animation timer and sync wallet stats from server
+      _generationTimer?.cancel();
+      await creditManager.fetchWallet();
+
+      if (mounted) {
+        setState(() {
+          _generationProgress = 1.0;
+          _isGenerating = false;
+          _generationComplete = true;
+          _generationStatus = 'Success';
+        });
+        HapticFeedback.heavyImpact();
+
+        // Add to creations
+        final creationsManager = CreationsProvider.of(context);
+        creationsManager.addCreation(
+          CreationItem(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            styleId: widget.style.id,
+            styleName: widget.style.name,
+            imagePath: generatedImageUrl,
+            originalImagePath: _selectedImagePath,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("[Generation] API Error: $e");
+      _generationTimer?.cancel();
+      
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+
+        if (e is ApiException) {
+          if (e.code == 'INSUFFICIENT_BALANCE') {
+            _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+          } else if (e.code == 'PROVIDER_UNAVAILABLE') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Image generation is temporarily unavailable.\nPlease try again later.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Generation failed: ${e.message}'),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              ),
+            );
+          }
+        } else {
+          // Fallback for non-ApiException errors (e.g. network failures) that
+          // carry no structured code.
+          final errorMsg = e.toString();
+          final errorMsgLower = errorMsg.toLowerCase();
+          if (errorMsgLower.contains('insufficient balance') || errorMsgLower.contains('credits')) {
+            _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+          } else if (errorMsgLower.contains('temporarily unavailable')) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Image generation is temporarily unavailable.\nPlease try again later.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Generation failed: ${errorMsg.replaceAll('Exception: ', '')}'),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  void _showNotEnoughCreditsSheet(BuildContext context, CreditManager creditManager, int requiredCredits) {
+    showAppBottomSheet(
+      context,
+      isDarkMode: _isDark,
+      isScrollControlled: true,
+      contentBuilder: (context) {
+        return _NotEnoughCreditsSheet(
+          isDarkMode: _isDark,
+          creditManager: creditManager,
+          requiredCredits: requiredCredits,
+          onBuyCreditsTap: () {
+            Navigator.pop(context); // Close the bottom sheet
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PaywallScreen(isDarkMode: _isDark),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -234,8 +383,8 @@ class _UploadScreenState extends State<UploadScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.asset(
-                                widget.style.imagePath,
+                              buildStyleImage(
+                                widget.style.displayImage,
                                 fit: BoxFit.cover,
                               ),
                               Positioned(
@@ -429,6 +578,25 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          if (_isCheckingBalance)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.75),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.accentPurple),
+                      SizedBox(height: 16),
+                      Text(
+                        'Checking balance...',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -912,3 +1080,119 @@ class _MetallicStyles {
     );
   }
 }
+
+class _NotEnoughCreditsSheet extends StatelessWidget {
+  final bool isDarkMode;
+  final CreditManager creditManager;
+  final VoidCallback onBuyCreditsTap;
+  final int requiredCredits;
+
+  const _NotEnoughCreditsSheet({
+    required this.isDarkMode,
+    required this.creditManager,
+    required this.onBuyCreditsTap,
+    this.requiredCredits = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
+    final secondaryTextColor = AppTheme.mediumGray;
+
+    return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Star icon badge
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.accentPurple.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.stars_rounded,
+                color: AppTheme.accentPurple,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            Text(
+              'Not Enough Credits',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Description
+            Text(
+              'You need $requiredCredits ${requiredCredits == 1 ? 'credit' : 'credits'} to generate this image.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: secondaryTextColor,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Action Buttons
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onBuyCreditsTap,
+                icon: const Icon(Icons.credit_card_rounded, color: Colors.white, size: 20),
+                label: const Text(
+                  'Buy Credits',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentPurple,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            AnimatedBuilder(
+              animation: creditManager,
+              builder: (context, _) {
+                if (creditManager.dailyLimitReached) return const SizedBox.shrink();
+
+                return Column(
+                  children: [
+                    WatchAdButton(
+                      creditManager: creditManager,
+                      onRewarded: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
+
+            TextButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context);
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: secondaryTextColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+  }
+}
+

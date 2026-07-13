@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,9 +19,53 @@ class AuthService {
   static const String _refreshTokenKey = 'custom_refresh_token';
   static const String _emailConfirmedAtKey = 'custom_email_confirmed_at';
 
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
   String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
 
   User? get currentUser => Supabase.instance.client.auth.currentUser;
+
+  /// Reads a token from secure storage, transparently migrating a legacy
+  /// plaintext SharedPreferences value on first read so existing sessions
+  /// survive the upgrade instead of being silently signed out.
+  Future<String?> _readToken(String key) async {
+    final value = await _secureStorage.read(key: key);
+    if (value != null) return value;
+
+    final prefs = await SharedPreferences.getInstance();
+    final legacy = prefs.getString(key);
+    if (legacy != null) {
+      await _secureStorage.write(key: key, value: legacy);
+      await prefs.remove(key);
+    }
+    return legacy;
+  }
+
+  Future<void> _writeToken(String key, String value) async {
+    await _secureStorage.write(key: key, value: value);
+  }
+
+  Future<void> _deleteToken(String key) async {
+    await _secureStorage.delete(key: key);
+    // Also clear any not-yet-migrated legacy copy.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
+  /// Retrieves the current access token, if any.
+  Future<String?> getAccessToken() => _readToken(_accessTokenKey);
+
+  /// Retrieves the user ID of the currently logged-in user from the JWT custom token.
+  Future<String?> getAuthenticatedUserId() async {
+    try {
+      final accessToken = await _readToken(_accessTokenKey);
+      if (accessToken == null) return null;
+      final payload = _parseJwt(accessToken);
+      return payload['sub'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Restores session on app startup
   Future<void> initializeSession() async {
@@ -93,14 +138,13 @@ class AuthService {
     
     debugPrint("[AuthService] Login credentials validated. emailConfirmedAt: $emailConfirmedAt");
 
-    // Save tokens in SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
+    // Save tokens in secure storage
+    await _writeToken(_accessTokenKey, accessToken);
+    await _writeToken(_refreshTokenKey, refreshToken);
     if (emailConfirmedAt != null) {
-      await prefs.setString(_emailConfirmedAtKey, emailConfirmedAt);
+      await _writeToken(_emailConfirmedAtKey, emailConfirmedAt);
     }
-    debugPrint("[AuthService] Token Save Complete. Saved custom_access_token, custom_refresh_token, and emailConfirmedAt to SharedPreferences.");
+    debugPrint("[AuthService] Token Save Complete. Saved custom_access_token, custom_refresh_token, and emailConfirmedAt to secure storage.");
 
     // Inject custom JWT into Supabase client to restore session locally
     final authRes = await _injectSession(accessToken, emailConfirmedAt: emailConfirmedAt);
@@ -135,13 +179,12 @@ class AuthService {
     debugPrint("[AuthService] Google sign-in validated. emailConfirmedAt: $emailConfirmedAt");
 
     // Save tokens — identical to email login
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
+    await _writeToken(_accessTokenKey, accessToken);
+    await _writeToken(_refreshTokenKey, refreshToken);
     if (emailConfirmedAt != null) {
-      await prefs.setString(_emailConfirmedAtKey, emailConfirmedAt);
+      await _writeToken(_emailConfirmedAtKey, emailConfirmedAt);
     }
-    debugPrint("[AuthService] Google sign-in tokens saved to SharedPreferences.");
+    debugPrint("[AuthService] Google sign-in tokens saved to secure storage.");
 
     // Inject custom JWT into Supabase client locally — same as email login
     final authRes = await _injectSession(accessToken, emailConfirmedAt: emailConfirmedAt);
@@ -171,22 +214,38 @@ class AuthService {
     final newRefreshToken = data['refreshToken'] as String;
 
     // Save new tokens
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, newAccessToken);
-    await prefs.setString(_refreshTokenKey, newRefreshToken);
-    debugPrint("[AuthService] Token Save Complete (after refresh). Updated tokens saved in SharedPreferences.");
+    await _writeToken(_accessTokenKey, newAccessToken);
+    await _writeToken(_refreshTokenKey, newRefreshToken);
+    debugPrint("[AuthService] Token Save Complete (after refresh). Updated tokens saved in secure storage.");
 
     // Update Supabase Client session locally
     await _injectSession(newAccessToken);
   }
 
+  static Future<bool>? _activeSessionCheck;
+
   /// Ensures current session is valid; auto-refreshes if access token is expired.
   /// Returns true if the session is successfully verified and restored locally.
   Future<bool> ensureValidSession() async {
+    if (_activeSessionCheck != null) {
+      debugPrint("[AuthService] Reusing active ensureValidSession check future.");
+      return _activeSessionCheck!;
+    }
+
+    final checkFuture = _ensureValidSessionInternal();
+    _activeSessionCheck = checkFuture;
+
+    try {
+      return await checkFuture;
+    } finally {
+      _activeSessionCheck = null;
+    }
+  }
+
+  Future<bool> _ensureValidSessionInternal() async {
     debugPrint("[AuthService] Calling ensureValidSession()...");
-    final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString(_accessTokenKey);
-    final refreshToken = prefs.getString(_refreshTokenKey);
+    final accessToken = await _readToken(_accessTokenKey);
+    final refreshToken = await _readToken(_refreshTokenKey);
 
     debugPrint("[AuthService] Token Load Complete. Loaded custom_access_token exists: ${accessToken != null}, custom_refresh_token exists: ${refreshToken != null}");
 
@@ -235,8 +294,7 @@ class AuthService {
     // Ensure we have a valid session (refreshes the token if it was expired!)
     await ensureValidSession();
 
-    final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString(_accessTokenKey);
+    final accessToken = await _readToken(_accessTokenKey);
 
     if (accessToken == null) {
       throw AuthException("User is not authenticated.");
@@ -267,11 +325,10 @@ class AuthService {
 
   /// Sign Out
   Future<void> signOut() async {
-    debugPrint("[AuthService] Signing out. Clearing saved tokens from SharedPreferences...");
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
-    await prefs.remove(_emailConfirmedAtKey);
+    debugPrint("[AuthService] Signing out. Clearing saved tokens from secure storage...");
+    await _deleteToken(_accessTokenKey);
+    await _deleteToken(_refreshTokenKey);
+    await _deleteToken(_emailConfirmedAtKey);
     try {
       await Supabase.instance.client.auth.signOut();
       debugPrint("[AuthService] Supabase client signed out.");
@@ -369,10 +426,7 @@ class AuthService {
       final expiresIn = exp - nowSeconds;
 
       String? confirmedAt = emailConfirmedAt;
-      if (confirmedAt == null) {
-        final prefs = await SharedPreferences.getInstance();
-        confirmedAt = prefs.getString(_emailConfirmedAtKey);
-      }
+      confirmedAt ??= await _readToken(_emailConfirmedAtKey);
 
       final sessionJson = json.encode({
         'access_token': accessToken,

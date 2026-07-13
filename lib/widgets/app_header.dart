@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../screens/paywall_screen.dart';
@@ -97,7 +98,7 @@ class AppHeader extends StatelessWidget {
                         ),
                   image: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
                       ? DecorationImage(
-                          image: NetworkImage(profile.avatarUrl!),
+                          image: CachedNetworkImageProvider(profile.avatarUrl!),
                           fit: BoxFit.cover,
                         )
                       : null,

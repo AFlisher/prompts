@@ -1,29 +1,41 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/style_model.dart';
+import '../services/api_service.dart';
+import '../services/local_cache_service.dart';
 
 class CategoryModel {
   final String id;
   final String name;
   final List<StyleModel> styles;
 
+  /// Whether this category's style set has ever been successfully resolved
+  /// (from cache or network) at least once this session - independent of
+  /// whether the resolved set turned out to be empty. Without this,
+  /// `styles.isEmpty` can't distinguish "never loaded" from "loaded, and
+  /// genuinely has zero styles," which caused empty categories to reload
+  /// forever (every notifyListeners() re-triggered a reload that could
+  /// never make `styles` non-empty).
+  final bool hasLoadedStyles;
+
   CategoryModel({
     required this.id,
     required this.name,
     required this.styles,
+    this.hasLoadedStyles = false,
   });
 
   CategoryModel copyWith({
     String? id,
     String? name,
     List<StyleModel>? styles,
+    bool? hasLoadedStyles,
   }) {
     return CategoryModel(
       id: id ?? this.id,
       name: name ?? this.name,
       styles: styles ?? this.styles,
+      hasLoadedStyles: hasLoadedStyles ?? this.hasLoadedStyles,
     );
   }
 
@@ -48,422 +60,350 @@ class CategoryModel {
 class DynamicStyleManager extends ChangeNotifier {
   List<CategoryModel> _categories = [];
   bool _isInitialized = false;
+  bool _isLoading = false;
+  String? _error;
+
+  final ApiService _apiService = ApiService();
+  final LocalCacheService _cacheService = LocalCacheService();
+
+  // Active future requests deduplication map
+  final Map<String, Future<void>> _activeStyleFetches = {};
+
+  // Track loading state for each category ID
+  final Set<String> _loadingCategoryIds = {};
 
   List<CategoryModel> get categories => List.unmodifiable(_categories);
   bool get isInitialized => _isInitialized;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  /// Get the directory file path for storage
-  Future<File> get _localFile async {
-    final directory = await getApplicationDocumentsDirectory();
-    return File('${directory.path}/dynamic_styles_v2.json');
-  }
+  bool isCategoryLoading(String categoryId) => _loadingCategoryIds.contains(categoryId);
 
-  /// Initialize and load styles from storage, or seed with initial values
+  /// Initialize and load categories from cache first, then sync categories from backend API
   Future<void> init() async {
     if (_isInitialized) return;
+
+    // Load cached categories immediately
+    await _loadCategoriesFromCache();
+
+    // Start background sync
+    fetchCategories().then((_) {
+      _isInitialized = true;
+    }).catchError((e) {
+      _isInitialized = true;
+      debugPrint("[DynamicStyleManager] Background sync initialization error: $e");
+    });
+  }
+
+  /// Loads Categories immediately from local cache (without loading all styles)
+  Future<void> _loadCategoriesFromCache() async {
     try {
-      final file = await _localFile;
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        final List<dynamic> jsonList = json.decode(content);
-        _categories = jsonList.map((c) => CategoryModel.fromJson(c)).toList();
-      } else {
-        // Seed default styles on first run
-        _categories = _getDefaultCategories();
-        await save();
+      final cachedCats = await _cacheService.getCachedData('categories_cache');
+      if (cachedCats is List) {
+        final List<CategoryModel> loaded = [];
+        for (final catJson in cachedCats) {
+          if (catJson is Map) {
+            final String catId = (catJson['id'] as String?) ?? '';
+            final String catName = (catJson['name'] as String?) ?? '';
+
+            loaded.add(CategoryModel(
+              id: catId,
+              name: catName,
+              styles: [], // Styles are lazy-loaded
+            ));
+          }
+        }
+        if (loaded.isNotEmpty) {
+          _categories = loaded;
+          notifyListeners();
+          debugPrint("[DynamicStyleManager] Loaded ${loaded.length} categories from cache (lazy styles).");
+        }
       }
     } catch (e) {
-      debugPrint("Error loading dynamic styles: $e");
-      _categories = _getDefaultCategories();
+      debugPrint("[DynamicStyleManager] Error loading cached categories: $e");
     }
-    _isInitialized = true;
-    notifyListeners();
   }
 
-  /// Save state to local JSON file
-  Future<void> save() async {
+  /// Fetches Categories from backend (does not fetch styles).
+  ///
+  /// [forceRefresh] bypasses the 24h cache TTL entirely - used for explicit
+  /// user-initiated refresh (pull-to-refresh), so a still-valid local cache
+  /// can never mask categories added/removed on the backend when the user
+  /// has explicitly asked for fresh data. Normal app-startup calls leave
+  /// this false and keep the existing cache behavior unchanged.
+  Future<void> fetchCategories({bool forceRefresh = false}) async {
+    final hasCachedCategories = _categories.isNotEmpty;
+    if (!hasCachedCategories) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
     try {
-      final file = await _localFile;
-      final content = json.encode(_categories.map((c) => c.toJson()).toList());
-      await file.writeAsString(content);
+      // Categories Cache TTL: 24 hours (86400000 ms)
+      final int? timestamp = await _cacheService.getCacheTimestamp('categories_cache');
+      final bool isCacheValid = !forceRefresh &&
+          timestamp != null &&
+          (DateTime.now().millisecondsSinceEpoch - timestamp) < 86400000;
+
+      if (isCacheValid && hasCachedCategories) {
+        debugPrint("[DynamicStyleManager] Categories cache still valid. Skipping network load.");
+        if (_isLoading) {
+          _isLoading = false;
+          notifyListeners();
+        }
+        return;
+      }
+
+      final cats = await _apiService.getCategories();
+      // Filter enabled and sort categories
+      final enabledCats = cats.where((c) => c.isEnabled).toList();
+      enabledCats.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+      final List<Map<String, String>> categoriesCacheList = enabledCats.map((cat) => {
+        'id': cat.id,
+        'name': cat.name,
+      }).toList();
+
+      final String newCatsJson = json.encode(categoriesCacheList);
+      final oldCatsJson = await _cacheService.getCachedData('categories_cache');
+      final String oldCatsStr = oldCatsJson != null ? json.encode(oldCatsJson) : '';
+
+      // forceRefresh always takes this branch, even when the backend list is
+      // byte-identical to the cache - a successful force refresh must still
+      // update the cache timestamp so the 24h TTL window restarts from now.
+      if (newCatsJson != oldCatsStr || !hasCachedCategories || forceRefresh) {
+        final List<CategoryModel> updated = [];
+        for (final catMap in categoriesCacheList) {
+          final String catId = catMap['id']!;
+          final String catName = catMap['name']!;
+
+          final existingIdx = _categories.indexWhere((c) => c.id == catId);
+          final List<StyleModel> existingStyles = existingIdx != -1 ? _categories[existingIdx].styles : [];
+          final bool existingHasLoadedStyles = existingIdx != -1 && _categories[existingIdx].hasLoadedStyles;
+
+          updated.add(CategoryModel(
+            id: catId,
+            name: catName,
+            styles: existingStyles,
+            hasLoadedStyles: existingHasLoadedStyles,
+          ));
+        }
+
+        _categories = updated;
+        await _cacheService.cacheData('categories_cache', categoriesCacheList);
+        debugPrint("[DynamicStyleManager] Categories updated successfully.");
+
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      } else {
+        debugPrint("[DynamicStyleManager] Categories are up to date.");
+        if (_isLoading) {
+          _isLoading = false;
+          _error = null;
+          notifyListeners();
+        }
+      }
     } catch (e) {
-      debugPrint("Error saving dynamic styles: $e");
+      debugPrint("[DynamicStyleManager] Error fetching categories: $e");
+      if (!hasCachedCategories) {
+        _error = 'Failed to load categories: $e';
+        _isLoading = false;
+        notifyListeners();
+      } else {
+        if (_isLoading) {
+          _isLoading = false;
+          notifyListeners();
+        }
+      }
     }
   }
 
-  /// Add a new category
-  Future<void> addCategory(String name) async {
-    final id = name.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-    // Prevent duplicate IDs
-    if (_categories.any((c) => c.id == id)) return;
+  /// Lazy-loads styles for a specific category
+  Future<void> loadStylesForCategory(String categoryId) async {
+    // 1. Request Deduplication: reuse active future if currently fetching
+    if (_activeStyleFetches.containsKey(categoryId)) {
+      debugPrint("[DynamicStyleManager] Deduplicating request: awaiting active future for category $categoryId");
+      return _activeStyleFetches[categoryId];
+    }
 
-    _categories.add(CategoryModel(
-      id: id,
-      name: name,
-      styles: [],
-    ));
-    await save();
-    notifyListeners();
+    final fetchFuture = _loadStylesForCategoryInternal(categoryId);
+    _activeStyleFetches[categoryId] = fetchFuture;
+
+    try {
+      await fetchFuture;
+    } finally {
+      _activeStyleFetches.remove(categoryId);
+    }
   }
 
-  /// Delete a category
-  Future<void> deleteCategory(String categoryId) async {
-    _categories.removeWhere((c) => c.id == categoryId);
-    await save();
-    notifyListeners();
+  /// Loads favorited styles from active memory or SharedPreferences cache maps without polluting active RAM
+  Future<List<StyleModel>> loadFavoriteStyles(List<String> favoriteIds) async {
+    final List<StyleModel> favorites = [];
+    if (favoriteIds.isEmpty) return favorites;
+
+    for (final cat in _categories) {
+      // 1. Read from memory if styles are already loaded
+      if (cat.styles.isNotEmpty) {
+        favorites.addAll(cat.styles.where((s) => favoriteIds.contains(s.id)));
+        continue;
+      }
+
+      // 2. Otherwise read from specific category cache store
+      final String cacheKey = 'styles_cache_${cat.id}';
+      try {
+        final cachedData = await _cacheService.getCachedData(cacheKey);
+        if (cachedData is List) {
+          for (final sJson in cachedData) {
+            if (sJson is Map) {
+              final style = StyleModel.fromJson(sJson as Map<String, dynamic>);
+              if (favoriteIds.contains(style.id)) {
+                favorites.add(style);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[DynamicStyleManager] Error reading cache during favorites check for category ${cat.id}: $e');
+      }
+    }
+    return favorites;
   }
 
-  /// Add a style to a category
-  Future<void> addStyle(String categoryId, StyleModel style) async {
-    final index = _categories.indexWhere((c) => c.id == categoryId);
-    if (index == -1) return;
+  Future<void> _loadStylesForCategoryInternal(String categoryId) async {
+    var catIdx = _categories.indexWhere((c) => c.id == categoryId);
+    if (catIdx == -1) return;
 
-    final category = _categories[index];
-    final updatedStyles = List<StyleModel>.from(category.styles)..add(style);
-    _categories[index] = category.copyWith(styles: updatedStyles);
+    final hasStylesInMemory = _categories[catIdx].styles.isNotEmpty;
+    final String cacheKey = 'styles_cache_$categoryId';
+    
+    // Load cached styles immediately (without blocking UI)
+    final cachedStylesList = await _cacheService.getCachedData(cacheKey);
+    final List<StyleModel> loadedFromCache = [];
 
-    await save();
-    notifyListeners();
+    if (cachedStylesList is List) {
+      for (final sJson in cachedStylesList) {
+        if (sJson is Map) {
+          loadedFromCache.add(StyleModel.fromJson(sJson as Map<String, dynamic>));
+        }
+      }
+      catIdx = _categories.indexWhere((c) => c.id == categoryId);
+      if (catIdx == -1) return;
+      if (loadedFromCache.isNotEmpty && !hasStylesInMemory) {
+        _categories[catIdx] = _categories[catIdx].copyWith(styles: loadedFromCache, hasLoadedStyles: true);
+        notifyListeners();
+        debugPrint("[DynamicStyleManager] Loaded ${loadedFromCache.length} styles from cache for category $categoryId.");
+      }
+    }
+
+    // Styles Cache TTL: 6 hours (21600000 ms)
+    final int? timestamp = await _cacheService.getCacheTimestamp(cacheKey);
+    final bool isCacheValid = timestamp != null &&
+        (DateTime.now().millisecondsSinceEpoch - timestamp) < 21600000;
+
+    // cachedStylesList != null (not loadedFromCache.isNotEmpty) so a
+    // genuinely-empty-but-cached category still counts as a valid,
+    // fresh cache hit instead of always falling through to the network.
+    if (isCacheValid && cachedStylesList != null) {
+      debugPrint("[DynamicStyleManager] Styles cache valid for category $categoryId. Skipping API call.");
+      catIdx = _categories.indexWhere((c) => c.id == categoryId);
+      if (catIdx != -1 && !_categories[catIdx].hasLoadedStyles) {
+        _categories[catIdx] = _categories[catIdx].copyWith(hasLoadedStyles: true);
+        notifyListeners();
+      }
+      return;
+    }
+
+    catIdx = _categories.indexWhere((c) => c.id == categoryId);
+    if (catIdx == -1) return;
+
+    // Show loading spinner locally inside the category list if no styles are in RAM/cache yet
+    final showLoading = _categories[catIdx].styles.isEmpty;
+    if (showLoading) {
+      _loadingCategoryIds.add(categoryId);
+      notifyListeners();
+    }
+
+    try {
+      final styles = await _apiService.getStylesByCategory(categoryId);
+      final enabledStyles = styles.where((s) => s.isEnabled).toList();
+      enabledStyles.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+      final List<StyleModel> styleModels = enabledStyles.map((s) => s.toStyleModel()).toList();
+      final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+
+      final String newStylesStr = json.encode(stylesJsonList);
+      final String oldStylesStr = cachedStylesList != null ? json.encode(cachedStylesList) : '';
+
+      final bool isDifferent = newStylesStr != oldStylesStr;
+
+      catIdx = _categories.indexWhere((c) => c.id == categoryId);
+      if (catIdx == -1) return;
+
+      if (isDifferent || !_categories[catIdx].hasLoadedStyles) {
+        _categories[catIdx] = _categories[catIdx].copyWith(styles: styleModels, hasLoadedStyles: true);
+        await _cacheService.cacheData(cacheKey, stylesJsonList);
+        debugPrint("[DynamicStyleManager] Cached styles updated for category $categoryId.");
+
+        _loadingCategoryIds.remove(categoryId);
+        notifyListeners();
+      } else {
+        debugPrint("[DynamicStyleManager] Backend styles match cache for category $categoryId.");
+        if (_loadingCategoryIds.remove(categoryId)) {
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("[DynamicStyleManager] Error fetching styles for category $categoryId: $e");
+      if (_loadingCategoryIds.remove(categoryId)) {
+        notifyListeners();
+      }
+      // Offline fallback: continue displaying the cached version
+    }
   }
 
-  /// Delete a style from a category
-  Future<void> deleteStyle(String categoryId, String styleId) async {
-    final index = _categories.indexWhere((c) => c.id == categoryId);
-    if (index == -1) return;
+  /// Preserves API contract and refreshes Categories along with active Categories' styles.
+  /// This is the user-initiated refresh path (pull-to-refresh, error-state
+  /// retry), so it always force-refreshes the category list regardless of
+  /// the 24h cache TTL.
+  Future<void> fetchFromApi() async {
+    await fetchCategories(forceRefresh: true);
 
-    final category = _categories[index];
-    final updatedStyles = List<StyleModel>.from(category.styles)
-      ..removeWhere((s) => s.id == styleId);
-    _categories[index] = category.copyWith(styles: updatedStyles);
+    final activeIds = _categories.where((c) => c.styles.isNotEmpty).map((c) => c.id).toList();
+    for (final catId in activeIds) {
+      try {
+        final catIdx = _categories.indexWhere((c) => c.id == catId);
+        if (catIdx != -1) {
+          final styles = await _apiService.getStylesByCategory(catId);
+          final enabledStyles = styles.where((s) => s.isEnabled).toList();
+          enabledStyles.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
-    await save();
-    notifyListeners();
+          final List<StyleModel> styleModels = enabledStyles.map((s) => s.toStyleModel()).toList();
+          final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+
+          final String newStylesStr = json.encode(stylesJsonList);
+          final String cacheKey = 'styles_cache_$catId';
+          final oldCatsJson = await _cacheService.getCachedData(cacheKey);
+          final String oldStylesStr = oldCatsJson != null ? json.encode(oldCatsJson) : '';
+
+          if (newStylesStr != oldStylesStr || _categories[catIdx].styles.isEmpty) {
+            _categories[catIdx] = _categories[catIdx].copyWith(styles: styleModels);
+            await _cacheService.cacheData(cacheKey, stylesJsonList);
+            notifyListeners();
+          }
+        }
+      } catch (e) {
+        debugPrint("[DynamicStyleManager] Error refreshing active category $catId: $e");
+      }
+    }
   }
 
-  /// Toggle trending status for a style
-  Future<void> toggleTrending(String categoryId, String styleId) async {
-    final catIndex = _categories.indexWhere((c) => c.id == categoryId);
-    if (catIndex == -1) return;
-
-    final category = _categories[catIndex];
-    final styleIndex = category.styles.indexWhere((s) => s.id == styleId);
-    if (styleIndex == -1) return;
-
-    final style = category.styles[styleIndex];
-    final updatedStyle = StyleModel(
-      id: style.id,
-      name: style.name,
-      imagePath: style.imagePath,
-      imageUrl: style.imageUrl,
-      isFavorite: style.isFavorite,
-      isTrending: !style.isTrending,
-      description: style.description,
-      prompt: style.prompt,
-      sortOrder: style.sortOrder,
-      examples: style.examples,
-    );
-
-    final updatedStyles = List<StyleModel>.from(category.styles);
-    updatedStyles[styleIndex] = updatedStyle;
-    _categories[catIndex] = category.copyWith(styles: updatedStyles);
-
-    await save();
-    notifyListeners();
-  }
-
-  /// Helper to get default initial categories list
-  List<CategoryModel> _getDefaultCategories() {
-    return [
-      CategoryModel(
-        id: 'trending',
-        name: 'Trending Styles',
-        styles: [
-          const StyleModel(
-            id: 'arabic',
-            name: 'Arabic Style',
-            imagePath: 'assets/images/style_arabic.jpg',
-            isTrending: true,
-            description: 'A cinematic Arabic-inspired visual style with dramatic lighting, bold colors and vintage aesthetics.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'stussy',
-            name: 'Stussy Style',
-            imagePath: 'assets/images/style_stussy.jpg',
-            isTrending: true,
-            description: 'Urban street-fashion inspired aesthetic featuring high-contrast graphics, grainy filters, and skate culture vibes.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_toon.jpg'],
-          ),
-          const StyleModel(
-            id: '90s',
-            name: '90s Style',
-            imagePath: 'assets/images/style_90s.jpg',
-            isTrending: true,
-            description: 'Nostalgic retro analog look with warm color grading, chromatic aberration, and classic film grain.',
-            examples: ['assets/images/style_90s.jpg', 'assets/images/style_ps2.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_arabic.jpg'],
-          ),
-          const StyleModel(
-            id: 'toon',
-            name: 'Toon Style',
-            imagePath: 'assets/images/style_toon.jpg',
-            isTrending: true,
-            description: 'Whimsical 3D animated character design style with soft clay rendering and vibrant, friendly colors.',
-            examples: ['assets/images/style_toon.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'ps2',
-            name: 'PS2 Style',
-            imagePath: 'assets/images/style_ps2.jpg',
-            isTrending: true,
-            description: 'Nostalgic low-poly early 2000s console rendering with low-res textures, scanlines, and nostalgic gaming vibes.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_arabic.jpg'],
-          ),
-          const StyleModel(
-            id: 'uzi',
-            name: 'Uzi Style',
-            imagePath: 'assets/images/style_uzi.jpg',
-            isTrending: true,
-            description: 'Cyberpunk hip-hop fusion style with glowing neon overlays, dark undertones, and bold futuristic elements.',
-            examples: ['assets/images/style_uzi.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'couples',
-        name: 'Couples Styles',
-        styles: [
-          const StyleModel(
-            id: 'couple_romantic',
-            name: 'Romantic Glow',
-            imagePath: 'assets/images/style_90s.jpg',
-            isPro: true,
-            description: 'Soft warm tones, bokeh lights, and a dreamy haze that wraps two people in golden-hour intimacy.',
-            examples: ['assets/images/style_90s.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_stussy.jpg'],
-          ),
-          const StyleModel(
-            id: 'couple_anime',
-            name: 'Anime Duo',
-            imagePath: 'assets/images/style_toon.jpg',
-            isPro: true,
-            description: 'Transform your couple photo into a vibrant anime scene with cherry blossoms and cel-shaded lines.',
-            examples: ['assets/images/style_toon.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'couple_vintage',
-            name: 'Vintage Pair',
-            imagePath: 'assets/images/style_stussy.jpg',
-            isPro: true,
-            description: 'Old Hollywood glamour with sepia washes, soft vignettes, and classic film-stock grain for two.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'couple_comic',
-            name: 'Comic Love',
-            imagePath: 'assets/images/style_uzi.jpg',
-            isPro: true,
-            description: 'Bold pop-art comic panels with halftone dots, speech bubbles, and vivid superhero-poster colors.',
-            examples: ['assets/images/style_uzi.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_90s.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'fantasy',
-        name: 'Fantasy Styles',
-        styles: [
-          const StyleModel(
-            id: 'fantasy_elf',
-            name: 'Elven Portrait',
-            imagePath: 'assets/images/style_arabic.jpg',
-            isPro: true,
-            description: 'Enchanted forest lighting with pointed-ear overlays, mystical runes, and ethereal bloom effects.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_ps2.jpg', 'assets/images/style_uzi.jpg'],
-          ),
-          const StyleModel(
-            id: 'fantasy_dragon',
-            name: 'Dragon Rider',
-            imagePath: 'assets/images/style_uzi.jpg',
-            isPro: true,
-            description: 'Epic cinematic composition with fire-breathing dragon silhouettes, smoldering embers, and dark skies.',
-            examples: ['assets/images/style_uzi.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'fantasy_wizard',
-            name: 'Wizard Academy',
-            imagePath: 'assets/images/style_ps2.jpg',
-            isPro: true,
-            description: 'Magical school aesthetic with floating candles, spell particles, enchanted robes, and gothic arches.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_stussy.jpg'],
-          ),
-          const StyleModel(
-            id: 'fantasy_fairy',
-            name: 'Fairy Garden',
-            imagePath: 'assets/images/style_toon.jpg',
-            isPro: true,
-            description: 'Whimsical miniature world with glowing wings, flower crowns, soft pastel palette, and sparkle dust.',
-            examples: ['assets/images/style_toon.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_uzi.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'vintage',
-        name: 'Vintage Styles',
-        styles: [
-          const StyleModel(
-            id: 'vintage_polaroid',
-            name: 'Polaroid',
-            imagePath: 'assets/images/style_90s.jpg',
-            isPro: true,
-            description: 'Instant-camera look with white borders, faded colors, light leaks, and that authentic throwback feel.',
-            examples: ['assets/images/style_90s.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_toon.jpg'],
-          ),
-          const StyleModel(
-            id: 'vintage_film',
-            name: 'Film Noir',
-            imagePath: 'assets/images/style_ps2.jpg',
-            isPro: true,
-            description: 'Classic black-and-white detective era with harsh shadows, venetian blinds light, and cigarette smoke.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_arabic.jpg'],
-          ),
-          const StyleModel(
-            id: 'vintage_70s',
-            name: '70s Retro',
-            imagePath: 'assets/images/style_stussy.jpg',
-            isPro: true,
-            description: 'Groovy sunburnt tones, oversaturated oranges and browns, disco shimmer, and grainy 35mm texture.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_uzi.jpg'],
-          ),
-          const StyleModel(
-            id: 'vintage_daguerreotype',
-            name: 'Daguerreotype',
-            imagePath: 'assets/images/style_arabic.jpg',
-            isPro: true,
-            description: 'The earliest photographic process look with silvered surfaces, mirror-like sheen, and antique framing.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_ps2.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_stussy.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'moody',
-        name: 'Moody Styles',
-        styles: [
-          const StyleModel(
-            id: 'dark_gothic',
-            name: 'Gothic',
-            imagePath: 'assets/images/style_uzi.jpg',
-            isPro: true,
-            description: 'Dark cathedral aesthetic with deep blacks, crimson accents, ornate architecture, and vampiric allure.',
-            examples: ['assets/images/style_uzi.jpg', 'assets/images/style_ps2.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_stussy.jpg'],
-          ),
-          const StyleModel(
-            id: 'dark_grunge',
-            name: 'Grunge',
-            imagePath: 'assets/images/style_stussy.jpg',
-            isPro: true,
-            description: 'Raw 90s Seattle grunge with torn paper textures, desaturated palette, heavy grain, and rebel energy.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'dark_horror',
-            name: 'Horror',
-            imagePath: 'assets/images/style_ps2.jpg',
-            isPro: true,
-            description: 'Creepy atmospheric horror with VHS static, distorted faces, eerie green tint, and found-footage feel.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_toon.jpg'],
-          ),
-          const StyleModel(
-            id: 'dark_shadow',
-            name: 'Shadow Art',
-            imagePath: 'assets/images/style_arabic.jpg',
-            isPro: true,
-            description: 'Dramatic silhouette art with deep contrast, rim lighting, smoke effects, and cinematic mystery.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_ps2.jpg', 'assets/images/style_90s.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'arabic',
-        name: 'Arabic Styles',
-        styles: [
-          const StyleModel(
-            id: 'syrian',
-            name: 'Syrian Style',
-            imagePath: 'assets/images/style_arabic.jpg',
-            isTrending: true,
-            description: 'A dramatic Arabic portrait look with red veils, grain, bold contrast, and editorial poster energy.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'arab_style',
-            name: 'Arab Style',
-            imagePath: 'assets/images/style_90s.jpg',
-            isTrending: true,
-            description: 'A monochrome heritage-inspired portrait style with wrapped fabric, harsh texture, and cinematic light.',
-            examples: ['assets/images/style_90s.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'mor_style',
-            name: 'Mor Style',
-            imagePath: 'assets/images/style_stussy.jpg',
-            description: 'A skull-and-keffiyeh poster aesthetic with sharp graphic texture and rugged desert tones.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_uzi.jpg'],
-          ),
-          const StyleModel(
-            id: 'eyes',
-            name: 'Eyes Style',
-            imagePath: 'assets/images/style_ps2.jpg',
-            description: 'A mysterious veiled portrait treatment focused on eyes, muted film grain, and soft shadow.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_arabic.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_toon.jpg'],
-          ),
-        ],
-      ),
-      CategoryModel(
-        id: 'more',
-        name: 'More Styles',
-        styles: [
-          const StyleModel(
-            id: 'oil_paint',
-            name: 'Oil Paint',
-            imagePath: 'assets/images/style_toon.jpg',
-            description: 'Classic expressive brush strokes and rich textures of renaissance and modern oil paintings.',
-            examples: ['assets/images/style_toon.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'vaporwave',
-            name: 'Vaporwave',
-            imagePath: 'assets/images/style_uzi.jpg',
-            description: 'Surreal retro-futuristic aesthetic with neon pinks, cyans, glitch effects, and 80s mall culture motifs.',
-            examples: ['assets/images/style_uzi.jpg', 'assets/images/style_toon.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'noir',
-            name: 'Noir Style',
-            imagePath: 'assets/images/style_ps2.jpg',
-            description: 'Dramatic high-contrast black and white cinematic lighting with moody atmospheres and mystery.',
-            examples: ['assets/images/style_ps2.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_arabic.jpg'],
-          ),
-          const StyleModel(
-            id: 'anime',
-            name: 'Anime Style',
-            imagePath: 'assets/images/style_toon.jpg',
-            description: 'Vibrant hand-drawn Japanese animation style with clean line-art and gorgeous sky backdrops.',
-            examples: ['assets/images/style_toon.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'cyberpunk',
-            name: 'Cyberpunk',
-            imagePath: 'assets/images/style_arabic.jpg',
-            description: 'Dystopian high-tech, low-life metropolis aesthetics with rain-slicked streets and neon illumination.',
-            examples: ['assets/images/style_arabic.jpg', 'assets/images/style_stussy.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_ps2.jpg'],
-          ),
-          const StyleModel(
-            id: 'renaissance',
-            name: 'Renaissance',
-            imagePath: 'assets/images/style_stussy.jpg',
-            description: 'Masterful dramatic chiaroscuro lighting and classical portraiture composition of the high renaissance.',
-            examples: ['assets/images/style_stussy.jpg', 'assets/images/style_uzi.jpg', 'assets/images/style_90s.jpg', 'assets/images/style_toon.jpg'],
-          ),
-        ],
-      ),
-    ];
-  }
+  // Preserve signatures to prevent compilation issues elsewhere
+  Future<void> save() async {}
+  Future<void> addCategory(String name) async {}
+  Future<void> deleteCategory(String categoryId) async {}
+  Future<void> addStyle(String categoryId, StyleModel style) async {}
+  Future<void> deleteStyle(String categoryId, String styleId) async {}
+  Future<void> toggleTrending(String categoryId, String styleId) async {}
 }

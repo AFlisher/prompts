@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'data/favorites_manager.dart';
@@ -40,6 +43,8 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  unawaited(MobileAds.instance.initialize());
+
   runApp(const PrombtApp());
 }
 
@@ -56,6 +61,12 @@ class FavoritesProvider extends InheritedNotifier<FavoritesManager> {
     context.dependOnInheritedWidgetOfExactType<FavoritesProvider>();
     return provider!.notifier!;
   }
+
+  static FavoritesManager read(BuildContext context) {
+    final element =
+    context.getElementForInheritedWidgetOfExactType<FavoritesProvider>();
+    return (element?.widget as FavoritesProvider?)!.notifier!;
+  }
 }
 
 /// Provides [CreationsManager] to the widget tree via InheritedNotifier.
@@ -70,6 +81,12 @@ class CreationsProvider extends InheritedNotifier<CreationsManager> {
     final provider =
     context.dependOnInheritedWidgetOfExactType<CreationsProvider>();
     return provider!.notifier!;
+  }
+
+  static CreationsManager read(BuildContext context) {
+    final element =
+    context.getElementForInheritedWidgetOfExactType<CreationsProvider>();
+    return (element?.widget as CreationsProvider?)!.notifier!;
   }
 }
 
@@ -86,6 +103,12 @@ class StyleProvider extends InheritedNotifier<DynamicStyleManager> {
     context.dependOnInheritedWidgetOfExactType<StyleProvider>();
     return provider!.notifier!;
   }
+
+  static DynamicStyleManager read(BuildContext context) {
+    final element =
+    context.getElementForInheritedWidgetOfExactType<StyleProvider>();
+    return (element?.widget as StyleProvider?)!.notifier!;
+  }
 }
 
 /// Provides [CreditManager] to the widget tree via InheritedNotifier.
@@ -101,6 +124,12 @@ class CreditProvider extends InheritedNotifier<CreditManager> {
     context.dependOnInheritedWidgetOfExactType<CreditProvider>();
     return provider!.notifier!;
   }
+
+  static CreditManager read(BuildContext context) {
+    final element =
+    context.getElementForInheritedWidgetOfExactType<CreditProvider>();
+    return (element?.widget as CreditProvider?)!.notifier!;
+  }
 }
 
 /// Provides [ProfileManager] to the widget tree via InheritedNotifier.
@@ -114,6 +143,16 @@ class ProfileProvider extends InheritedNotifier<ProfileManager> {
   static ProfileManager of(BuildContext context) {
     final provider =
     context.dependOnInheritedWidgetOfExactType<ProfileProvider>();
+    if (provider == null) {
+      return ProfileManager();
+    }
+    return provider.notifier!;
+  }
+
+  static ProfileManager read(BuildContext context) {
+    final element =
+    context.getElementForInheritedWidgetOfExactType<ProfileProvider>();
+    final provider = element?.widget as ProfileProvider?;
     if (provider == null) {
       return ProfileManager();
     }
@@ -138,9 +177,12 @@ class _PrombtAppState extends State<PrombtApp> {
   @override
   void initState() {
     super.initState();
-    _styleManager.init();
-    _creditManager.init();
-    _creationsManager.init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _styleManager.init();
+      _creditManager.init();
+      _creationsManager.init();
+      _profileManager.loadProfile();
+    });
   }
 
   @override

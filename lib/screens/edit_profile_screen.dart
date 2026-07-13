@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../main.dart';
@@ -247,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 )
                               : (profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
                                   ? DecorationImage(
-                                      image: NetworkImage(profile.avatarUrl!),
+                                      image: CachedNetworkImageProvider(profile.avatarUrl!),
                                       fit: BoxFit.cover,
                                     )
                                   : null),

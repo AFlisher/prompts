@@ -9,6 +9,7 @@ class StyleModel {
   final String prompt;
   final int sortOrder;
   final List<String> examples;
+  final int creditCost;
 
   final bool isPro;
 
@@ -24,12 +25,13 @@ class StyleModel {
     this.prompt = '',
     this.sortOrder = 0,
     this.examples = const [],
+    this.creditCost = 1,
   });
 
   /// Prefer remote URL when available; falls back to bundled asset path.
   String get displayImage => imageUrl.isNotEmpty ? imageUrl : imagePath;
 
-  StyleModel copyWith({bool? isFavorite, bool? isPro}) {
+  StyleModel copyWith({bool? isFavorite, bool? isPro, int? creditCost}) {
     return StyleModel(
       id: id,
       name: name,
@@ -42,6 +44,7 @@ class StyleModel {
       prompt: prompt,
       sortOrder: sortOrder,
       examples: examples,
+      creditCost: creditCost ?? this.creditCost,
     );
   }
 
@@ -58,6 +61,7 @@ class StyleModel {
       'prompt': prompt,
       'sortOrder': sortOrder,
       'examples': examples,
+      'creditCost': creditCost,
     };
   }
 
@@ -74,6 +78,7 @@ class StyleModel {
       prompt: (json['prompt'] as String?) ?? '',
       sortOrder: (json['sortOrder'] as int?) ?? 0,
       examples: (json['examples'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
+      creditCost: (json['creditCost'] as num?)?.toInt() ?? 1,
     );
   }
 }

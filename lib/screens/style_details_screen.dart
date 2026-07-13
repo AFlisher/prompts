@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'upload_screen.dart';
 import '../main.dart';
+import '../utils/image_helper.dart';
 
 class StyleDetailsScreen extends StatefulWidget {
   final StyleModel style;
@@ -232,7 +233,7 @@ class _HeroStyleCard extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => FullScreenImageViewer(
-                          imagePath: style.imagePath,
+                          imagePath: style.displayImage,
                           heroTag: 'hero_style_img_${style.id}',
                         ),
                       ),
@@ -240,15 +241,9 @@ class _HeroStyleCard extends StatelessWidget {
                   },
                   child: Hero(
                     tag: 'hero_style_img_${style.id}',
-                    child: Image.asset(
-                      style.imagePath,
+                    child: buildStyleImage(
+                      style.displayImage,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: AppTheme.lightGray,
-                          child: const Icon(Icons.image_outlined),
-                        );
-                      },
                     ),
                   ),
                 ),
@@ -523,12 +518,9 @@ class FullScreenImageViewer extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Image.asset(
+                child: buildStyleImage(
                   imagePath,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.image_outlined, color: Colors.white, size: 64);
-                  },
                 ),
               ),
             ),

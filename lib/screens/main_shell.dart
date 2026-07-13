@@ -86,7 +86,7 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         try {
-          CreationsProvider.of(context).setTab(0);
+          CreationsProvider.read(context).setTab(0);
         } catch (e) {
           debugPrint("Error resetting creations tab on MainShell init: $e");
         }

@@ -1,15 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/style_model.dart';
-import '../data/style_data.dart';
 import '../widgets/app_header.dart';
 import '../widgets/search_bar_widget.dart' as custom;
-import 'arabic_styles_screen.dart';
 import 'style_details_screen.dart';
 import 'all_styles_screen.dart';
-import 'paywall_screen.dart';
 import '../main.dart';
+import '../data/dynamic_style_manager.dart';
+import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -50,6 +50,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       curve: Curves.easeOut,
     );
     _headerAnimController.forward();
+
+    // Trigger initialization on widget mount
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final styleManager = StyleProvider.read(context);
+        if (styleManager.categories.isEmpty && !styleManager.isLoading) {
+          styleManager.fetchCategories();
+        }
+      }
+    });
   }
 
   @override
@@ -58,53 +68,139 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
     final bgColor = isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
 
+    final styleManager = StyleProvider.of(context);
+    final categories = styleManager.categories;
+    final isLoading = styleManager.isLoading;
+    final error = styleManager.error;
+
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _headerFadeAnim,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
-                  child: AppHeader(
-                    isDarkMode: isDark,
-                    onToggleDarkMode: widget.onToggleDarkMode,
+        child: RefreshIndicator(
+          color: AppTheme.accentPurple,
+          backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.white,
+          onRefresh: () async {
+            await Future.wait([
+              styleManager.fetchFromApi(),
+              CreditProvider.of(context).fetchWallet(),
+            ]);
+          },
+          child: FadeTransition(
+            opacity: _headerFadeAnim,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
+                    child: AppHeader(
+                      isDarkMode: isDark,
+                      onToggleDarkMode: widget.onToggleDarkMode,
+                    ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(38, 20, 38, 0),
-                  child: custom.SearchBar(
-                    onChanged: (q) => setState(() => _searchQuery = q),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(38, 20, 38, 0),
+                    child: custom.SearchBar(
+                      onChanged: (q) => setState(() => _searchQuery = q),
+                    ),
                   ),
                 ),
-              ),
-              ...StyleProvider.of(context).categories.map(
-                (category) => _buildHorizontalSection(
-                  title: category.name,
-                  styles: category.styles,
-                  textColor: textColor,
-                  isDark: isDark,
+
+                // Conditional UI based on API State
+                if (isLoading && categories.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: CircularProgressIndicator(color: AppTheme.accentPurple),
+                      ),
+                    ),
+                  )
+                else if (error != null && categories.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              error,
+                              style: const TextStyle(color: Colors.red, fontSize: 14),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => styleManager.fetchFromApi(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.accentPurple,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else if (categories.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: Text(
+                          'No categories found.',
+                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 15),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final category = categories[index];
+                        return _CategorySectionWidget(
+                          category: category,
+                          styleManager: styleManager,
+                          textColor: textColor,
+                          isDark: isDark,
+                          sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                            return _buildHorizontalSection(
+                              title: title,
+                              styles: styles,
+                              textColor: txtColor,
+                              isDark: dark,
+                              isLoading: loading,
+                            );
+                          },
+                        );
+                      },
+                      childCount: categories.length,
+                    ),
+                  ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: FloatingNavBarMetrics.scrollClearance,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: SizedBox(
-                  height: FloatingNavBarMetrics.scrollClearance,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -116,43 +212,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required List<StyleModel> styles,
     required Color textColor,
     required bool isDark,
+    required bool isLoading,
   }) {
     final filtered = _filterStyles(styles);
-    if (filtered.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
-            child: _SectionHeader(
-              title: title,
-              textColor: textColor,
-              onSeeAll: () => _openAllStyles(title, styles),
-            ),
+    // Only collapse when a search query excludes every loaded style — a
+    // category with no styles loaded yet (LRU eviction, in-flight lazy
+    // load) must still render its header.
+    if (styles.isNotEmpty && filtered.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
+          child: _SectionHeader(
+            title: title,
+            textColor: textColor,
+            onSeeAll: () => _openAllStyles(title, styles),
           ),
+        ),
+        if (isLoading && filtered.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32.0),
+            child: Center(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
+                ),
+              ),
+            ),
+          )
+        else if (filtered.isNotEmpty)
           SizedBox(
-            height: 278,
+            height: 250,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 26),
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final style = filtered[index];
-                return _HomeStyleCard(
-                  style: style,
-                  width: index == 0 ? 198 : 154,
-                  isDarkMode: isDark,
-                  onTap: () => _onStyleTapped(style),
+                return SizedBox(
+                  width: 135,
+                  child: StyleCard(
+                    style: style,
+                    isDarkMode: isDark,
+                    onTap: () => _onStyleTapped(style),
+                  ),
                 );
               },
-              separatorBuilder: (_, __) => const SizedBox(width: 26),
+              separatorBuilder: (_, __) => const SizedBox(width: 20),
               itemCount: filtered.length,
               cacheExtent: 1000,
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -256,82 +371,77 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _HomeStyleCard extends StatefulWidget {
-  final StyleModel style;
-  final double width;
-  final bool compact;
-  final bool isDarkMode;
-  final VoidCallback onTap;
+class _CategorySectionWidget extends StatefulWidget {
+  final CategoryModel category;
+  final DynamicStyleManager styleManager;
+  final Color textColor;
+  final bool isDark;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
 
-  const _HomeStyleCard({
-    required this.style,
-    required this.width,
-    required this.onTap,
-    required this.isDarkMode,
-    this.compact = false,
+  const _CategorySectionWidget({
+    required this.category,
+    required this.styleManager,
+    required this.textColor,
+    required this.isDark,
+    required this.sectionBuilder,
   });
 
   @override
-  State<_HomeStyleCard> createState() => _HomeStyleCardState();
+  State<_CategorySectionWidget> createState() => _CategorySectionWidgetState();
 }
 
-class _HomeStyleCardState extends State<_HomeStyleCard> {
-  bool _pressed = false;
+class _CategorySectionWidgetState extends State<_CategorySectionWidget> {
+  @override
+  void initState() {
+    super.initState();
+    _loadStyles();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CategorySectionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.category.id != oldWidget.category.id) {
+      _loadStyles();
+    }
+  }
+
+  void _loadStyles() {
+    widget.styleManager.loadStylesForCategory(widget.category.id);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
-    final imageHeight = widget.compact ? 118.0 : 228.0;
+    // Watch styleManager to rebuild when categories or styles update
+    final styleManager = StyleProvider.of(context);
+    
+    // Always fetch the freshest category instance from state manager to avoid holding stale state
+    final category = styleManager.categories.firstWhere(
+      (c) => c.id == widget.category.id,
+      orElse: () => widget.category,
+    );
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 110),
-        child: SizedBox(
-          width: widget.width,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: widget.width,
-                  height: imageHeight,
-                  child: Image.asset(
-                    widget.style.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppTheme.lightGray,
-                        child: const Icon(Icons.image_outlined),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.style.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: textColor,
-                      fontWeight: FontWeight.w800,
-                      fontSize: widget.compact ? 13 : 15,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final isLoading = styleManager.isCategoryLoading(category.id);
+    final styles = category.styles;
+
+    // Auto-reload if this category's styles have never been resolved yet (or,
+    // for a future LRU eviction, if it gets reset back to unloaded). Keyed on
+    // hasLoadedStyles rather than styles.isEmpty so a category that's
+    // genuinely empty (loaded, confirmed zero styles) doesn't reload forever.
+    if (!category.hasLoadedStyles && !isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadStyles();
+        }
+      });
+    }
+
+    return widget.sectionBuilder(
+      context,
+      category.name,
+      styles,
+      widget.textColor,
+      widget.isDark,
+      isLoading,
     );
   }
 }
-
-

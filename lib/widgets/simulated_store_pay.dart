@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
 
 /// Shows a highly realistic simulated App Store (iOS) or Google Play Store (Android)
@@ -427,11 +429,21 @@ class _AndroidPlayStoreSheetState extends State<_AndroidPlayStoreSheet> {
           // Play Store Logo and Title
           Row(
             children: [
-              Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_software_icon_2022.svg/512px-Google_Play_Store_software_icon_2022.svg.png',
+              CachedNetworkImage(
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_software_icon_2022.svg/512px-Google_Play_Store_software_icon_2022.svg.png',
                 width: 24,
                 height: 24,
-                errorBuilder: (context, error, stackTrace) =>
+                fadeInDuration: const Duration(milliseconds: 300),
+                placeholder: (context, url) => Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    color: Colors.grey[200],
+                  ),
+                ),
+                errorWidget: (context, url, error) =>
                     const Icon(Icons.shop_two_rounded, color: Colors.green, size: 24),
               ),
               const SizedBox(width: 8),
