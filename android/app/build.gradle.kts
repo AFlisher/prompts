@@ -32,6 +32,11 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
@@ -44,4 +49,20 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// google_mobile_ads 9.0.0 -> com.google.android.gms:play-services-ads-api:25.3.0
+// still depends on androidx.work:work-runtime:2.7.0, which drags in the
+// 2020-era androidx.room:room-runtime:2.2.5. That old Room version's bundled
+// consumer proguard.txt only keeps "* extends RoomDatabase", not the
+// androidx.room.Room factory class itself, so R8 full mode (default since
+// AGP 8+) strips androidx.room.Room as unreachable. WorkManagerInitializer
+// then crashes on first launch trying to build WorkDatabase via Room.
+// Forcing a current WorkManager (which requires/pulls a current Room+SQLite)
+// removes the broken dependency instead of just papering over it.
+configurations.all {
+    resolutionStrategy {
+        force("androidx.work:work-runtime:2.9.1")
+        force("androidx.work:work-runtime-ktx:2.9.1")
+    }
 }
