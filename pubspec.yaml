@@ -27,6 +27,7 @@ dependencies:
   shimmer: ^3.0.0
   flutter_secure_storage: ^10.3.1
   google_mobile_ads: ^9.0.0
+  flutter_displaymode: ^0.7.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

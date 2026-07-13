@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -183,7 +186,24 @@ class _PrombtAppState extends State<PrombtApp> {
       _creditManager.init();
       _creationsManager.init();
       _profileManager.loadProfile();
+      _setHighRefreshRate();
     });
+  }
+
+  // Android defaults every app's window to 60Hz regardless of the display's
+  // real capability - without this, a 90/120Hz-capable device silently caps
+  // Flutter at 60Hz no matter how fast frames actually build/raster. Must run
+  // after the first frame: flutter_displaymode's native side requires an
+  // Activity to already be attached to the plugin, which isn't the case yet
+  // during main() before runApp().
+  Future<void> _setHighRefreshRate() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await FlutterDisplayMode.setHighRefreshRate();
+      } catch (e) {
+        debugPrint("⚠️ Failed to set high refresh rate: $e");
+      }
+    }
   }
 
   @override
