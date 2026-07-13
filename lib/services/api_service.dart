@@ -108,6 +108,27 @@ class ApiService {
     return jsonList.map((json) => Style.fromJson(json)).toList();
   }
 
+  /// GET /api/styles?trending=true
+  ///
+  /// Every enabled style flagged isTrending, regardless of category - powers
+  /// the Home screen's dynamic Trending section. There is no dedicated
+  /// Trending category; this is a filtered read of the same styles rows
+  /// returned by [getStylesByCategory].
+  Future<List<Style>> getTrendingStyles() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/styles?trending=true'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load trending styles. Status: ${response.statusCode}');
+    }
+
+    final List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((json) => Style.fromJson(json)).toList();
+  }
+
   /// GET /api/favorites
   Future<List<String>> getFavorites() async {
     final headers = await _getHeaders();

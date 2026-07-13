@@ -57,11 +57,22 @@ class CategoryModel {
   }
 }
 
+const String _trendingCacheKey = 'styles_cache_trending';
+
 class DynamicStyleManager extends ChangeNotifier {
   List<CategoryModel> _categories = [];
   bool _isInitialized = false;
   bool _isLoading = false;
   String? _error;
+
+  // Trending is not a category - it's a dynamic collection of every enabled
+  // style with isTrending == true, drawn from across all real categories. A
+  // trending style keeps living in its own category's list too; this is a
+  // second, independently-cached view of the same rows, not a copy of them.
+  List<StyleModel> _trendingStyles = [];
+  bool _hasLoadedTrending = false;
+  bool _isTrendingLoading = false;
+  Future<void>? _activeTrendingFetch;
 
   final ApiService _apiService = ApiService();
   final LocalCacheService _cacheService = LocalCacheService();
@@ -76,6 +87,10 @@ class DynamicStyleManager extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  List<StyleModel> get trendingStyles => List.unmodifiable(_trendingStyles);
+  bool get hasLoadedTrending => _hasLoadedTrending;
+  bool get isTrendingLoading => _isTrendingLoading;
 
   bool isCategoryLoading(String categoryId) => _loadingCategoryIds.contains(categoryId);
 
@@ -238,6 +253,107 @@ class DynamicStyleManager extends ChangeNotifier {
     }
   }
 
+  /// Lazy-loads the Trending collection (every enabled, isTrending style
+  /// across all categories). Mirrors [loadStylesForCategory]'s cache-first,
+  /// TTL, and in-flight-dedup behavior exactly, so Trending gets the same
+  /// performance characteristics as a normal category section.
+  Future<void> loadTrendingStyles() async {
+    if (_activeTrendingFetch != null) {
+      debugPrint("[DynamicStyleManager] Deduplicating request: awaiting active future for trending styles");
+      return _activeTrendingFetch;
+    }
+
+    final fetchFuture = _loadTrendingStylesInternal();
+    _activeTrendingFetch = fetchFuture;
+
+    try {
+      await fetchFuture;
+    } finally {
+      _activeTrendingFetch = null;
+    }
+  }
+
+  Future<void> _loadTrendingStylesInternal() async {
+    final hasStylesInMemory = _trendingStyles.isNotEmpty;
+
+    // Load cached styles immediately (without blocking UI)
+    final cachedStylesList = await _cacheService.getCachedData(_trendingCacheKey);
+    final List<StyleModel> loadedFromCache = [];
+
+    if (cachedStylesList is List) {
+      for (final sJson in cachedStylesList) {
+        if (sJson is Map) {
+          loadedFromCache.add(StyleModel.fromJson(sJson as Map<String, dynamic>));
+        }
+      }
+      if (loadedFromCache.isNotEmpty && !hasStylesInMemory) {
+        _trendingStyles = loadedFromCache;
+        _hasLoadedTrending = true;
+        notifyListeners();
+        debugPrint("[DynamicStyleManager] Loaded ${loadedFromCache.length} trending styles from cache.");
+      }
+    }
+
+    // Styles Cache TTL: 6 hours (21600000 ms) - same as a category's styles cache.
+    final int? timestamp = await _cacheService.getCacheTimestamp(_trendingCacheKey);
+    final bool isCacheValid = timestamp != null &&
+        (DateTime.now().millisecondsSinceEpoch - timestamp) < 21600000;
+
+    if (isCacheValid && cachedStylesList != null) {
+      debugPrint("[DynamicStyleManager] Trending styles cache still valid. Skipping API call.");
+      if (!_hasLoadedTrending) {
+        _hasLoadedTrending = true;
+        notifyListeners();
+      }
+      return;
+    }
+
+    final showLoading = _trendingStyles.isEmpty;
+    if (showLoading) {
+      _isTrendingLoading = true;
+      notifyListeners();
+    }
+
+    try {
+      final styles = await _apiService.getTrendingStyles();
+      final enabledStyles = styles.where((s) => s.isEnabled).toList();
+      // Reuse the same ordering the backend and every category section rely
+      // on (sortOrder, tie-broken by createdAt) so admins control Trending
+      // card order the same way they control every other style list -
+      // no separate ordering concept needed.
+      enabledStyles.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+      final List<StyleModel> styleModels = enabledStyles.map((s) => s.toStyleModel()).toList();
+      final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+
+      final String newStylesStr = json.encode(stylesJsonList);
+      final String oldStylesStr = cachedStylesList != null ? json.encode(cachedStylesList) : '';
+
+      if (newStylesStr != oldStylesStr || !_hasLoadedTrending) {
+        _trendingStyles = styleModels;
+        _hasLoadedTrending = true;
+        await _cacheService.cacheData(_trendingCacheKey, stylesJsonList);
+        debugPrint("[DynamicStyleManager] Cached trending styles updated.");
+
+        _isTrendingLoading = false;
+        notifyListeners();
+      } else {
+        debugPrint("[DynamicStyleManager] Backend trending styles match cache.");
+        if (_isTrendingLoading) {
+          _isTrendingLoading = false;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("[DynamicStyleManager] Error fetching trending styles: $e");
+      if (_isTrendingLoading) {
+        _isTrendingLoading = false;
+        notifyListeners();
+      }
+      // Offline fallback: continue displaying the cached version
+    }
+  }
+
   /// Loads favorited styles from active memory or SharedPreferences cache maps without polluting active RAM
   Future<List<StyleModel>> loadFavoriteStyles(List<String> favoriteIds) async {
     final List<StyleModel> favorites = [];
@@ -369,6 +485,31 @@ class DynamicStyleManager extends ChangeNotifier {
   /// the 24h cache TTL.
   Future<void> fetchFromApi() async {
     await fetchCategories(forceRefresh: true);
+
+    // Trending is refreshed unconditionally, just like an already-active
+    // category's styles below - pull-to-refresh must not be gated by the 6h
+    // TTL, so a style the admin just flagged/unflagged shows up immediately.
+    try {
+      final styles = await _apiService.getTrendingStyles();
+      final enabledStyles = styles.where((s) => s.isEnabled).toList();
+      enabledStyles.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+      final List<StyleModel> styleModels = enabledStyles.map((s) => s.toStyleModel()).toList();
+      final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+
+      final String newStylesStr = json.encode(stylesJsonList);
+      final oldCachedList = await _cacheService.getCachedData(_trendingCacheKey);
+      final String oldStylesStr = oldCachedList != null ? json.encode(oldCachedList) : '';
+
+      if (newStylesStr != oldStylesStr || _trendingStyles.isEmpty) {
+        _trendingStyles = styleModels;
+        _hasLoadedTrending = true;
+        await _cacheService.cacheData(_trendingCacheKey, stylesJsonList);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("[DynamicStyleManager] Error refreshing trending styles: $e");
+    }
 
     final activeIds = _categories.where((c) => c.styles.isNotEmpty).map((c) => c.id).toList();
     for (final catId in activeIds) {

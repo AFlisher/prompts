@@ -116,6 +116,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
+                // Trending always renders first, ahead of every category
+                // section below - it's a dynamic view over isTrending
+                // styles, not a category itself, so it isn't part of
+                // `categories` and doesn't participate in category ordering.
+                SliverToBoxAdapter(
+                  child: _TrendingSectionWidget(
+                    textColor: textColor,
+                    isDark: isDark,
+                    sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                      return _buildHorizontalSection(
+                        title: title,
+                        styles: styles,
+                        textColor: txtColor,
+                        isDark: dark,
+                        isLoading: loading,
+                      );
+                    },
+                  ),
+                ),
+
                 // Conditional UI based on API State
                 if (isLoading && categories.isEmpty)
                   const SliverFillRemaining(
@@ -368,6 +388,59 @@ class _SectionHeader extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Renders the dynamic "Trending Styles" section using the exact same
+/// [Widget Function] section builder as a normal category - one UI to
+/// maintain, no separate Trending design. Unlike [_CategorySectionWidget]
+/// this isn't backed by a [CategoryModel]: it reads
+/// [DynamicStyleManager.trendingStyles], collapsing entirely once loaded if
+/// no style is currently marked trending (rather than showing an empty
+/// header forever).
+class _TrendingSectionWidget extends StatefulWidget {
+  final Color textColor;
+  final bool isDark;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
+
+  const _TrendingSectionWidget({
+    required this.textColor,
+    required this.isDark,
+    required this.sectionBuilder,
+  });
+
+  @override
+  State<_TrendingSectionWidget> createState() => _TrendingSectionWidgetState();
+}
+
+class _TrendingSectionWidgetState extends State<_TrendingSectionWidget> {
+  @override
+  void initState() {
+    super.initState();
+    StyleProvider.read(context).loadTrendingStyles();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Watch styleManager to rebuild when trending styles update (e.g. an
+    // admin toggles a style's Trending switch and the app later refreshes).
+    final styleManager = StyleProvider.of(context);
+
+    final styles = styleManager.trendingStyles;
+    final isLoading = styleManager.isTrendingLoading;
+
+    if (styleManager.hasLoadedTrending && styles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return widget.sectionBuilder(
+      context,
+      'Trending Styles',
+      styles,
+      widget.textColor,
+      widget.isDark,
+      isLoading,
     );
   }
 }
