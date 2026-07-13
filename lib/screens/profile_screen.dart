@@ -13,6 +13,7 @@ import '../main.dart';
 import 'paywall_screen.dart';
 import 'wallet_history_screen.dart';
 import '../services/auth_service.dart';
+import '../widgets/floating_nav_bar_metrics.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -155,7 +156,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            24,
+            20,
+            32 + FloatingNavBarMetrics.scrollClearance,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

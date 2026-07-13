@@ -10,6 +10,7 @@ import 'style_details_screen.dart';
 import 'all_styles_screen.dart';
 import 'paywall_screen.dart';
 import '../main.dart';
+import '../widgets/floating_nav_bar_metrics.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -96,6 +97,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   styles: category.styles,
                   textColor: textColor,
                   isDark: isDark,
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: SizedBox(
+                  height: FloatingNavBarMetrics.scrollClearance,
                 ),
               ),
             ],

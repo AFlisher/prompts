@@ -142,7 +142,6 @@ class _MainShellState extends State<MainShell> {
     final bgColor = _isDarkMode ? AppTheme.black : AppTheme.white;
     final creationsManager = CreationsProvider.of(context);
     final currentIndex = creationsManager.currentTab;
-    final outerMediaQuery = MediaQuery.of(context);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -151,42 +150,40 @@ class _MainShellState extends State<MainShell> {
       // widget is given to it - exactly the "rectangle behind the glass
       // bar" this was meant to avoid. A plain Stack overlay has no such
       // surface, so only the nav bar's own rounded shape is ever painted.
+      //
+      // Deliberately NOT inflating the ambient MediaQuery bottom padding
+      // here: every tab screen's own SafeArea would turn that into a
+      // permanent layout shrink (visible at every scroll position, not just
+      // at the end of the list), which just reproduces a flat, static area
+      // behind the glass bar - the same "rectangle" look this exists to
+      // avoid. Bottom clearance for each screen's last item is instead
+      // added as trailing padding on that screen's own scrollable via
+      // FloatingNavBarMetrics.scrollClearance, so it only appears once
+      // real content has actually been scrolled past.
       body: Stack(
         children: [
           Positioned.fill(
-            // Overrides the bottom safe-area inset every tab screen's own
-            // SafeArea already reads, so the floating bar's full footprint
-            // (its height + margin + the real inset) is reserved
-            // automatically - no per-screen padding needed, now or for any
-            // screen added under this Stack later.
-            child: MediaQuery(
-              data: outerMediaQuery.copyWith(
-                padding: outerMediaQuery.padding.copyWith(
-                  bottom: FloatingNavBarMetrics.bottomClearance(context),
-                ),
-              ),
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _handleScrollNotification,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.0, 0.02),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: KeyedSubtree(
-                    key: ValueKey<int>(currentIndex),
-                    child: _buildScreen(currentIndex),
-                  ),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.02),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<int>(currentIndex),
+                  child: _buildScreen(currentIndex),
                 ),
               ),
             ),

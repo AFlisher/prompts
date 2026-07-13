@@ -9,6 +9,7 @@ import '../widgets/success_hud.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../theme/app_button_styles.dart';
 import 'image_preview_screen.dart';
+import '../widgets/floating_nav_bar_metrics.dart';
 
 class MyCreationsScreen extends StatelessWidget {
   final bool isDarkMode;
@@ -134,7 +135,12 @@ class MyCreationsScreen extends StatelessWidget {
     Color textColor,
   ) {
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        8,
+        24,
+        24 + FloatingNavBarMetrics.scrollClearance,
+      ),
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,

@@ -5,6 +5,7 @@ import '../data/style_data.dart';
 import '../models/style_model.dart';
 import '../main.dart';
 import 'style_details_screen.dart';
+import '../widgets/floating_nav_bar_metrics.dart';
 
 class FavoritesScreen extends StatelessWidget {
   final bool isDarkMode;
@@ -93,7 +94,12 @@ class FavoritesScreen extends StatelessWidget {
             else
               Expanded(
                 child: GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    20 + FloatingNavBarMetrics.scrollClearance,
+                  ),
                   physics: const BouncingScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
