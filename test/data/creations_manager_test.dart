@@ -6,7 +6,9 @@ void main() {
     late CreationsManager manager;
 
     setUp(() {
-      manager = CreationsManager()..shouldSaveToFile = false;
+      manager = CreationsManager()
+        ..shouldSaveToFile = false
+        ..shouldSyncWithBackend = false;
     });
 
     test('initial creations list is empty', () {
@@ -74,6 +76,45 @@ void main() {
       // Same tab shouldn't notify
       manager.setTab(1);
       expect(count, equals(1));
+    });
+  });
+
+  group('CreationItem.fromJson', () {
+    test('parses the local-JSON-file shape (imagePath)', () {
+      final item = CreationItem.fromJson({
+        'id': 'id1',
+        'styleId': 'comic',
+        'styleName': 'Comic Style',
+        'imagePath': 'assets/images/style1.jpg',
+        'createdAt': '2024-01-01T00:00:00.000Z',
+      });
+
+      expect(item.imagePath, equals('assets/images/style1.jpg'));
+      expect(item.styleId, equals('comic'));
+    });
+
+    test('parses the backend API shape (imageUrl) as the same field', () {
+      final item = CreationItem.fromJson({
+        'id': 'id1',
+        'styleId': 'comic',
+        'styleName': 'Comic Style',
+        'imageUrl': 'https://example.com/generated.png',
+        'createdAt': '2024-01-01T00:00:00.000Z',
+      });
+
+      expect(item.imagePath, equals('https://example.com/generated.png'));
+    });
+
+    test('defaults styleId to an empty string when null (style was deleted server-side)', () {
+      final item = CreationItem.fromJson({
+        'id': 'id1',
+        'styleId': null,
+        'styleName': 'Comic Style',
+        'imageUrl': 'https://example.com/generated.png',
+        'createdAt': '2024-01-01T00:00:00.000Z',
+      });
+
+      expect(item.styleId, equals(''));
     });
   });
 }

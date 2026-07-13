@@ -108,6 +108,99 @@ class ApiService {
     return jsonList.map((json) => Style.fromJson(json)).toList();
   }
 
+  /// GET /api/favorites
+  Future<List<String>> getFavorites() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/favorites'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load favorites. Status: ${response.statusCode}');
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    return (jsonMap['styleIds'] as List<dynamic>).map((id) => id as String).toList();
+  }
+
+  /// POST /api/favorites
+  Future<void> addFavorite(String styleId) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/favorites'),
+      headers: headers,
+      body: json.encode({'styleId': styleId}),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to add favorite. Status: ${response.statusCode}');
+    }
+  }
+
+  /// DELETE /api/favorites/:styleId
+  Future<void> removeFavorite(String styleId) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$_backendUrl/api/favorites/$styleId'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to remove favorite. Status: ${response.statusCode}');
+    }
+  }
+
+  /// GET /api/creations
+  Future<List<Map<String, dynamic>>> getCreations() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/creations'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load creations. Status: ${response.statusCode}');
+    }
+
+    final List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((item) => item as Map<String, dynamic>).toList();
+  }
+
+  /// DELETE /api/creations/:id
+  Future<void> deleteCreation(String id) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$_backendUrl/api/creations/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete creation. Status: ${response.statusCode}');
+    }
+  }
+
+  /// POST /api/creations/migrate - one-time upload of pre-existing local-only
+  /// creations (from before backend persistence existed) into the backend.
+  /// [creations] is a list of `{styleId, styleName, imageUrl, createdAt}` maps.
+  Future<int> migrateCreations(List<Map<String, dynamic>> creations) async {
+    if (creations.isEmpty) return 0;
+
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/creations/migrate'),
+      headers: headers,
+      body: json.encode({'creations': creations}),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to migrate creations. Status: ${response.statusCode}');
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    return jsonMap['migrated'] as int;
+  }
+
   /// POST /api/generate
   Future<String> generateStyleImage(String imagePath, String styleId) async {
     final headers = await _getHeaders();

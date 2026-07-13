@@ -178,6 +178,7 @@ class _PrombtAppState extends State<PrombtApp> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _favoritesManager.init();
       _styleManager.init();
       _creditManager.init();
       _creationsManager.init();
