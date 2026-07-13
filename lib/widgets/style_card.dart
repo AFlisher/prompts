@@ -16,6 +16,15 @@ class StyleCard extends StatefulWidget {
   /// shorter card than a two-line one.
   static const double titleHeight = 40;
 
+  /// Explicit line-height multiplier for the title text style. Without this,
+  /// two wrapped lines are sized by whatever leading the Inter font file
+  /// happens to report, which isn't guaranteed to fit under [titleHeight] -
+  /// if it doesn't, the tight SizedBox below silently clips the second line
+  /// mid-glyph instead of the intended clean ellipsis. Pinning it here makes
+  /// the fit deterministic: titleMedium's fontSize (15) * 1.3 * 2 lines = 39,
+  /// safely inside the 40px slot regardless of font metrics.
+  static const double titleLineHeight = 1.3;
+
   final StyleModel style;
   final bool isDarkMode;
   final VoidCallback onTap;
@@ -141,6 +150,7 @@ class _StyleCardState extends State<StyleCard> {
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: textColor,
                       fontWeight: FontWeight.w800,
+                      height: StyleCard.titleLineHeight,
                     ),
               ),
             ),
