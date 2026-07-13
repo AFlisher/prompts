@@ -62,43 +62,62 @@ class _StyleCardState extends State<StyleCard> {
               aspectRatio: StyleCard.imageAspectRatio,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: buildStyleImage(style.displayImage, fit: BoxFit.cover),
-                    ),
-                    if (showPromoBadges && style.isTrending)
-                      const Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _CardBadge(
-                          label: 'Trending',
-                          color: Color(0xFFFF5E5E),
-                          textColor: Colors.white,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Decode at the card's actual rendered size (in device
+                    // pixels) rather than the image's native resolution -
+                    // cover images are typically much larger than this
+                    // thumbnail box, and decoding every one at full size is
+                    // what causes scroll jank when several cards build at
+                    // once.
+                    final dpr = MediaQuery.of(context).devicePixelRatio;
+                    final cacheWidth = (constraints.maxWidth * dpr).round();
+                    final cacheHeight = (constraints.maxHeight * dpr).round();
+
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          child: buildStyleImage(
+                            style.displayImage,
+                            fit: BoxFit.cover,
+                            memCacheWidth: cacheWidth,
+                            memCacheHeight: cacheHeight,
+                          ),
                         ),
-                      ),
-                    if (showPromoBadges && style.isPro)
-                      const Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _CardBadge(
-                          label: 'Premium',
-                          color: Color(0xFFFFD700),
-                          textColor: Colors.black,
+                        if (showPromoBadges && style.isTrending)
+                          const Positioned(
+                            top: 8,
+                            left: 8,
+                            child: _CardBadge(
+                              label: 'Trending',
+                              color: Color(0xFFFF5E5E),
+                              textColor: Colors.white,
+                            ),
+                          ),
+                        if (showPromoBadges && style.isPro)
+                          const Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _CardBadge(
+                              label: 'Premium',
+                              color: Color(0xFFFFD700),
+                              textColor: Colors.black,
+                            ),
+                          ),
+                        if (widget.onUnfavorite != null)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
+                          ),
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: _CreditBadge(creditCost: style.creditCost),
                         ),
-                      ),
-                    if (widget.onUnfavorite != null)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
-                      ),
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: _CreditBadge(creditCost: style.creditCost),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
