@@ -95,6 +95,69 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'stats row reflects live FavoritesProvider/CreationsProvider data and updates automatically',
+      (tester) async {
+        final favManager = FavoritesManager()..shouldSyncWithBackend = false;
+        final creationsManager = CreationsManager()
+          ..shouldSaveToFile = false
+          ..shouldSyncWithBackend = false;
+        final styleManager = DynamicStyleManager();
+        final creditManager = CreditManager()..shouldSaveToFile = false;
+
+        Widget wrap(Widget child) => StyleProvider(
+              notifier: styleManager,
+              child: CreditProvider(
+                notifier: creditManager,
+                child: FavoritesProvider(
+                  notifier: favManager,
+                  child: CreationsProvider(
+                    notifier: creationsManager,
+                    child: MaterialApp(debugShowCheckedModeBanner: false, home: child),
+                  ),
+                ),
+              ),
+            );
+
+        await tester.pumpWidget(wrap(const ProfileScreen(isDarkMode: true)));
+        await tester.pump();
+
+        // Before any data: all three tiles show 0, not stuck placeholders.
+        expect(find.text('0'), findsNWidgets(3));
+
+        // 2 distinct favorites.
+        favManager.toggleFavorite('style-a');
+        favManager.toggleFavorite('style-b');
+
+        // 5 creations across 3 distinct non-empty styleIds (one creation has
+        // an empty styleId, simulating a since-deleted style via the
+        // ON DELETE SET NULL FK - it must count toward Creations but not
+        // toward Styles Used).
+        DateTime now() => DateTime.now();
+        await creationsManager.addCreation(CreationItem(
+            id: 'c1', styleId: 'style-a', styleName: 'A', imagePath: 'a1.png', createdAt: now()));
+        await creationsManager.addCreation(CreationItem(
+            id: 'c2', styleId: 'style-a', styleName: 'A', imagePath: 'a2.png', createdAt: now()));
+        await creationsManager.addCreation(CreationItem(
+            id: 'c3', styleId: 'style-b', styleName: 'B', imagePath: 'b1.png', createdAt: now()));
+        await creationsManager.addCreation(CreationItem(
+            id: 'c4', styleId: 'style-c', styleName: 'C', imagePath: 'c1.png', createdAt: now()));
+        await creationsManager.addCreation(CreationItem(
+            id: 'c5', styleId: '', styleName: 'Deleted style', imagePath: 'd1.png', createdAt: now()));
+
+        await tester.pump();
+
+        expect(find.text('2'), findsOneWidget); // Favorites
+        expect(find.text('5'), findsOneWidget); // Creations (total, not distinct)
+        expect(find.text('3'), findsOneWidget); // Styles Used (distinct non-empty styleIds)
+
+        // Removing a favorite updates the count immediately too.
+        favManager.toggleFavorite('style-a');
+        await tester.pump();
+        expect(find.text('1'), findsOneWidget);
+      },
+    );
   });
 
   // ── EDIT PROFILE SCREEN ───────────────────────────────────────────────────
