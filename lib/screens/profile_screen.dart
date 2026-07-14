@@ -88,6 +88,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profileManager = ProfileProvider.of(context);
     final profile = profileManager.profile;
 
+    // .of(context) subscribes this screen to both managers, so the stats
+    // row rebuilds automatically the moment a favorite is toggled or a
+    // creation is added/removed anywhere else in the app - no separate
+    // fetch needed, both lists are already loaded for their own screens.
+    final favoritesCount = FavoritesProvider.of(context).favoriteIds.length;
+    final creations = CreationsProvider.of(context).creations;
+    final usedStylesCount =
+        creations.map((c) => c.styleId).where((id) => id.isNotEmpty).toSet().length;
+
     if (profileManager.isLoading) {
       return Scaffold(
         backgroundColor: bgColor,
@@ -229,7 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _StatTile(
                     label: 'Creations',
-                    value: '0',
+                    value: '${creations.length}',
                     isDark: _isDark,
                     textColor: textColor,
                     surface: surfaceColor,
@@ -237,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 12),
                   _StatTile(
                     label: 'Favorites',
-                    value: '0',
+                    value: '$favoritesCount',
                     isDark: _isDark,
                     textColor: textColor,
                     surface: surfaceColor,
@@ -245,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 12),
                   _StatTile(
                     label: 'Styles Used',
-                    value: '0',
+                    value: '$usedStylesCount',
                     isDark: _isDark,
                     textColor: textColor,
                     surface: surfaceColor,

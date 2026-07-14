@@ -18,6 +18,15 @@ class StyleCard extends StatefulWidget {
   /// shorter card than a two-line one.
   static const double titleHeight = 40;
 
+  /// Explicit line-height multiplier for the title text style. Without this,
+  /// two wrapped lines are sized by whatever leading the Inter font file
+  /// happens to report, which isn't guaranteed to fit under [titleHeight] -
+  /// if it doesn't, the tight SizedBox below silently clips the second line
+  /// mid-glyph instead of the intended clean ellipsis. Pinning it here makes
+  /// the fit deterministic: titleMedium's fontSize (15) * 1.3 * 2 lines = 39,
+  /// safely inside the 40px slot regardless of font metrics.
+  static const double titleLineHeight = 1.3;
+
   final StyleModel style;
   final bool isDarkMode;
   final VoidCallback onTap;
@@ -93,47 +102,65 @@ class _StyleCardState extends State<StyleCard> {
         children: [
           AspectRatio(
             aspectRatio: StyleCard.imageAspectRatio,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: widget.heroTag != null
-                        ? Hero(tag: widget.heroTag!, child: image)
-                        : image,
-                  ),
-                  if (showPromoBadges && style.isTrending)
-                    const Positioned(
-                      top: 8,
-                      left: 8,
-                      child: _CardBadge(
-                        label: 'Trending',
-                        color: Color(0xFFFF5E5E),
-                        textColor: Colors.white,
-                      ),
-                    ),
-                  if (showPromoBadges && style.isPro)
-                    const Positioned(
-                      top: 8,
-                      right: 8,
-                      child: _CardBadge(
-                        label: 'Premium',
-                        color: Color(0xFFFFD700),
-                        textColor: Colors.black,
-                      ),
-                    ),
-                  if (widget.onUnfavorite != null)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
-                    ),
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: _CreditBadge(creditCost: style.creditCost),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                // A plain black drop shadow reads fine in light mode but
+                // is invisible against the dark theme's near-black page
+                // background - flip to a soft white glow there instead,
+                // the same theme-aware trick used elsewhere in the app.
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.isDarkMode
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: widget.heroTag != null
+                          ? Hero(tag: widget.heroTag!, child: image)
+                          : image,
+                    ),
+                    if (showPromoBadges && style.isTrending)
+                      const Positioned(
+                        top: 8,
+                        left: 8,
+                        child: _CardBadge(
+                          label: 'Trending',
+                          color: Color(0xFFFF5E5E),
+                          textColor: Colors.white,
+                        ),
+                      ),
+                    if (showPromoBadges && style.isPro)
+                      const Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _CardBadge(
+                          label: 'Premium',
+                          color: Color(0xFFFFD700),
+                          textColor: Colors.black,
+                        ),
+                      ),
+                    if (widget.onUnfavorite != null)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
+                      ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: _CreditBadge(creditCost: style.creditCost),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -147,6 +174,7 @@ class _StyleCardState extends State<StyleCard> {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: textColor,
                     fontWeight: FontWeight.w800,
+                    height: StyleCard.titleLineHeight,
                   ),
             ),
           ),
