@@ -271,6 +271,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.symmetric(horizontal: 26),
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
+              // The row's height (250) is only ~2px taller than a card's own
+              // content (200 image + 8 gap + 40 title = 248), leaving no
+              // room for StyleCard's shadow to paint before ListView's
+              // default hard-edge viewport clip cuts it off. The shadow
+              // itself never affects layout/scroll extent either way, so
+              // disabling the clip here just lets it bleed a few px past
+              // the row's nominal bounds instead of being invisibly clipped.
+              clipBehavior: Clip.none,
               itemBuilder: (context, index) {
                 final style = filtered[index];
                 return SizedBox(
