@@ -116,10 +116,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Trending always renders first, ahead of every category
-                // section below - it's a dynamic view over isTrending
-                // styles, not a category itself, so it isn't part of
-                // `categories` and doesn't participate in category ordering.
+                // Recommended For You renders above Trending whenever it has
+                // something to show - a personalized view over the user's
+                // own favorite/creation history, not a category itself, so
+                // it isn't part of `categories` and doesn't participate in
+                // category ordering either.
+                SliverToBoxAdapter(
+                  child: _RecommendedSectionWidget(
+                    textColor: textColor,
+                    isDark: isDark,
+                    sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                      return _buildHorizontalSection(
+                        title: title,
+                        styles: styles,
+                        textColor: txtColor,
+                        isDark: dark,
+                        isLoading: loading,
+                      );
+                    },
+                  ),
+                ),
+
+                // Trending always renders first among the remaining
+                // sections, ahead of every category section below - it's a
+                // dynamic view over isTrending styles, not a category
+                // itself, so it isn't part of `categories` and doesn't
+                // participate in category ordering.
                 SliverToBoxAdapter(
                   child: _TrendingSectionWidget(
                     textColor: textColor,
@@ -415,6 +437,69 @@ class _TrendingSectionWidget extends StatefulWidget {
 
   @override
   State<_TrendingSectionWidget> createState() => _TrendingSectionWidgetState();
+}
+
+/// Renders the "Recommended For You" section, powered entirely by
+/// RecommendationService (GET /api/styles?recommended=true) - this widget
+/// does no ranking of its own, it only decides whether to render at all.
+/// Mounted above [_TrendingSectionWidget]. Stays hidden (not just empty) in
+/// every case the feature is meant to be invisible: personalization off,
+/// anonymous, or not enough favorite/creation history yet to personalize
+/// from - the backend already encodes all of that as an empty list, so a
+/// single "hasLoaded && styles.isEmpty" check covers every case without
+/// Flutter needing to know *why* it's empty.
+class _RecommendedSectionWidget extends StatefulWidget {
+  final Color textColor;
+  final bool isDark;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
+
+  const _RecommendedSectionWidget({
+    required this.textColor,
+    required this.isDark,
+    required this.sectionBuilder,
+  });
+
+  @override
+  State<_RecommendedSectionWidget> createState() => _RecommendedSectionWidgetState();
+}
+
+class _RecommendedSectionWidgetState extends State<_RecommendedSectionWidget> {
+  @override
+  void initState() {
+    super.initState();
+    // Belt-and-suspenders alongside the server-side enforcement in
+    // styleController: don't even issue the request when the toggle is off,
+    // rather than relying solely on the backend returning [].
+    if (ProfileProvider.read(context).profile?.personalizationEnabled ?? true) {
+      StyleProvider.read(context).loadRecommendedStyles();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final personalizationEnabled =
+        ProfileProvider.of(context).profile?.personalizationEnabled ?? true;
+    if (!personalizationEnabled) {
+      return const SizedBox.shrink();
+    }
+
+    final styleManager = StyleProvider.of(context);
+    final styles = styleManager.recommendedStyles;
+    final isLoading = styleManager.isRecommendedLoading;
+
+    if (styleManager.hasLoadedRecommended && styles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return widget.sectionBuilder(
+      context,
+      'Recommended For You',
+      styles,
+      widget.textColor,
+      widget.isDark,
+      isLoading,
+    );
+  }
 }
 
 class _TrendingSectionWidgetState extends State<_TrendingSectionWidget> {

@@ -58,6 +58,7 @@ class CategoryModel {
 }
 
 const String _trendingCacheKey = 'styles_cache_trending';
+const String _recommendedCacheKey = 'styles_cache_recommended';
 
 class DynamicStyleManager extends ChangeNotifier {
   List<CategoryModel> _categories = [];
@@ -73,6 +74,15 @@ class DynamicStyleManager extends ChangeNotifier {
   bool _hasLoadedTrending = false;
   bool _isTrendingLoading = false;
   Future<void>? _activeTrendingFetch;
+
+  // "Recommended For You" - server-ranked (RecommendationService), never
+  // re-sorted client-side. Empty means either personalization is off or
+  // there isn't enough favorite/creation history yet to personalize from;
+  // either way the Home screen simply doesn't render the section.
+  List<StyleModel> _recommendedStyles = [];
+  bool _hasLoadedRecommended = false;
+  bool _isRecommendedLoading = false;
+  Future<void>? _activeRecommendedFetch;
 
   final ApiService _apiService = ApiService();
   final LocalCacheService _cacheService = LocalCacheService();
@@ -91,6 +101,10 @@ class DynamicStyleManager extends ChangeNotifier {
   List<StyleModel> get trendingStyles => List.unmodifiable(_trendingStyles);
   bool get hasLoadedTrending => _hasLoadedTrending;
   bool get isTrendingLoading => _isTrendingLoading;
+
+  List<StyleModel> get recommendedStyles => List.unmodifiable(_recommendedStyles);
+  bool get hasLoadedRecommended => _hasLoadedRecommended;
+  bool get isRecommendedLoading => _isRecommendedLoading;
 
   bool isCategoryLoading(String categoryId) => _loadingCategoryIds.contains(categoryId);
 
@@ -351,6 +365,158 @@ class DynamicStyleManager extends ChangeNotifier {
         notifyListeners();
       }
       // Offline fallback: continue displaying the cached version
+    }
+  }
+
+  /// Lazy-loads "Recommended For You" (the personalized feed from
+  /// RecommendationService). Mirrors [loadTrendingStyles]'s cache-first,
+  /// TTL, and in-flight-dedup behavior, with two differences: a shorter 2h
+  /// TTL (personalization should feel responsive to a fresh favorite/
+  /// creation) and no client-side re-sort, since the backend's ranking is
+  /// the whole point.
+  Future<void> loadRecommendedStyles() async {
+    if (_activeRecommendedFetch != null) {
+      debugPrint("[DynamicStyleManager] Deduplicating request: awaiting active future for recommended styles");
+      return _activeRecommendedFetch;
+    }
+
+    final fetchFuture = _loadRecommendedStylesInternal();
+    _activeRecommendedFetch = fetchFuture;
+
+    try {
+      await fetchFuture;
+    } finally {
+      _activeRecommendedFetch = null;
+    }
+  }
+
+  Future<void> _loadRecommendedStylesInternal() async {
+    final hasStylesInMemory = _recommendedStyles.isNotEmpty;
+
+    final cachedStylesList = await _cacheService.getCachedData(_recommendedCacheKey);
+    final List<StyleModel> loadedFromCache = [];
+
+    if (cachedStylesList is List) {
+      for (final sJson in cachedStylesList) {
+        if (sJson is Map) {
+          loadedFromCache.add(StyleModel.fromJson(sJson as Map<String, dynamic>));
+        }
+      }
+      if (loadedFromCache.isNotEmpty && !hasStylesInMemory) {
+        _recommendedStyles = loadedFromCache;
+        _hasLoadedRecommended = true;
+        notifyListeners();
+        debugPrint("[DynamicStyleManager] Loaded ${loadedFromCache.length} recommended styles from cache.");
+      }
+    }
+
+    // Recommended Cache TTL: 2 hours (7200000 ms) - shorter than Trending's
+    // 6h, since this depends on the user's own activity. FavoritesManager/
+    // CreationsManager also force-invalidate this cache directly on every
+    // favorite/creation change instead of waiting the TTL out.
+    final int? timestamp = await _cacheService.getCacheTimestamp(_recommendedCacheKey);
+    final bool isCacheValid = timestamp != null &&
+        (DateTime.now().millisecondsSinceEpoch - timestamp) < 7200000;
+
+    if (isCacheValid && cachedStylesList != null) {
+      debugPrint("[DynamicStyleManager] Recommended styles cache still valid. Skipping API call.");
+      if (!_hasLoadedRecommended) {
+        _hasLoadedRecommended = true;
+        notifyListeners();
+      }
+      return;
+    }
+
+    final showLoading = _recommendedStyles.isEmpty;
+    if (showLoading) {
+      _isRecommendedLoading = true;
+      notifyListeners();
+    }
+
+    try {
+      final styles = await _apiService.getRecommendedStyles();
+      // No re-sort: unlike Trending/category lists (admin-controlled
+      // sortOrder), this ranking comes entirely from RecommendationService -
+      // Flutter must render it in the order the backend returns it.
+      final List<StyleModel> styleModels = styles.map((s) => s.toStyleModel()).toList();
+      final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+
+      final String newStylesStr = json.encode(stylesJsonList);
+      final String oldStylesStr = cachedStylesList != null ? json.encode(cachedStylesList) : '';
+
+      if (newStylesStr != oldStylesStr || !_hasLoadedRecommended) {
+        _recommendedStyles = styleModels;
+        _hasLoadedRecommended = true;
+        await _cacheService.cacheData(_recommendedCacheKey, stylesJsonList);
+        debugPrint("[DynamicStyleManager] Cached recommended styles updated.");
+
+        _isRecommendedLoading = false;
+        notifyListeners();
+      } else {
+        debugPrint("[DynamicStyleManager] Backend recommended styles match cache.");
+        if (_isRecommendedLoading) {
+          _isRecommendedLoading = false;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("[DynamicStyleManager] Error fetching recommended styles: $e");
+      if (_isRecommendedLoading) {
+        _isRecommendedLoading = false;
+        notifyListeners();
+      }
+      // Offline fallback: continue displaying the cached version
+    }
+  }
+
+  /// Clears the Recommended section's cache and in-memory state so the next
+  /// [loadRecommendedStyles] call hits the network immediately instead of
+  /// waiting out the 2h TTL. Called by FavoritesManager/CreationsManager
+  /// whenever the user's favorite/creation history changes, since that's
+  /// exactly the signal RecommendationService ranks on.
+  Future<void> invalidateRecommendedCache() async {
+    _hasLoadedRecommended = false;
+    _recommendedStyles = [];
+    await _cacheService.clearCache(_recommendedCacheKey);
+    notifyListeners();
+  }
+
+  /// Loads "You may also like" for a given anchor style (Style Details).
+  /// Unlike Recommended/Trending this isn't a manager-wide section - each
+  /// caller gets its own cached list back directly, scoped to that anchor
+  /// style, with a 6h TTL (same as Trending) since it only changes when
+  /// admin tagging changes, not per-user behavior.
+  Future<List<StyleModel>> loadSimilarStyles(String styleId, {int limit = 10}) async {
+    final String cacheKey = 'styles_cache_similar_$styleId';
+    final cachedStylesList = await _cacheService.getCachedData(cacheKey);
+
+    final int? timestamp = await _cacheService.getCacheTimestamp(cacheKey);
+    final bool isCacheValid = timestamp != null &&
+        (DateTime.now().millisecondsSinceEpoch - timestamp) < 21600000;
+
+    if (isCacheValid && cachedStylesList is List) {
+      return cachedStylesList
+          .whereType<Map>()
+          .map((sJson) => StyleModel.fromJson(sJson as Map<String, dynamic>))
+          .toList();
+    }
+
+    try {
+      final styles = await _apiService.getSimilarStyles(styleId, limit: limit);
+      final List<StyleModel> styleModels = styles.map((s) => s.toStyleModel()).toList();
+      final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
+      await _cacheService.cacheData(cacheKey, stylesJsonList);
+      return styleModels;
+    } catch (e) {
+      debugPrint("[DynamicStyleManager] Error fetching similar styles for $styleId: $e");
+      if (cachedStylesList is List) {
+        // Offline fallback: serve stale cache rather than nothing.
+        return cachedStylesList
+            .whereType<Map>()
+            .map((sJson) => StyleModel.fromJson(sJson as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     }
   }
 

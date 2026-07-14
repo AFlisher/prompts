@@ -23,6 +23,13 @@ class FavoritesManager extends ChangeNotifier {
   final LocalCacheService _cacheService = LocalCacheService();
   static const String _cacheKey = 'favorites_cache';
 
+  // Favoriting/unfavoriting a style is exactly the signal
+  // RecommendationService ranks "Recommended For You" on - clearing this
+  // cache key (DynamicStyleManager's, not this manager's own) forces the
+  // next Home screen load to fetch fresh recommendations instead of
+  // serving a stale one from before the change.
+  static const String _recommendedCacheKey = 'styles_cache_recommended';
+
   /// Returns an unmodifiable view of all favorited style IDs.
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
   bool get isInitialized => _isInitialized;
@@ -79,6 +86,7 @@ class FavoritesManager extends ChangeNotifier {
     }
     notifyListeners();
     unawaited(_saveToCache());
+    unawaited(_cacheService.clearCache(_recommendedCacheKey));
 
     if (shouldSyncWithBackend) {
       unawaited(_syncToggleToBackend(id, nowFavorited));

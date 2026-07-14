@@ -60,6 +60,12 @@ class CreationsManager extends ChangeNotifier {
   final LocalCacheService _cacheService = LocalCacheService();
   static const String _migratedFlagKey = 'creations_migrated_v1';
 
+  // A new/removed creation is exactly the signal RecommendationService ranks
+  // "Recommended For You" on - clearing this cache key (DynamicStyleManager's,
+  // not this manager's own) forces the next Home screen load to fetch fresh
+  // recommendations instead of serving a stale one from before the change.
+  static const String _recommendedCacheKey = 'styles_cache_recommended';
+
   List<CreationItem> get creations => List.unmodifiable(_creations);
   int get currentTab => _currentTab;
   bool get isInitialized => _isInitialized;
@@ -153,12 +159,14 @@ class CreationsManager extends ChangeNotifier {
     _creations.insert(0, item); // Newest first
     await save();
     notifyListeners();
+    unawaited(_cacheService.clearCache(_recommendedCacheKey));
   }
 
   Future<void> deleteCreation(String id) async {
     _creations.removeWhere((c) => c.id == id);
     await save();
     notifyListeners();
+    unawaited(_cacheService.clearCache(_recommendedCacheKey));
 
     if (shouldSyncWithBackend) {
       // Best-effort: a failure here just means this row reappears on the

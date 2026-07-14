@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import '../widgets/style_card.dart';
 import 'upload_screen.dart';
 import '../main.dart';
 import '../utils/image_helper.dart';
@@ -168,6 +169,13 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: _SimilarStylesSection(
+                anchorStyle: widget.style,
+                isDarkMode: isDark,
+                onToggleDarkMode: widget.onToggleDarkMode,
+              ),
+            ),
           ],
         ),
       ),
@@ -197,6 +205,107 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
         duration: const Duration(milliseconds: 900),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+}
+
+/// "You may also like" - styles similar to [anchorStyle], ranked entirely by
+/// RecommendationService (GET /api/styles/:id/similar). Unlike Home's
+/// "Recommended For You", this is never gated by the personalization
+/// setting: it's style-to-style similarity, not the viewer's own history, so
+/// it renders the same way for every user, logged in or not.
+class _SimilarStylesSection extends StatefulWidget {
+  final StyleModel anchorStyle;
+  final bool isDarkMode;
+  final VoidCallback? onToggleDarkMode;
+
+  const _SimilarStylesSection({
+    required this.anchorStyle,
+    required this.isDarkMode,
+    this.onToggleDarkMode,
+  });
+
+  @override
+  State<_SimilarStylesSection> createState() => _SimilarStylesSectionState();
+}
+
+class _SimilarStylesSectionState extends State<_SimilarStylesSection> {
+  List<StyleModel>? _similarStyles;
+
+  @override
+  void initState() {
+    super.initState();
+    StyleProvider.read(context).loadSimilarStyles(widget.anchorStyle.id).then((styles) {
+      if (mounted) setState(() => _similarStyles = styles);
+    });
+  }
+
+  void _onStyleTapped(StyleModel style) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StyleDetailsScreen(
+          style: style,
+          isDarkMode: widget.isDarkMode,
+          onToggleDarkMode: widget.onToggleDarkMode,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final styles = _similarStyles;
+    // Rendered the moment the request resolves; before that (or if it comes
+    // back empty - a brand-new, untagged style) the section simply isn't
+    // there, same "no half-loaded placeholder" rule Home's sections follow.
+    if (styles == null || styles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(26, 0, 26, 12),
+          child: Text(
+            'You May Also Like',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 250,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 26),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            clipBehavior: Clip.none,
+            itemBuilder: (context, index) {
+              final style = styles[index];
+              return SizedBox(
+                width: 135,
+                child: StyleCard(
+                  style: style,
+                  isDarkMode: widget.isDarkMode,
+                  onTap: () => _onStyleTapped(style),
+                  cardWidth: 135,
+                  heroTag: 'similar_${widget.anchorStyle.id}_${style.id}',
+                ),
+              );
+            },
+            separatorBuilder: (_, __) => const SizedBox(width: 20),
+            itemCount: styles.length,
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

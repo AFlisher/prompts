@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/press_scale.dart';
+import '../main.dart';
+import '../services/profile_service.dart';
 
 class PrivacyScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -16,11 +18,36 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   late bool _isDark;
   bool _analyticsEnabled = true;
   bool _personalizationEnabled = true;
+  final _profileService = ProfileService();
 
   @override
   void initState() {
     super.initState();
     _isDark = widget.isDarkMode;
+    _personalizationEnabled =
+        ProfileProvider.read(context).profile?.personalizationEnabled ?? true;
+  }
+
+  Future<void> _onPersonalizationChanged(bool value) async {
+    final previous = _personalizationEnabled;
+    setState(() => _personalizationEnabled = value);
+    HapticFeedback.lightImpact();
+
+    try {
+      final updated =
+          await _profileService.updateProfile(personalizationEnabled: value);
+      if (!mounted) return;
+      ProfileProvider.read(context).updateProfile(updated);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _personalizationEnabled = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save this setting. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -126,7 +153,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 isDarkMode: _isDark,
                 surfaceColor: surfaceColor,
                 textColor: textColor,
-                onChanged: (v) => setState(() => _personalizationEnabled = v),
+                onChanged: _onPersonalizationChanged,
               ),
             ],
           ),

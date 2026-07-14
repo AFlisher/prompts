@@ -129,6 +129,49 @@ class ApiService {
     return jsonList.map((json) => Style.fromJson(json)).toList();
   }
 
+  /// GET /api/styles?recommended=true
+  ///
+  /// Powers the Home screen's "Recommended For You" section. Ranking is
+  /// entirely server-side (RecommendationService) - this just returns
+  /// whatever the backend decides, including an empty list when
+  /// personalization is off or there isn't enough favorite/creation history
+  /// yet to personalize from.
+  Future<List<Style>> getRecommendedStyles() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/styles?recommended=true'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load recommended styles. Status: ${response.statusCode}');
+    }
+
+    final List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((json) => Style.fromJson(json)).toList();
+  }
+
+  /// GET /api/styles/:id/similar
+  ///
+  /// Powers Style Details' "You may also like" section - styles similar to
+  /// the given anchor style, ranked by RecommendationService. Anonymous-safe
+  /// and not gated by the personalization setting, since it's style-to-style
+  /// similarity, not the caller's own history.
+  Future<List<Style>> getSimilarStyles(String styleId, {int limit = 10}) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/styles/$styleId/similar?limit=$limit'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load similar styles. Status: ${response.statusCode}');
+    }
+
+    final List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((json) => Style.fromJson(json)).toList();
+  }
+
   /// GET /api/favorites
   Future<List<String>> getFavorites() async {
     final headers = await _getHeaders();

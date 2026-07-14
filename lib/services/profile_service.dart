@@ -122,7 +122,11 @@ class ProfileService {
     return Profile.fromJson(response);
   }
 
-  Future<Profile> updateProfile({String? fullName, String? avatarUrl}) async {
+  Future<Profile> updateProfile({
+    String? fullName,
+    String? avatarUrl,
+    bool? personalizationEnabled,
+  }) async {
     await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
@@ -131,6 +135,7 @@ class ProfileService {
         fullName: fullName ?? 'Ahmed',
         email: 'ahmed@example.com',
         avatarUrl: avatarUrl,
+        personalizationEnabled: personalizationEnabled ?? true,
       );
     }
 
@@ -142,6 +147,9 @@ class ProfileService {
     final Map<String, dynamic> updates = {};
     if (fullName != null) updates['full_name'] = fullName;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    if (personalizationEnabled != null) {
+      updates['personalization_enabled'] = personalizationEnabled;
+    }
 
     if (updates.isEmpty) {
       return getProfile();

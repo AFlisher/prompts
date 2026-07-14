@@ -5,6 +5,7 @@ class Profile {
   final String? avatarUrl;
   final String? provider;
   final DateTime? createdAt;
+  final bool personalizationEnabled;
 
   Profile({
     required this.id,
@@ -13,6 +14,7 @@ class Profile {
     this.avatarUrl,
     this.provider,
     this.createdAt,
+    this.personalizationEnabled = true,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class Profile {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
+      personalizationEnabled: json['personalization_enabled'] as bool? ?? true,
     );
   }
 
@@ -36,6 +39,7 @@ class Profile {
       'avatar_url': avatarUrl,
       'provider': provider,
       'created_at': createdAt?.toIso8601String(),
+      'personalization_enabled': personalizationEnabled,
     };
   }
 }
