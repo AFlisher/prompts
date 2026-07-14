@@ -138,13 +138,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                 // Conditional UI based on API State
                 if (isLoading && categories.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40.0),
-                        child: CircularProgressIndicator(color: AppTheme.accentPurple),
-                      ),
+                  const SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        StyleRowSkeleton(),
+                        StyleRowSkeleton(),
+                        StyleRowSkeleton(),
+                      ],
                     ),
                   )
                 else if (error != null && categories.isEmpty)
@@ -251,19 +251,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         if (isLoading && filtered.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32.0),
-            child: Center(
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
-                ),
-              ),
-            ),
-          )
+          const StyleRowSkeleton()
         else if (filtered.isNotEmpty)
           SizedBox(
             height: 250,
@@ -281,13 +269,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               clipBehavior: Clip.none,
               itemBuilder: (context, index) {
                 final style = filtered[index];
+                // Namespaced by section title (not just style id): a
+                // trending style renders in both this row and its own
+                // category row at once, and Hero requires unique tags
+                // among simultaneously-mounted widgets in the same route.
+                final heroTag = 'home_${title}_${style.id}';
                 return SizedBox(
                   width: 135,
                   child: StyleCard(
                     style: style,
                     isDarkMode: isDark,
-                    onTap: () => _onStyleTapped(style),
+                    onTap: () => _onStyleTapped(style, heroTag),
                     cardWidth: 135,
+                    heroTag: heroTag,
                   ),
                 );
               },
@@ -315,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _onStyleTapped(StyleModel style) {
+  void _onStyleTapped(StyleModel style, String heroTag) {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
@@ -324,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           style: style,
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
+          heroTag: heroTag,
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
+import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
 
@@ -526,7 +527,7 @@ class _ImageSourceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),

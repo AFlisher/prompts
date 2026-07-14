@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+/// Reserved for one specific kind of moment: a big, singular "your file is
+/// now on your device" confirmation after saving a generated image to the
+/// gallery (currently: Upload, Creations, and Image Preview's save actions).
+/// Every other confirmation or error in the app - form saves, toggles,
+/// share links, permission failures - uses a [SnackBar] instead, since
+/// those are secondary acknowledgements that shouldn't interrupt the
+/// screen the way this full-screen HUD does.
 class SuccessHUD {
   static void show(BuildContext context) {
     showDialog(

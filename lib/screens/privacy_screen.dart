@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../widgets/press_scale.dart';
 
 class PrivacyScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -167,7 +168,7 @@ class _LinkTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
