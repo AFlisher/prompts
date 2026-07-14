@@ -137,10 +137,13 @@ class _MainShellState extends State<MainShell> {
           );
         }
       });
-      return const Scaffold(
-        backgroundColor: AppTheme.black,
-        body: Center(
-          child: CircularProgressIndicator(color: AppTheme.accentPurple),
+      return const AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
+          backgroundColor: AppTheme.black,
+          body: Center(
+            child: CircularProgressIndicator(color: AppTheme.accentPurple),
+          ),
         ),
       );
     }
@@ -149,71 +152,82 @@ class _MainShellState extends State<MainShell> {
     final creationsManager = CreationsProvider.of(context);
     final currentIndex = creationsManager.currentTab;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      // No bottomNavigationBar slot: Scaffold wraps that slot in its own
-      // Material surface, which paints an opaque rectangle behind whatever
-      // widget is given to it - exactly the "rectangle behind the glass
-      // bar" this was meant to avoid. A plain Stack overlay has no such
-      // surface, so only the nav bar's own rounded shape is ever painted.
-      //
-      // Deliberately NOT inflating the ambient MediaQuery bottom padding
-      // here: every tab screen's own SafeArea would turn that into a
-      // permanent layout shrink (visible at every scroll position, not just
-      // at the end of the list), which just reproduces a flat, static area
-      // behind the glass bar - the same "rectangle" look this exists to
-      // avoid. Bottom clearance for each screen's last item is instead
-      // added as trailing padding on that screen's own scrollable via
-      // FloatingNavBarMetrics.scrollClearance, so it only appears once
-      // real content has actually been scrolled past.
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.0, 0.02),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: KeyedSubtree(
-                  key: ValueKey<int>(currentIndex),
-                  child: _buildScreen(currentIndex),
+    // AnnotatedRegion (not a one-off SystemChrome.setSystemUIOverlayStyle
+    // call) because Flutter re-asserts it on every relevant frame - a plain
+    // imperative call made once at app startup, before the first frame
+    // exists, was found to be silently dropped or overridden by Android on
+    // cold start (confirmed on-device: worked after toggling mid-session,
+    // failed on a fresh launch already saved in Light Mode). This is
+    // immune to that race and self-heals if the OS resets system UI on
+    // resume.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _isDarkMode ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        // No bottomNavigationBar slot: Scaffold wraps that slot in its own
+        // Material surface, which paints an opaque rectangle behind whatever
+        // widget is given to it - exactly the "rectangle behind the glass
+        // bar" this was meant to avoid. A plain Stack overlay has no such
+        // surface, so only the nav bar's own rounded shape is ever painted.
+        //
+        // Deliberately NOT inflating the ambient MediaQuery bottom padding
+        // here: every tab screen's own SafeArea would turn that into a
+        // permanent layout shrink (visible at every scroll position, not just
+        // at the end of the list), which just reproduces a flat, static area
+        // behind the glass bar - the same "rectangle" look this exists to
+        // avoid. Bottom clearance for each screen's last item is instead
+        // added as trailing padding on that screen's own scrollable via
+        // FloatingNavBarMetrics.scrollClearance, so it only appears once
+        // real content has actually been scrolled past.
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(currentIndex),
+                    child: _buildScreen(currentIndex),
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _navCollapsed,
-              builder: (context, collapsed, _) {
-                return _GlassNavBar(
-                  currentIndex: currentIndex,
-                  isDarkMode: _isDarkMode,
-                  collapsed: collapsed,
-                  onTap: (index) {
-                    HapticFeedback.lightImpact();
-                    creationsManager.setTab(index);
-                  },
-                );
-              },
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _navCollapsed,
+                builder: (context, collapsed, _) {
+                  return _GlassNavBar(
+                    currentIndex: currentIndex,
+                    isDarkMode: _isDarkMode,
+                    collapsed: collapsed,
+                    onTap: (index) {
+                      HapticFeedback.lightImpact();
+                      creationsManager.setTab(index);
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

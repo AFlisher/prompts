@@ -228,13 +228,20 @@ class _PrombtAppState extends State<PrombtApp> {
             notifier: _favoritesManager,
             child: CreationsProvider(
               notifier: _creationsManager,
-              child: MaterialApp(
-                title: 'StyliAI — AI Photo Styles',
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.lightTheme,
-                darkTheme: AppTheme.darkTheme,
-                themeMode: ThemeMode.dark,
-                home: const LandingScreen(),
+              // Baseline for every pre-auth screen (Landing/Login/Register/
+              // etc.), which are always dark, regardless of the user's saved
+              // light/dark preference - MainShell overrides this with its
+              // own reactive AnnotatedRegion once the user is signed in.
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle.light,
+                child: MaterialApp(
+                  title: 'StyliAI — AI Photo Styles',
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.lightTheme,
+                  darkTheme: AppTheme.darkTheme,
+                  themeMode: ThemeMode.dark,
+                  home: const LandingScreen(),
+                ),
               ),
             ),
           ),
