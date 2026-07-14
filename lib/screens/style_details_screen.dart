@@ -13,11 +13,19 @@ class StyleDetailsScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback? onToggleDarkMode;
 
+  /// The [Hero] tag the tapped card used to get here, so its image flies
+  /// smoothly into this screen's hero image instead of a bare route swap.
+  /// Falls back to a tag derived from the style id alone when absent (e.g.
+  /// if this screen is ever reached without a card tap), matching the
+  /// original single-tag behavior.
+  final String? heroTag;
+
   const StyleDetailsScreen({
     super.key,
     required this.style,
     required this.isDarkMode,
     this.onToggleDarkMode,
+    this.heroTag,
   });
 
   @override
@@ -44,6 +52,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
     final isDark = _isDark;
     final bgColor = isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
+    final heroTag = widget.heroTag ?? 'hero_style_img_${widget.style.id}';
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -65,6 +74,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 26),
                 child: _HeroStyleCard(
                   style: widget.style,
+                  heroTag: heroTag,
                   isFavorite: FavoritesProvider.of(context).isFavorite(widget.style.id),
                   isDarkMode: isDark,
                   marginTop: 16,
@@ -193,6 +203,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
 
 class _HeroStyleCard extends StatelessWidget {
   final StyleModel style;
+  final String heroTag;
   final bool isFavorite;
   final bool isDarkMode;
   final double marginTop;
@@ -202,6 +213,7 @@ class _HeroStyleCard extends StatelessWidget {
 
   const _HeroStyleCard({
     required this.style,
+    required this.heroTag,
     required this.isFavorite,
     required this.isDarkMode,
     this.marginTop = 0,
@@ -234,13 +246,13 @@ class _HeroStyleCard extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => FullScreenImageViewer(
                           imagePath: style.displayImage,
-                          heroTag: 'hero_style_img_${style.id}',
+                          heroTag: heroTag,
                         ),
                       ),
                     );
                   },
                   child: Hero(
-                    tag: 'hero_style_img_${style.id}',
+                    tag: heroTag,
                     child: buildStyleImage(
                       style.displayImage,
                       fit: BoxFit.cover,

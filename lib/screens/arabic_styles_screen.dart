@@ -138,11 +138,13 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final style = styles[index];
+                      final heroTag = 'arabic_styles_${style.id}';
                       return StyleCard(
                         style: style,
                         isDarkMode: _isDark,
-                        onTap: () => _openDetails(context, style),
+                        onTap: () => _openDetails(context, style, heroTag),
                         cardWidth: cardWidth,
+                        heroTag: heroTag,
                       );
                     },
                     childCount: styles.length,
@@ -155,7 +157,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     );
   }
 
-  void _openDetails(BuildContext context, StyleModel style) {
+  void _openDetails(BuildContext context, StyleModel style, String heroTag) {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
@@ -164,6 +166,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
           style: style,
           isDarkMode: _isDark,
           onToggleDarkMode: _toggleDark,
+          heroTag: heroTag,
         ),
       ),
     );

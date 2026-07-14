@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
 import '../widgets/app_icon_dialog.dart';
+import '../widgets/press_scale.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
@@ -14,6 +15,7 @@ import 'paywall_screen.dart';
 import 'wallet_history_screen.dart';
 import '../services/auth_service.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../utils/page_transitions.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -41,9 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => EditProfileScreen(isDarkMode: _isDark),
-      ),
+      fadeSlidePageRoute((_) => EditProfileScreen(isDarkMode: _isDark)),
     );
   }
 
@@ -51,9 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => NotificationsScreen(isDarkMode: _isDark),
-      ),
+      fadeSlidePageRoute((_) => NotificationsScreen(isDarkMode: _isDark)),
     );
   }
 
@@ -61,9 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PrivacyScreen(isDarkMode: _isDark),
-      ),
+      fadeSlidePageRoute((_) => PrivacyScreen(isDarkMode: _isDark)),
     );
   }
 
@@ -71,9 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ChangePasswordScreen(isDarkMode: _isDark),
-      ),
+      fadeSlidePageRoute((_) => ChangePasswordScreen(isDarkMode: _isDark)),
     );
   }
 
@@ -81,9 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => WalletHistoryScreen(isDarkMode: _isDark),
-      ),
+      fadeSlidePageRoute((_) => WalletHistoryScreen(isDarkMode: _isDark)),
     );
   }
 
@@ -270,9 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   HapticFeedback.lightImpact();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => PaywallScreen(isDarkMode: _isDark),
-                    ),
+                    fadeSlidePageRoute((_) => PaywallScreen(isDarkMode: _isDark)),
                   );
                 },
               ),
@@ -474,7 +464,7 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -515,7 +505,7 @@ class _ProBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),

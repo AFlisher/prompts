@@ -140,10 +140,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   itemCount: _favoriteStyles.length,
                   itemBuilder: (context, index) {
                     final style = _favoriteStyles[index];
+                    final heroTag = 'favorites_${style.id}';
                     return StyleCard(
                       style: style,
                       isDarkMode: widget.isDarkMode,
                       cardWidth: cardWidth,
+                      heroTag: heroTag,
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.push(
@@ -153,6 +155,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               style: style,
                               isDarkMode: widget.isDarkMode,
                               onToggleDarkMode: widget.onToggleDarkMode,
+                              heroTag: heroTag,
                             ),
                           ),
                         );

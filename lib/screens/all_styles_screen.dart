@@ -116,11 +116,13 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final style = styles[index];
+                    final heroTag = 'all_styles_${style.id}';
                     return StyleCard(
                       style: style,
                       isDarkMode: _isDark,
-                      onTap: () => _openDetails(context, style),
+                      onTap: () => _openDetails(context, style, heroTag),
                       cardWidth: cardWidth,
+                      heroTag: heroTag,
                     );
                   },
                   childCount: styles.length,
@@ -133,7 +135,7 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
     );
   }
 
-  void _openDetails(BuildContext context, StyleModel style) {
+  void _openDetails(BuildContext context, StyleModel style, String heroTag) {
     HapticFeedback.lightImpact();
     Navigator.push(
       context,
@@ -142,6 +144,7 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
           style: style,
           isDarkMode: _isDark,
           onToggleDarkMode: _toggleDark,
+          heroTag: heroTag,
         ),
       ),
     );

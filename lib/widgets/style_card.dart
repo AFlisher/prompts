@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
 import '../models/style_model.dart';
 import '../utils/image_helper.dart';
+import 'press_scale.dart';
 
 /// The single style-browsing card used across Home, All Styles, Arabic
 /// Styles, and Favorites. A shared image aspect ratio and a fixed-height
@@ -34,6 +36,15 @@ class StyleCard extends StatefulWidget {
   /// badges (Favorites screen's "remove" affordance takes their spot).
   final VoidCallback? onUnfavorite;
 
+  /// When provided, wraps the card's image in a [Hero] with this tag so
+  /// tapping the card flies its image straight into the matching [Hero] on
+  /// [StyleDetailsScreen] instead of a bare route swap. Callers must give
+  /// each simultaneously-visible card a unique tag - a style rendered in two
+  /// sections at once (e.g. Home's Trending row and its own category row)
+  /// needs two different tags, since Flutter requires unique Hero tags
+  /// within the same route.
+  final String? heroTag;
+
   const StyleCard({
     super.key,
     required this.style,
@@ -41,6 +52,7 @@ class StyleCard extends StatefulWidget {
     required this.onTap,
     required this.cardWidth,
     this.onUnfavorite,
+    this.heroTag,
   });
 
   @override
@@ -48,8 +60,6 @@ class StyleCard extends StatefulWidget {
 }
 
 class _StyleCardState extends State<StyleCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final style = widget.style;
@@ -69,83 +79,78 @@ class _StyleCardState extends State<StyleCard> {
     final cacheHeight =
         (widget.cardWidth / StyleCard.imageAspectRatio * dpr).round();
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 110),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: StyleCard.imageAspectRatio,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: buildStyleImage(
-                        style.displayImage,
-                        fit: BoxFit.cover,
-                        memCacheWidth: cacheWidth,
-                        memCacheHeight: cacheHeight,
-                      ),
-                    ),
-                    if (showPromoBadges && style.isTrending)
-                      const Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _CardBadge(
-                          label: 'Trending',
-                          color: Color(0xFFFF5E5E),
-                          textColor: Colors.white,
-                        ),
-                      ),
-                    if (showPromoBadges && style.isPro)
-                      const Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _CardBadge(
-                          label: 'Premium',
-                          color: Color(0xFFFFD700),
-                          textColor: Colors.black,
-                        ),
-                      ),
-                    if (widget.onUnfavorite != null)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
-                      ),
-                    Positioned(
-                      bottom: 8,
+    final image = buildStyleImage(
+      style.displayImage,
+      fit: BoxFit.cover,
+      memCacheWidth: cacheWidth,
+      memCacheHeight: cacheHeight,
+    );
+
+    return PressScale(
+      onTap: widget.onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: StyleCard.imageAspectRatio,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: widget.heroTag != null
+                        ? Hero(tag: widget.heroTag!, child: image)
+                        : image,
+                  ),
+                  if (showPromoBadges && style.isTrending)
+                    const Positioned(
+                      top: 8,
                       left: 8,
-                      child: _CreditBadge(creditCost: style.creditCost),
+                      child: _CardBadge(
+                        label: 'Trending',
+                        color: Color(0xFFFF5E5E),
+                        textColor: Colors.white,
+                      ),
                     ),
-                  ],
-                ),
+                  if (showPromoBadges && style.isPro)
+                    const Positioned(
+                      top: 8,
+                      right: 8,
+                      child: _CardBadge(
+                        label: 'Premium',
+                        color: Color(0xFFFFD700),
+                        textColor: Colors.black,
+                      ),
+                    ),
+                  if (widget.onUnfavorite != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
+                    ),
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: _CreditBadge(creditCost: style.creditCost),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: StyleCard.titleHeight,
-              child: Text(
-                style.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: textColor,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: StyleCard.titleHeight,
+            child: Text(
+              style.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -235,6 +240,77 @@ class _UnfavoriteButton extends StatelessWidget {
           Icons.favorite_rounded,
           color: AppTheme.accentPink,
           size: 18,
+        ),
+      ),
+    );
+  }
+}
+
+/// A single placeholder card matching [StyleCard]'s exact proportions
+/// (image aspect ratio + fixed title height), for use in a loading skeleton
+/// row - same shimmer treatment [buildStyleImage] already uses per-image,
+/// applied here to the whole card shape before any real data has arrived.
+class StyleCardSkeleton extends StatelessWidget {
+  final double cardWidth;
+
+  const StyleCardSkeleton({super.key, required this.cardWidth});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: cardWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: StyleCard.imageAspectRatio,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              child: Container(color: Colors.grey[300]),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: StyleCard.titleHeight,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Container(
+                width: cardWidth * 0.7,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A horizontal row of [StyleCardSkeleton]s under one shimmer sweep,
+/// matching the spacing of the real horizontal style list it stands in for.
+class StyleRowSkeleton extends StatelessWidget {
+  final double height;
+
+  const StyleRowSkeleton({super.key, this.height = 250});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 26),
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) => const StyleCardSkeleton(cardWidth: 135),
+          separatorBuilder: (_, __) => const SizedBox(width: 20),
+          itemCount: 4,
         ),
       ),
     );
