@@ -18,21 +18,27 @@ void main() {
       manager = CreditManager();
     });
 
-    test('initial credits value is 3', () {
-      expect(manager.credits, equals(3));
+    test('initial credits value is 0', () {
+      // Not a real balance - just the placeholder before the first
+      // fetchWallet() resolves, so UI can tell "not loaded yet" apart from
+      // an actual zero balance via isInitialized instead of guessing from
+      // the number itself.
+      expect(manager.credits, equals(0));
     });
 
     test('isInitialized starts as false', () {
       expect(manager.isInitialized, isFalse);
     });
 
-    test('useCredit decrements credits by 1', () {
+    test('useCredit decrements credits by 1 when credits are available', () async {
+      await manager.addCredits(5);
       final initial = manager.credits;
       manager.useCredit();
       expect(manager.credits, equals(initial - 1));
     });
 
-    test('useCredit returns true when credits available', () {
+    test('useCredit returns true when credits available', () async {
+      await manager.addCredits(1);
       final result = manager.useCredit();
       expect(result, isTrue);
     });
@@ -63,10 +69,11 @@ void main() {
 
     test('addCredits with large amount works correctly', () async {
       await manager.addCredits(100);
-      expect(manager.credits, equals(103)); // 3 initial + 100
+      expect(manager.credits, equals(100)); // 0 initial + 100
     });
 
-    test('notifyListeners is called after useCredit', () {
+    test('notifyListeners is called after useCredit', () async {
+      await manager.addCredits(1);
       int notifyCount = 0;
       manager.addListener(() => notifyCount++);
       manager.useCredit();
