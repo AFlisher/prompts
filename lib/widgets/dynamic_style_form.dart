@@ -61,8 +61,24 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
 
   bool _isBlank(dynamic v) => v == null || (v is String && v.trim().isEmpty);
 
+  int? _intConfig(StyleField f, String key) {
+    final v = f.config[key];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  num? _numConfig(StyleField f, String key) {
+    final v = f.config[key];
+    if (v is num) return v;
+    if (v is String) return num.tryParse(v);
+    return null;
+  }
+
   /// Returns a friendly error message, or null when valid. Shared by the
-  /// visible FormField validators and the silent validity computation.
+  /// visible FormField validators and the silent validity computation. All
+  /// rules are driven by the field's [config] - nothing is hardcoded per style.
   String? _validate(StyleField f, dynamic value) {
     if (_isBlank(value)) {
       return f.required ? '${f.label} is required.' : null;
@@ -72,10 +88,10 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       case 'number':
         final n = num.tryParse(s);
         if (n == null) return 'Enter a valid number.';
-        final min = f.config['min'];
-        final max = f.config['max'];
-        if (min is num && n < min) return '${f.label} must be at least $min.';
-        if (max is num && n > max) return '${f.label} must be at most $max.';
+        final min = _numConfig(f, 'min');
+        final max = _numConfig(f, 'max');
+        if (min != null && n < min) return '${f.label} must be at least $min.';
+        if (max != null && n > max) return '${f.label} must be at most $max.';
         return null;
       case 'dropdown':
         if (!f.options.any((o) => o.value == s)) return 'Choose a valid option.';
@@ -88,6 +104,25 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       case 'date':
         if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s) || DateTime.tryParse(s) == null) {
           return 'Enter a valid date (YYYY-MM-DD).';
+        }
+        return null;
+      case 'text':
+      case 'textarea':
+        final minLength = _intConfig(f, 'minLength');
+        if (minLength != null && s.length < minLength) {
+          return '${f.label} must be at least $minLength characters.';
+        }
+        final pattern = f.config['regex'];
+        if (pattern is String && pattern.trim().isNotEmpty) {
+          RegExp? re;
+          try {
+            re = RegExp(pattern);
+          } catch (_) {
+            re = null; // a malformed admin regex never blocks the user
+          }
+          if (re != null && !re.hasMatch(s)) {
+            return '${f.label} is not in the expected format.';
+          }
         }
         return null;
       default:
@@ -144,19 +179,28 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
     }
   }
 
-  InputDecoration _decoration(StyleField f) => InputDecoration(
-        labelText: f.required ? '${f.label} *' : f.label,
-        hintText: f.placeholder,
-        border: const OutlineInputBorder(),
-        isDense: true,
-      );
+  InputDecoration _decoration(StyleField f) {
+    final help = f.config['helpText'];
+    return InputDecoration(
+      labelText: f.required ? '${f.label} *' : f.label,
+      hintText: f.placeholder,
+      helperText: help is String && help.isNotEmpty ? help : null,
+      helperMaxLines: 3,
+      border: const OutlineInputBorder(),
+      isDense: true,
+    );
+  }
 
   Widget _buildText(StyleField f, {int maxLines = 1, TextInputType? keyboardType, List<TextInputFormatter>? inputFormatters}) {
+    // maxLength (config) hard-limits input length so the user can't exceed it,
+    // matching the server's cap - driven entirely by config, not per style.
+    final maxLength = _intConfig(f, 'maxLength');
     return TextFormField(
       key: ValueKey('field_${f.key}'),
       controller: _controllers[f.key],
       decoration: _decoration(f),
       maxLines: maxLines,
+      maxLength: maxLength != null && maxLength > 0 ? maxLength : null,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       autovalidateMode: AutovalidateMode.onUserInteraction,

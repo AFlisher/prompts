@@ -108,4 +108,70 @@ void main() {
     expect(find.byType(TextFormField), findsNothing);
     expect(valid, isTrue);
   });
+
+  // --- Rich (config-driven) validation metadata ---
+
+  testWidgets('respects minLength from config', (tester) async {
+    bool? valid;
+    final fields = [const StyleField(key: 'code', label: 'Code', type: 'text', required: true, config: {'minLength': 3})];
+    await tester.pumpWidget(_host(fields, onChanged: (_, v) => valid = v));
+    await tester.pump();
+
+    await tester.enterText(find.byKey(const ValueKey('field_code')), 'ab');
+    await tester.pump();
+    expect(valid, isFalse);
+    await tester.enterText(find.byKey(const ValueKey('field_code')), 'abc');
+    await tester.pump();
+    expect(valid, isTrue);
+  });
+
+  testWidgets('respects a regex pattern from config with a friendly message', (tester) async {
+    final formKey = GlobalKey<FormState>();
+    final fields = [const StyleField(key: 'code', label: 'Code', type: 'text', required: true, config: {'regex': r'^[A-Z]{3}$'})];
+    await tester.pumpWidget(_host(fields, onChanged: (_, __) {}, formKey: formKey));
+    await tester.pump();
+
+    await tester.enterText(find.byKey(const ValueKey('field_code')), 'abc');
+    await tester.pump();
+    formKey.currentState!.validate();
+    await tester.pump();
+    expect(find.text('Code is not in the expected format.'), findsOneWidget);
+  });
+
+  testWidgets('a malformed regex never blocks the user', (tester) async {
+    bool? valid;
+    final fields = [const StyleField(key: 'x', label: 'X', type: 'text', required: false, config: {'regex': '(['})];
+    await tester.pumpWidget(_host(fields, onChanged: (_, v) => valid = v));
+    await tester.pump();
+    await tester.enterText(find.byKey(const ValueKey('field_x')), 'whatever');
+    await tester.pump();
+    expect(valid, isTrue);
+  });
+
+  testWidgets('applies maxLength and helpText from config to the field', (tester) async {
+    final fields = [
+      const StyleField(key: 'note', label: 'Note', type: 'text', config: {'maxLength': 5, 'helpText': 'Keep it short'}),
+    ];
+    await tester.pumpWidget(_host(fields, onChanged: (_, __) {}));
+    await tester.pump();
+
+    final inner = tester.widget<TextField>(
+      find.descendant(of: find.byKey(const ValueKey('field_note')), matching: find.byType(TextField)),
+    );
+    expect(inner.maxLength, 5);
+    expect(find.text('Keep it short'), findsOneWidget); // helperText rendered
+  });
+
+  testWidgets('respects number min/max from config', (tester) async {
+    bool? valid;
+    final fields = [const StyleField(key: 'age', label: 'Age', type: 'number', required: true, config: {'min': 18, 'max': 99})];
+    await tester.pumpWidget(_host(fields, onChanged: (_, v) => valid = v));
+    await tester.pump();
+    await tester.enterText(find.byKey(const ValueKey('field_age')), '10');
+    await tester.pump();
+    expect(valid, isFalse);
+    await tester.enterText(find.byKey(const ValueKey('field_age')), '25');
+    await tester.pump();
+    expect(valid, isTrue);
+  });
 }
