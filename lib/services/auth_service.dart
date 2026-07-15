@@ -320,6 +320,14 @@ class AuthService {
       throw AuthException(data['message'] ?? 'Failed to change password.');
     }
 
+    // The backend rotates the refresh token on password change (revoking all
+    // other sessions) and returns a fresh token pair for this one - store it
+    // so this session keeps working past the old access token's expiry.
+    if (data['accessToken'] is String && data['refreshToken'] is String) {
+      await _writeToken(_accessTokenKey, data['accessToken'] as String);
+      await _writeToken(_refreshTokenKey, data['refreshToken'] as String);
+    }
+
     debugPrint("[AuthService] Password changed successfully.");
   }
 

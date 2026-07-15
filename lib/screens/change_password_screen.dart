@@ -169,6 +169,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     if (val.length < 8) {
                       return 'New password must be at least 8 characters';
                     }
+                    if (!val.contains(RegExp(r'[A-Z]'))) return 'Must contain at least one uppercase letter';
+                    if (!val.contains(RegExp(r'[a-z]'))) return 'Must contain at least one lowercase letter';
+                    if (!val.contains(RegExp(r'[0-9]'))) return 'Must contain at least one digit';
+                    if (!val.contains(RegExp(r'[!@#\$&*~]'))) return 'Must contain at least one special character (!@#\$&*~)';
                     return null;
                   },
                 ),
