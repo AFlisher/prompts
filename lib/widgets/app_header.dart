@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../screens/paywall_screen.dart';
@@ -19,6 +20,7 @@ class AppHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
     final profile = ProfileProvider.of(context).profile;
+    final creditManager = CreditProvider.of(context);
     final initials = (profile?.fullName ?? '').trim().isNotEmpty
         ? profile!.fullName![0].toUpperCase()
         : 'U';
@@ -72,14 +74,32 @@ class AppHeader extends StatelessWidget {
                   children: [
                     const Icon(Icons.stars_rounded, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      '${CreditProvider.of(context).credits}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                    // Before the first fetchWallet() resolves, credits hasn't
+                    // loaded the user's real balance yet - render a
+                    // placeholder instead of a number that would flash and
+                    // then visibly change to the real one a moment later.
+                    if (!creditManager.isInitialized)
+                      Shimmer.fromColors(
+                        baseColor: Colors.white.withValues(alpha: 0.25),
+                        highlightColor: Colors.white.withValues(alpha: 0.6),
+                        child: Container(
+                          width: 14,
+                          height: 13,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        '${creditManager.credits}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

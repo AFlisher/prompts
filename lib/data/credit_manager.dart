@@ -3,7 +3,11 @@ import '../services/ad_service.dart';
 import '../services/wallet_service.dart';
 
 class CreditManager extends ChangeNotifier {
-  int _balance = 3;
+  // Not a cached or real value - just the starting point before the first
+  // fetchWallet() resolves. Callers that display credits before
+  // [isInitialized] is true should show a loading placeholder instead of
+  // this number, since it isn't the user's actual balance yet.
+  int _balance = 0;
   int _generatedImages = 0;
   int _adsProgress = 0;
   bool _dailyLimitReached = false;
