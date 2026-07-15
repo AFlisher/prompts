@@ -1,3 +1,5 @@
+import 'style_field.dart';
+
 class StyleModel {
   final String id;
   final String name;
@@ -13,6 +15,10 @@ class StyleModel {
 
   final bool isPro;
 
+  /// Dynamic input fields the user must fill before generating with this style.
+  /// Empty for classic styles (no placeholders) - fully backward compatible.
+  final List<StyleField> fields;
+
   const StyleModel({
     required this.id,
     required this.name,
@@ -26,6 +32,7 @@ class StyleModel {
     this.sortOrder = 0,
     this.examples = const [],
     this.creditCost = 1,
+    this.fields = const [],
   });
 
   /// Prefer remote URL when available; falls back to bundled asset path.
@@ -45,6 +52,7 @@ class StyleModel {
       sortOrder: sortOrder,
       examples: examples,
       creditCost: creditCost ?? this.creditCost,
+      fields: fields,
     );
   }
 
@@ -79,6 +87,7 @@ class StyleModel {
       sortOrder: (json['sortOrder'] as int?) ?? 0,
       examples: (json['examples'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
       creditCost: (json['creditCost'] as num?)?.toInt() ?? 1,
+      fields: StyleField.listFromJson(json['fields']),
     );
   }
 }

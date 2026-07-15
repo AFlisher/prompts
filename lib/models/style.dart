@@ -1,4 +1,5 @@
 import 'style_model.dart';
+import 'style_field.dart';
 
 class Style {
   final String id;
@@ -12,6 +13,7 @@ class Style {
   final bool isPremium;
   final bool isEnabled;
   final int sortOrder;
+  final List<StyleField> fields;
 
   Style({
     required this.id,
@@ -25,6 +27,7 @@ class Style {
     required this.isPremium,
     required this.isEnabled,
     required this.sortOrder,
+    this.fields = const [],
   });
 
   factory Style.fromJson(Map<String, dynamic> json) {
@@ -40,6 +43,7 @@ class Style {
       isPremium: json['isPremium'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? true,
       sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      fields: StyleField.listFromJson(json['fields']),
     );
   }
 
@@ -73,6 +77,7 @@ class Style {
       description: prompt,
       examples: const [],
       creditCost: creditCost,
+      fields: fields,
     );
   }
 }

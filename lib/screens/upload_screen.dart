@@ -17,6 +17,7 @@ import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
+import '../widgets/dynamic_style_form.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -44,6 +45,11 @@ class _UploadScreenState extends State<UploadScreen> {
   Timer? _generationTimer;
   bool _isCheckingBalance = false;
 
+  // Dynamic prompt-template inputs for this style (empty for classic styles).
+  final GlobalKey<FormState> _fieldsFormKey = GlobalKey<FormState>();
+  Map<String, dynamic> _fieldValues = {};
+  bool _fieldsValid = true;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +63,20 @@ class _UploadScreenState extends State<UploadScreen> {
 
   void _startGeneration() async {
     if (_selectedImagePath == null) return;
+
+    // Gate on the dynamic form: surface validation messages and stop if any
+    // required/typed field is invalid, so we never call the paid endpoint
+    // (which would reject it server-side anyway) with bad input.
+    if (widget.style.fields.isNotEmpty) {
+      final formOk = _fieldsFormKey.currentState?.validate() ?? true;
+      if (!formOk || !_fieldsValid) {
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please complete the required fields before generating.')),
+        );
+        return;
+      }
+    }
 
     final creditManager = CreditProvider.of(context);
     
@@ -125,6 +145,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final generatedImageUrl = await apiService.generateStyleImage(
         _selectedImagePath!,
         widget.style.id,
+        fieldValues: _fieldValues,
       );
 
       // Cancel local animation timer and sync wallet stats from server
@@ -345,6 +366,23 @@ class _UploadScreenState extends State<UploadScreen> {
                             }
                           : null,
                     ),
+                    if (widget.style.fields.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _SectionTitle(text: 'Customize', color: textColor),
+                      const SizedBox(height: 16),
+                      DynamicStyleForm(
+                        fields: widget.style.fields,
+                        formKey: _fieldsFormKey,
+                        onChanged: (values, isValid) {
+                          _fieldValues = values;
+                          if (isValid != _fieldsValid && mounted) {
+                            setState(() => _fieldsValid = isValid);
+                          } else {
+                            _fieldsValid = isValid;
+                          }
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
