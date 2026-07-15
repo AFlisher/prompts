@@ -266,7 +266,11 @@ class ApiService {
   }
 
   /// POST /api/generate
-  Future<String> generateStyleImage(String imagePath, String styleId) async {
+  Future<String> generateStyleImage(
+    String imagePath,
+    String styleId, {
+    Map<String, dynamic>? fieldValues,
+  }) async {
     final headers = await _getHeaders();
     final request = http.MultipartRequest(
       'POST',
@@ -278,6 +282,12 @@ class ApiService {
     }
 
     request.fields['styleId'] = styleId;
+    // Dynamic prompt-template values (if any) travel as a JSON string field.
+    // The server validates and substitutes them; the client never builds the
+    // final prompt.
+    if (fieldValues != null && fieldValues.isNotEmpty) {
+      request.fields['fieldValues'] = json.encode(fieldValues);
+    }
     request.files.add(await http.MultipartFile.fromPath('file', imagePath));
 
     final streamedResponse = await request.send();
