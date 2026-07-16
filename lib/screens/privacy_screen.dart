@@ -4,7 +4,9 @@ import '../theme/app_theme.dart';
 import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
+import '../utils/page_transitions.dart';
 import '../widgets/status_bar_style.dart';
+import 'legal_document_screen.dart';
 
 class PrivacyScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -17,7 +19,6 @@ class PrivacyScreen extends StatefulWidget {
 
 class _PrivacyScreenState extends State<PrivacyScreen> {
   late bool _isDark;
-  bool _analyticsEnabled = true;
   bool _personalizationEnabled = true;
   final _profileService = ProfileService();
 
@@ -103,7 +104,10 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   isDark: _isDark,
                   textColor: textColor,
                   surfaceColor: surfaceColor,
-                  onTap: () => _showNotYetAvailable('Privacy Policy'),
+                  onTap: () => _openLegalDocument(
+                    title: 'Privacy Policy',
+                    sections: LegalDocuments.privacyPolicy,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _LinkTile(
@@ -112,16 +116,10 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   isDark: _isDark,
                   textColor: textColor,
                   surfaceColor: surfaceColor,
-                  onTap: () => _showNotYetAvailable('Terms of Service'),
-                ),
-                const SizedBox(height: 10),
-                _LinkTile(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'Delete Account',
-                  isDark: _isDark,
-                  textColor: Colors.redAccent,
-                  surfaceColor: surfaceColor,
-                  onTap: () => _showNotYetAvailable('Delete Account'),
+                  onTap: () => _openLegalDocument(
+                    title: 'Terms of Service',
+                    sections: LegalDocuments.termsOfService,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Padding(
@@ -137,17 +135,6 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _ToggleTile(
-                  icon: Icons.analytics_rounded,
-                  label: 'Usage Analytics',
-                  subtitle: 'Help us improve the app',
-                  value: _analyticsEnabled,
-                  isDarkMode: _isDark,
-                  surfaceColor: surfaceColor,
-                  textColor: textColor,
-                  onChanged: (v) => setState(() => _analyticsEnabled = v),
-                ),
-                const SizedBox(height: 10),
                 _ToggleTile(
                   icon: Icons.tune_rounded,
                   label: 'Personalization',
@@ -166,15 +153,19 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     );
   }
 
-  // No real Delete Account / Privacy Policy / Terms of Service destinations
-  // exist yet (see LEGAL_REQUIREMENTS.md - a release blocker); this matches
-  // Paywall's footer-link pattern of an honest placeholder rather than a
-  // dead tap target with no feedback at all.
-  void _showNotYetAvailable(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label is not available yet.'),
-        behavior: SnackBarBehavior.floating,
+  void _openLegalDocument({
+    required String title,
+    required List<LegalSection> sections,
+  }) {
+    Navigator.push(
+      context,
+      fadeSlidePageRoute(
+        (_) => LegalDocumentScreen(
+          isDarkMode: _isDark,
+          title: title,
+          lastUpdated: LegalDocuments.lastUpdated,
+          sections: sections,
+        ),
       ),
     );
   }
