@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
+import '../widgets/status_bar_style.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -27,163 +28,166 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _isDark ? AppTheme.white : AppTheme.black,
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _isDark ? AppTheme.white : AppTheme.black,
+                            ),
+                          ),
+                          child: Icon(Icons.arrow_back_ios_new_rounded,
+                              color: _isDark ? AppTheme.white : AppTheme.black,
+                              size: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Notifications',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _openSettings(textColor),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.settings_rounded,
+                            color: textColor,
+                            size: 20,
                           ),
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded,
-                            color: _isDark ? AppTheme.white : AppTheme.black,
-                            size: 16),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Notifications',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _openSettings(textColor),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.settings_rounded,
-                          color: textColor,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            // Today section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text(
-                  'Today',
-                  style: TextStyle(
-                    color: AppTheme.mediumGray,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+                    ],
                   ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _NotificationItem(
-                  icon: Icons.auto_awesome_rounded,
-                  iconColor: AppTheme.accentPurple,
-                  title: 'New Style Available',
-                  subtitle: 'Check out the newly added Cyberpunk style',
-                  time: '2m ago',
-                  isDark: _isDark,
-                  surfaceColor: surfaceColor,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 10)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _NotificationItem(
-                  icon: Icons.favorite_rounded,
-                  iconColor: Colors.redAccent,
-                  title: 'Style Liked',
-                  subtitle: 'Your creation with Toon Style got 15 likes',
-                  time: '1h ago',
-                  isDark: _isDark,
-                  surfaceColor: surfaceColor,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            // This Week section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text(
-                  'This Week',
-                  style: TextStyle(
-                    color: AppTheme.mediumGray,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              // Today section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Text(
+                    'Today',
+                    style: TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _NotificationItem(
-                  icon: Icons.person_outline_rounded,
-                  iconColor: AppTheme.accentBlue,
-                  title: 'Welcome to StyliAI',
-                  subtitle: 'Start exploring styles and transform your photos',
-                  time: '3d ago',
-                  isDark: _isDark,
-                  surfaceColor: surfaceColor,
-                  textColor: textColor,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _NotificationItem(
+                    icon: Icons.auto_awesome_rounded,
+                    iconColor: AppTheme.accentPurple,
+                    title: 'New Style Available',
+                    subtitle: 'Check out the newly added Cyberpunk style',
+                    time: '2m ago',
+                    isDark: _isDark,
+                    surfaceColor: surfaceColor,
+                    textColor: textColor,
+                  ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 10)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _NotificationItem(
-                  icon: Icons.tips_and_updates_rounded,
-                  iconColor: AppTheme.accentPink,
-                  title: 'Pro Tip',
-                  subtitle: 'Try using natural lighting for better AI results',
-                  time: '5d ago',
-                  isDark: _isDark,
-                  surfaceColor: surfaceColor,
-                  textColor: textColor,
-                  isUnread: true,
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _NotificationItem(
+                    icon: Icons.favorite_rounded,
+                    iconColor: Colors.redAccent,
+                    title: 'Style Liked',
+                    subtitle: 'Your creation with Toon Style got 15 likes',
+                    time: '1h ago',
+                    isDark: _isDark,
+                    surfaceColor: surfaceColor,
+                    textColor: textColor,
+                  ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              // This Week section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Text(
+                    'This Week',
+                    style: TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _NotificationItem(
+                    icon: Icons.person_outline_rounded,
+                    iconColor: AppTheme.accentBlue,
+                    title: 'Welcome to StyliAI',
+                    subtitle: 'Start exploring styles and transform your photos',
+                    time: '3d ago',
+                    isDark: _isDark,
+                    surfaceColor: surfaceColor,
+                    textColor: textColor,
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _NotificationItem(
+                    icon: Icons.tips_and_updates_rounded,
+                    iconColor: AppTheme.accentPink,
+                    title: 'Pro Tip',
+                    subtitle: 'Try using natural lighting for better AI results',
+                    time: '5d ago',
+                    isDark: _isDark,
+                    surfaceColor: surfaceColor,
+                    textColor: textColor,
+                    isUnread: true,
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
+          ),
         ),
       ),
     );

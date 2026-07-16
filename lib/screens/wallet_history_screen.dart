@@ -4,6 +4,7 @@ import '../models/wallet.dart';
 import '../services/wallet_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
+import '../widgets/status_bar_style.dart';
 
 class WalletHistoryScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -56,43 +57,46 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: textColor),
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: textColor),
+                        ),
+                        child: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 16),
                       ),
-                      child: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 16),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Transaction History',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
-                  ),
-                ],
+                    const SizedBox(width: 16),
+                    Text(
+                      'Transaction History',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _buildBody(textColor, surfaceColor),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Expanded(
+                child: _buildBody(textColor, surfaceColor),
+              ),
+            ],
+          ),
         ),
       ),
     );

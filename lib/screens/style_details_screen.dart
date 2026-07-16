@@ -8,6 +8,7 @@ import '../widgets/style_card.dart';
 import 'upload_screen.dart';
 import '../main.dart';
 import '../utils/image_helper.dart';
+import '../widgets/status_bar_style.dart';
 
 class StyleDetailsScreen extends StatefulWidget {
   final StyleModel style;
@@ -55,128 +56,131 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
     final textColor = isDark ? AppTheme.white : AppTheme.black;
     final heroTag = widget.heroTag ?? 'hero_style_img_${widget.style.id}';
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
-                child: AppHeader(
-                  isDarkMode: isDark,
-                  onToggleDarkMode: _toggleDark,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 26),
-                child: _HeroStyleCard(
-                  style: widget.style,
-                  heroTag: heroTag,
-                  isFavorite: FavoritesProvider.of(context).isFavorite(widget.style.id),
-                  isDarkMode: isDark,
-                  marginTop: 16,
-                  onBack: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context);
-                  },
-                  onShare: _shareStyle,
-                  onFavorite: _toggleFavorite,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 20, 26, 12),
-                child: Text(
-                  'PHOTO GUIDELINES',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 2,
-                        offset: const Offset(1, 1),
-                      ),
-                    ],
+    return StatusBarStyle(
+      isDark: isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
+                  child: AppHeader(
+                    isDarkMode: isDark,
+                    onToggleDarkMode: _toggleDark,
                   ),
                 ),
               ),
-            ),
-            const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: 26),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.28,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 26),
+                  child: _HeroStyleCard(
+                    style: widget.style,
+                    heroTag: heroTag,
+                    isFavorite: FavoritesProvider.of(context).isFavorite(widget.style.id),
+                    isDarkMode: isDark,
+                    marginTop: 16,
+                    onBack: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context);
+                    },
+                    onShare: _shareStyle,
+                    onFavorite: _toggleFavorite,
+                  ),
                 ),
-                delegate: SliverChildListDelegate.fixed([
-                  _GuidelineCard(
-                    good: true,
-                    title: 'Good Lighting',
-                    body: 'Natural or soft\nlight',
-                    icon: Icons.verified,
-                  ),
-                  _GuidelineCard(
-                    good: true,
-                    title: 'Clear Face',
-                    body: 'No heavy\nabstructions',
-                    icon: Icons.verified,
-                  ),
-                  _GuidelineCard(
-                    good: false,
-                    title: 'Blurry photos',
-                    body: 'no blurry photo\nplease',
-                    icon: Icons.close,
-                  ),
-                  _GuidelineCard(
-                    good: false,
-                    title: 'Heavy filters',
-                    body: 'bla idk what to\nwrite here',
-                    icon: Icons.close,
-                  ),
-                ]),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 20, 26, 26),
-                child: _TryButton(
-                  pressed: _tryButtonPressed,
-                  onTapDown: () => setState(() => _tryButtonPressed = true),
-                  onTapCancel: () => setState(() => _tryButtonPressed = false),
-                  onTapUp: () {
-                    setState(() => _tryButtonPressed = false);
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UploadScreen(
-                          style: widget.style,
-                          isDarkMode: _isDark,
-                          onToggleDarkMode: _toggleDark,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(26, 20, 26, 12),
+                  child: Text(
+                    'PHOTO GUIDELINES',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 2,
+                          offset: const Offset(1, 1),
                         ),
-                      ),
-                    );
-                  },
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: _SimilarStylesSection(
-                anchorStyle: widget.style,
-                isDarkMode: isDark,
-                onToggleDarkMode: widget.onToggleDarkMode,
+              const SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: 26),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.28,
+                  ),
+                  delegate: SliverChildListDelegate.fixed([
+                    _GuidelineCard(
+                      good: true,
+                      title: 'Good Lighting',
+                      body: 'Natural or soft\nlight',
+                      icon: Icons.verified,
+                    ),
+                    _GuidelineCard(
+                      good: true,
+                      title: 'Clear Face',
+                      body: 'No heavy\nabstructions',
+                      icon: Icons.verified,
+                    ),
+                    _GuidelineCard(
+                      good: false,
+                      title: 'Blurry photos',
+                      body: 'no blurry photo\nplease',
+                      icon: Icons.close,
+                    ),
+                    _GuidelineCard(
+                      good: false,
+                      title: 'Heavy filters',
+                      body: 'bla idk what to\nwrite here',
+                      icon: Icons.close,
+                    ),
+                  ]),
+                ),
               ),
-            ),
-          ],
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(26, 20, 26, 26),
+                  child: _TryButton(
+                    pressed: _tryButtonPressed,
+                    onTapDown: () => setState(() => _tryButtonPressed = true),
+                    onTapCancel: () => setState(() => _tryButtonPressed = false),
+                    onTapUp: () {
+                      setState(() => _tryButtonPressed = false);
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UploadScreen(
+                            style: widget.style,
+                            isDarkMode: _isDark,
+                            onToggleDarkMode: _toggleDark,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: _SimilarStylesSection(
+                  anchorStyle: widget.style,
+                  isDarkMode: isDark,
+                  onToggleDarkMode: widget.onToggleDarkMode,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
