@@ -14,6 +14,7 @@ import 'data/dynamic_style_manager.dart';
 import 'data/credit_manager.dart';
 import 'data/creations_manager.dart';
 import 'data/profile_manager.dart';
+import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 import 'services/theme_preference_service.dart';
@@ -61,13 +62,13 @@ class FavoritesProvider extends InheritedNotifier<FavoritesManager> {
 
   static FavoritesManager of(BuildContext context) {
     final provider =
-    context.dependOnInheritedWidgetOfExactType<FavoritesProvider>();
+        context.dependOnInheritedWidgetOfExactType<FavoritesProvider>();
     return provider!.notifier!;
   }
 
   static FavoritesManager read(BuildContext context) {
     final element =
-    context.getElementForInheritedWidgetOfExactType<FavoritesProvider>();
+        context.getElementForInheritedWidgetOfExactType<FavoritesProvider>();
     return (element?.widget as FavoritesProvider?)!.notifier!;
   }
 }
@@ -82,13 +83,13 @@ class CreationsProvider extends InheritedNotifier<CreationsManager> {
 
   static CreationsManager of(BuildContext context) {
     final provider =
-    context.dependOnInheritedWidgetOfExactType<CreationsProvider>();
+        context.dependOnInheritedWidgetOfExactType<CreationsProvider>();
     return provider!.notifier!;
   }
 
   static CreationsManager read(BuildContext context) {
     final element =
-    context.getElementForInheritedWidgetOfExactType<CreationsProvider>();
+        context.getElementForInheritedWidgetOfExactType<CreationsProvider>();
     return (element?.widget as CreationsProvider?)!.notifier!;
   }
 }
@@ -103,13 +104,13 @@ class StyleProvider extends InheritedNotifier<DynamicStyleManager> {
 
   static DynamicStyleManager of(BuildContext context) {
     final provider =
-    context.dependOnInheritedWidgetOfExactType<StyleProvider>();
+        context.dependOnInheritedWidgetOfExactType<StyleProvider>();
     return provider!.notifier!;
   }
 
   static DynamicStyleManager read(BuildContext context) {
     final element =
-    context.getElementForInheritedWidgetOfExactType<StyleProvider>();
+        context.getElementForInheritedWidgetOfExactType<StyleProvider>();
     return (element?.widget as StyleProvider?)!.notifier!;
   }
 }
@@ -124,13 +125,13 @@ class CreditProvider extends InheritedNotifier<CreditManager> {
 
   static CreditManager of(BuildContext context) {
     final provider =
-    context.dependOnInheritedWidgetOfExactType<CreditProvider>();
+        context.dependOnInheritedWidgetOfExactType<CreditProvider>();
     return provider!.notifier!;
   }
 
   static CreditManager read(BuildContext context) {
     final element =
-    context.getElementForInheritedWidgetOfExactType<CreditProvider>();
+        context.getElementForInheritedWidgetOfExactType<CreditProvider>();
     return (element?.widget as CreditProvider?)!.notifier!;
   }
 }
@@ -145,7 +146,7 @@ class ProfileProvider extends InheritedNotifier<ProfileManager> {
 
   static ProfileManager of(BuildContext context) {
     final provider =
-    context.dependOnInheritedWidgetOfExactType<ProfileProvider>();
+        context.dependOnInheritedWidgetOfExactType<ProfileProvider>();
     if (provider == null) {
       return ProfileManager();
     }
@@ -154,10 +155,40 @@ class ProfileProvider extends InheritedNotifier<ProfileManager> {
 
   static ProfileManager read(BuildContext context) {
     final element =
-    context.getElementForInheritedWidgetOfExactType<ProfileProvider>();
+        context.getElementForInheritedWidgetOfExactType<ProfileProvider>();
     final provider = element?.widget as ProfileProvider?;
     if (provider == null) {
       return ProfileManager();
+    }
+    return provider.notifier!;
+  }
+}
+
+/// Provides [NotificationsManager] to the widget tree via InheritedNotifier.
+/// Falls back to a fresh manager when no provider is present (widget tests),
+/// same as [ProfileProvider].
+class NotificationsProvider extends InheritedNotifier<NotificationsManager> {
+  const NotificationsProvider({
+    super.key,
+    required NotificationsManager notifier,
+    required super.child,
+  }) : super(notifier: notifier);
+
+  static NotificationsManager of(BuildContext context) {
+    final provider =
+        context.dependOnInheritedWidgetOfExactType<NotificationsProvider>();
+    if (provider == null) {
+      return NotificationsManager();
+    }
+    return provider.notifier!;
+  }
+
+  static NotificationsManager read(BuildContext context) {
+    final element = context
+        .getElementForInheritedWidgetOfExactType<NotificationsProvider>();
+    final provider = element?.widget as NotificationsProvider?;
+    if (provider == null) {
+      return NotificationsManager();
     }
     return provider.notifier!;
   }
@@ -176,6 +207,7 @@ class _PrombtAppState extends State<PrombtApp> {
   final _creditManager = CreditManager();
   final _creationsManager = CreationsManager();
   final _profileManager = ProfileManager();
+  final _notificationsManager = NotificationsManager();
 
   @override
   void initState() {
@@ -186,6 +218,7 @@ class _PrombtAppState extends State<PrombtApp> {
       _creditManager.init();
       _creationsManager.init();
       _profileManager.loadProfile();
+      _notificationsManager.init();
       _setHighRefreshRate();
     });
   }
@@ -213,34 +246,38 @@ class _PrombtAppState extends State<PrombtApp> {
     _creditManager.dispose();
     _creationsManager.dispose();
     _profileManager.dispose();
+    _notificationsManager.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ProfileProvider(
-      notifier: _profileManager,
-      child: StyleProvider(
-        notifier: _styleManager,
-        child: CreditProvider(
-          notifier: _creditManager,
-          child: FavoritesProvider(
-            notifier: _favoritesManager,
-            child: CreationsProvider(
-              notifier: _creationsManager,
-              // Baseline for every pre-auth screen (Landing/Login/Register/
-              // etc.), which are always dark, regardless of the user's saved
-              // light/dark preference - MainShell overrides this with its
-              // own reactive AnnotatedRegion once the user is signed in.
-              child: AnnotatedRegion<SystemUiOverlayStyle>(
-                value: SystemUiOverlayStyle.light,
-                child: MaterialApp(
-                  title: 'StyliAI — AI Photo Styles',
-                  debugShowCheckedModeBanner: false,
-                  theme: AppTheme.lightTheme,
-                  darkTheme: AppTheme.darkTheme,
-                  themeMode: ThemeMode.dark,
-                  home: const LandingScreen(),
+    return NotificationsProvider(
+      notifier: _notificationsManager,
+      child: ProfileProvider(
+        notifier: _profileManager,
+        child: StyleProvider(
+          notifier: _styleManager,
+          child: CreditProvider(
+            notifier: _creditManager,
+            child: FavoritesProvider(
+              notifier: _favoritesManager,
+              child: CreationsProvider(
+                notifier: _creationsManager,
+                // Baseline for every pre-auth screen (Landing/Login/Register/
+                // etc.), which are always dark, regardless of the user's saved
+                // light/dark preference - MainShell overrides this with its
+                // own reactive AnnotatedRegion once the user is signed in.
+                child: AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: SystemUiOverlayStyle.light,
+                  child: MaterialApp(
+                    title: 'StyliAI — AI Photo Styles',
+                    debugShowCheckedModeBanner: false,
+                    theme: AppTheme.lightTheme,
+                    darkTheme: AppTheme.darkTheme,
+                    themeMode: ThemeMode.dark,
+                    home: const LandingScreen(),
+                  ),
                 ),
               ),
             ),

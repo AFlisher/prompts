@@ -14,7 +14,15 @@ import '../widgets/status_bar_style.dart';
 class EditProfileScreen extends StatefulWidget {
   final bool isDarkMode;
 
-  const EditProfileScreen({super.key, required this.isDarkMode});
+  /// Test seam (same convention as PaywallScreen.fetchPacksOverride): lets
+  /// widget tests observe the save payload without secure-storage/Supabase.
+  final ProfileService? profileServiceOverride;
+
+  const EditProfileScreen({
+    super.key,
+    required this.isDarkMode,
+    this.profileServiceOverride,
+  });
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -26,18 +34,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
 
   final _nameController = TextEditingController();
-  final _bioController = TextEditingController(text: 'AI Style Explorer ✨');
+  final _bioController = TextEditingController();
+
+  // Shown until the user saves their own bio for the first time.
+  static const String _defaultBio = 'AI Style Explorer ✨';
 
   @override
   void initState() {
     super.initState();
     _isDark = widget.isDarkMode;
 
-    // Prefill name controller from the single source of truth ProfileProvider
+    // Prefill controllers from the single source of truth ProfileProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = ProfileProvider.of(context).profile;
       if (profile != null) {
         _nameController.text = profile.fullName ?? '';
+        _bioController.text = (profile.bio ?? '').trim().isNotEmpty
+            ? profile.bio!
+            : _defaultBio;
       }
     });
   }
@@ -132,7 +146,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final profileService = ProfileService();
+      final profileService = widget.profileServiceOverride ?? ProfileService();
       final profileManager = ProfileProvider.of(context);
 
       String? newAvatarUrl;
@@ -142,9 +156,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         newAvatarUrl = updatedProfile.avatarUrl;
       }
 
-      // 2. Update remaining fields (Full Name) in database
+      // 2. Update remaining fields (Full Name, Bio) in database
       final finalProfile = await profileService.updateProfile(
         fullName: _nameController.text.trim(),
+        bio: _bioController.text.trim(),
         avatarUrl: newAvatarUrl,
       );
 

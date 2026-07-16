@@ -6,6 +6,7 @@ import 'auth_service.dart';
 import '../models/category.dart';
 import '../models/style.dart';
 import '../models/credit_pack.dart';
+import '../models/notification_model.dart';
 
 /// Thrown by [ApiService] methods that parse a structured `{code, message}`
 /// error body, so callers can branch on `code` instead of matching `message` text.
@@ -213,6 +214,45 @@ class ApiService {
     if (response.statusCode != 204) {
       throw Exception('Failed to remove favorite. Status: ${response.statusCode}');
     }
+  }
+
+  /// GET /api/notifications
+  Future<({List<AppNotification> notifications, int unreadCount})>
+      getNotifications() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_backendUrl/api/notifications'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load notifications. Status: ${response.statusCode}');
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    final List<dynamic> list = jsonMap['notifications'] as List<dynamic>? ?? [];
+    return (
+      notifications: list
+          .map((n) => AppNotification.fromJson(n as Map<String, dynamic>))
+          .toList(),
+      unreadCount: jsonMap['unreadCount'] as int? ?? 0,
+    );
+  }
+
+  /// POST /api/notifications/:id/read — returns the fresh unread count.
+  Future<int> markNotificationRead(String id) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/notifications/$id/read'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to mark notification read. Status: ${response.statusCode}');
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    return jsonMap['unreadCount'] as int? ?? 0;
   }
 
   /// GET /api/creations

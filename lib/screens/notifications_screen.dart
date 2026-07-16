@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/status_bar_style.dart';
+import '../main.dart';
+import '../data/notifications_manager.dart';
+import '../models/notification_model.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -20,6 +23,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _isDark = widget.isDarkMode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // No-op when the app-startup load already succeeded.
+      NotificationsProvider.read(context).init();
+    });
   }
 
   @override
@@ -28,169 +35,278 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
+    final manager = NotificationsProvider.of(context);
+
     return StatusBarStyle(
       isDark: _isDark,
       child: Scaffold(
         backgroundColor: bgColor,
         body: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isDark ? AppTheme.white : AppTheme.black,
+          child: RefreshIndicator(
+            color: AppTheme.accentPurple,
+            onRefresh: () => NotificationsProvider.read(context).fetch(),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _isDark ? AppTheme.white : AppTheme.black,
+                              ),
+                            ),
+                            child: Icon(Icons.arrow_back_ios_new_rounded,
+                                color: _isDark ? AppTheme.white : AppTheme.black,
+                                size: 16),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            'Notifications',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _openSettings(textColor),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: surfaceColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.settings_rounded,
+                              color: textColor,
+                              size: 20,
                             ),
                           ),
-                          child: Icon(Icons.arrow_back_ios_new_rounded,
-                              color: _isDark ? AppTheme.white : AppTheme.black,
-                              size: 16),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Notifications',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => _openSettings(textColor),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: surfaceColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.settings_rounded,
-                            color: textColor,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              // Today section
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: Text(
-                    'Today',
-                    style: TextStyle(
-                      color: AppTheme.mediumGray,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
+                      ],
                     ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _NotificationItem(
-                    icon: Icons.auto_awesome_rounded,
-                    iconColor: AppTheme.accentPurple,
-                    title: 'New Style Available',
-                    subtitle: 'Check out the newly added Cyberpunk style',
-                    time: '2m ago',
-                    isDark: _isDark,
-                    surfaceColor: surfaceColor,
-                    textColor: textColor,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _NotificationItem(
-                    icon: Icons.favorite_rounded,
-                    iconColor: Colors.redAccent,
-                    title: 'Style Liked',
-                    subtitle: 'Your creation with Toon Style got 15 likes',
-                    time: '1h ago',
-                    isDark: _isDark,
-                    surfaceColor: surfaceColor,
-                    textColor: textColor,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              // This Week section
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: Text(
-                    'This Week',
-                    style: TextStyle(
-                      color: AppTheme.mediumGray,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _NotificationItem(
-                    icon: Icons.person_outline_rounded,
-                    iconColor: AppTheme.accentBlue,
-                    title: 'Welcome to StyliAI',
-                    subtitle: 'Start exploring styles and transform your photos',
-                    time: '3d ago',
-                    isDark: _isDark,
-                    surfaceColor: surfaceColor,
-                    textColor: textColor,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _NotificationItem(
-                    icon: Icons.tips_and_updates_rounded,
-                    iconColor: AppTheme.accentPink,
-                    title: 'Pro Tip',
-                    subtitle: 'Try using natural lighting for better AI results',
-                    time: '5d ago',
-                    isDark: _isDark,
-                    surfaceColor: surfaceColor,
-                    textColor: textColor,
-                    isUnread: true,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ..._buildBodySlivers(manager, textColor, surfaceColor),
+                const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildBodySlivers(
+    NotificationsManager manager,
+    Color textColor,
+    Color surfaceColor,
+  ) {
+    if (manager.isLoading && !manager.hasLoaded) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    if (manager.errorMessage != null && !manager.hasLoaded) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.redAccent, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load notifications',
+                  style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Pull down to try again.',
+                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    final notifications = manager.notifications;
+    if (notifications.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.notifications_none_rounded,
+                    color: AppTheme.mediumGray.withValues(alpha: 0.6), size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'No notifications yet',
+                  style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "You're all caught up.",
+                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Group into the same Today / This Week / Earlier sections the static
+    // design used.
+    final now = DateTime.now();
+    final today = <AppNotification>[];
+    final thisWeek = <AppNotification>[];
+    final earlier = <AppNotification>[];
+    for (final n in notifications) {
+      final created = n.createdAt;
+      if (created != null &&
+          created.year == now.year &&
+          created.month == now.month &&
+          created.day == now.day) {
+        today.add(n);
+      } else if (created != null && now.difference(created).inDays < 7) {
+        thisWeek.add(n);
+      } else {
+        earlier.add(n);
+      }
+    }
+
+    final slivers = <Widget>[];
+    void addSection(String title, List<AppNotification> items) {
+      if (items.isEmpty) return;
+      if (slivers.isNotEmpty) {
+        slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 24)));
+      }
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: AppTheme.mediumGray,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < items.length; i++) {
+        if (i > 0) {
+          slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 10)));
+        }
+        final n = items[i];
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _NotificationItem(
+                icon: _iconFor(n.type),
+                iconColor: _colorFor(n.type),
+                title: n.title,
+                subtitle: n.body,
+                time: _relativeTime(n.createdAt),
+                isDark: _isDark,
+                surfaceColor: surfaceColor,
+                textColor: textColor,
+                isUnread: !n.isRead,
+                onTap: n.isRead
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        NotificationsProvider.read(context).markRead(n.id);
+                      },
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    addSection('Today', today);
+    addSection('This Week', thisWeek);
+    addSection('Earlier', earlier);
+    return slivers;
+  }
+
+  IconData _iconFor(String type) {
+    switch (type) {
+      case 'welcome':
+        return Icons.person_outline_rounded;
+      case 'generation':
+        return Icons.auto_awesome_rounded;
+      case 'credits':
+        return Icons.stars_rounded;
+      default:
+        return Icons.notifications_none_rounded;
+    }
+  }
+
+  Color _colorFor(String type) {
+    switch (type) {
+      case 'welcome':
+        return AppTheme.accentBlue;
+      case 'generation':
+        return AppTheme.accentPurple;
+      case 'credits':
+        return Colors.amber;
+      default:
+        return AppTheme.accentPink;
+    }
+  }
+
+  String _relativeTime(DateTime? createdAt) {
+    if (createdAt == null) return '';
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   void _openSettings(Color textColor) {
@@ -314,6 +430,7 @@ class _NotificationItem extends StatelessWidget {
   final Color surfaceColor;
   final Color textColor;
   final bool isUnread;
+  final VoidCallback? onTap;
 
   const _NotificationItem({
     required this.icon,
@@ -325,73 +442,78 @@ class _NotificationItem extends StatelessWidget {
     required this.surfaceColor,
     required this.textColor,
     this.isUnread = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        border: isUnread
-            ? Border.all(
-                color: AppTheme.accentPurple.withValues(alpha: 0.3),
-                width: 1,
-              )
-            : null,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: isUnread
+              ? Border.all(
+                  color: AppTheme.accentPurple.withValues(alpha: 0.3),
+                  width: 1,
+                )
+              : null,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 14,
-                          fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        color: AppTheme.mediumGray,
-                        fontSize: 11,
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          color: AppTheme.mediumGray,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.mediumGray,
-                    fontSize: 13,
-                    height: 1.3,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

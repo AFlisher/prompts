@@ -125,6 +125,7 @@ class ProfileService {
   Future<Profile> updateProfile({
     String? fullName,
     String? avatarUrl,
+    String? bio,
     bool? personalizationEnabled,
   }) async {
     await AuthService().ensureValidSession();
@@ -135,6 +136,7 @@ class ProfileService {
         fullName: fullName ?? 'Ahmed',
         email: 'ahmed@example.com',
         avatarUrl: avatarUrl,
+        bio: bio,
         personalizationEnabled: personalizationEnabled ?? true,
       );
     }
@@ -147,6 +149,7 @@ class ProfileService {
     final Map<String, dynamic> updates = {};
     if (fullName != null) updates['full_name'] = fullName;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    if (bio != null) updates['bio'] = bio;
     if (personalizationEnabled != null) {
       updates['personalization_enabled'] = personalizationEnabled;
     }
