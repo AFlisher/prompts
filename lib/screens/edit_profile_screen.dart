@@ -9,6 +9,7 @@ import '../widgets/app_bottom_sheet.dart';
 import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
+import '../widgets/status_bar_style.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -187,190 +188,193 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : 'Ahmed';
     final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      width: 22, height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: textColor),
-                      ),
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: textColor, size: 16),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Edit Profile',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 36),
-
-              // Profile Photo
-              Center(
-                child: GestureDetector(
-                  onTap: _showImageSourceSheet,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 22, height: 22,
                         decoration: BoxDecoration(
-                          gradient: _profileImage == null && (profile?.avatarUrl == null || profile!.avatarUrl!.trim().isEmpty)
-                              ? const LinearGradient(
-                                  colors: [AppTheme.accentPurple, AppTheme.accentBlue],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: textColor),
+                        ),
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
+                            color: textColor, size: 16),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Edit Profile',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 36),
+
+                // Profile Photo
+                Center(
+                  child: GestureDetector(
+                    onTap: _showImageSourceSheet,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            gradient: _profileImage == null && (profile?.avatarUrl == null || profile!.avatarUrl!.trim().isEmpty)
+                                ? const LinearGradient(
+                                    colors: [AppTheme.accentPurple, AppTheme.accentBlue],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
+                            borderRadius: BorderRadius.circular(30),
+                            image: _profileImage != null
+                                ? DecorationImage(
+                                    image: FileImage(_profileImage!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : (profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
+                                    ? DecorationImage(
+                                        image: CachedNetworkImageProvider(profile.avatarUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null),
+                          ),
+                          child: _profileImage == null && (profile?.avatarUrl == null || profile!.avatarUrl!.trim().isEmpty)
+                              ? Center(
+                                  child: Text(
+                                    initials,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
                                 )
                               : null,
-                          borderRadius: BorderRadius.circular(30),
-                          image: _profileImage != null
-                              ? DecorationImage(
-                                  image: FileImage(_profileImage!),
-                                  fit: BoxFit.cover,
-                                )
-                              : (profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
-                                  ? DecorationImage(
-                                      image: CachedNetworkImageProvider(profile.avatarUrl!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null),
                         ),
-                        child: _profileImage == null && (profile?.avatarUrl == null || profile!.avatarUrl!.trim().isEmpty)
-                            ? Center(
-                                child: Text(
-                                  initials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: -4,
-                        right: -4,
-                        child: Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppTheme.accentPurple, AppTheme.accentPink],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                        Positioned(
+                          bottom: -4,
+                          right: -4,
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.accentPurple, AppTheme.accentPink],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: bgColor, width: 2.5),
                             ),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: bgColor, width: 2.5),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_rounded,
-                            color: Colors.white,
-                            size: 16,
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'Tap to change photo',
-                  style: TextStyle(color: AppTheme.mediumGray, fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 36),
-
-              // Editable Fields
-              _buildEditableField(
-                label: 'Full Name',
-                controller: _nameController,
-                icon: Icons.person_outline_rounded,
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-              ),
-              const SizedBox(height: 12),
-              _buildEditableField(
-                label: 'Bio',
-                controller: _bioController,
-                icon: Icons.edit_note_rounded,
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-                multiline: true,
-              ),
-              const SizedBox(height: 12),
-
-              // Email — Read-only static label (cannot be changed)
-              _buildStaticEmailField(
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-              ),
-              const SizedBox(height: 32),
-
-              // Save Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.accentPurple, AppTheme.accentPink],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentPurple.withValues(alpha: 0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _handleSave,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                          )
-                        : const Text(
-                            'Save Changes',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Tap to change photo',
+                    style: TextStyle(color: AppTheme.mediumGray, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 36),
+
+                // Editable Fields
+                _buildEditableField(
+                  label: 'Full Name',
+                  controller: _nameController,
+                  icon: Icons.person_outline_rounded,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                ),
+                const SizedBox(height: 12),
+                _buildEditableField(
+                  label: 'Bio',
+                  controller: _bioController,
+                  icon: Icons.edit_note_rounded,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                  multiline: true,
+                ),
+                const SizedBox(height: 12),
+
+                // Email — Read-only static label (cannot be changed)
+                _buildStaticEmailField(
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                ),
+                const SizedBox(height: 32),
+
+                // Save Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.accentPurple, AppTheme.accentPink],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.accentPurple.withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 24, height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                            )
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

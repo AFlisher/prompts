@@ -6,6 +6,7 @@ import '../widgets/app_header.dart';
 import 'style_details_screen.dart';
 import '../main.dart';
 import '../widgets/style_card.dart';
+import '../widgets/status_bar_style.dart';
 
 class AllStylesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -52,84 +53,87 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
     // side, 12px crossAxisSpacing.
     final cardWidth = (MediaQuery.sizeOf(context).width - 40 - 12) / 2;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
-                child: AppHeader(
-                  isDarkMode: _isDark,
-                  onToggleDarkMode: _toggleDark,
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(26, 12, 26, 0),
+                  child: AppHeader(
+                    isDarkMode: _isDark,
+                    onToggleDarkMode: _toggleDark,
+                  ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _isDark ? AppTheme.white : AppTheme.black,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _isDark ? AppTheme.white : AppTheme.black,
+                            ),
                           ),
+                          child: Icon(Icons.arrow_back_ios_new_rounded,
+                              color: _isDark ? AppTheme.white : AppTheme.black,
+                              size: 16),
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded,
-                            color: _isDark ? AppTheme.white : AppTheme.black,
-                            size: 16),
                       ),
-                    ),
-                    const SizedBox(width: 25),
-                    Text(
-                      widget.title,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 27,
-                        fontWeight: FontWeight.w900,
+                      const SizedBox(width: 25),
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 27,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.55,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final style = styles[index];
-                    final heroTag = 'all_styles_${style.id}';
-                    return StyleCard(
-                      style: style,
-                      isDarkMode: _isDark,
-                      onTap: () => _openDetails(context, style, heroTag),
-                      cardWidth: cardWidth,
-                      heroTag: heroTag,
-                    );
-                  },
-                  childCount: styles.length,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.55,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final style = styles[index];
+                      final heroTag = 'all_styles_${style.id}';
+                      return StyleCard(
+                        style: style,
+                        isDarkMode: _isDark,
+                        onTap: () => _openDetails(context, style, heroTag),
+                        cardWidth: cardWidth,
+                        heroTag: heroTag,
+                      );
+                    },
+                    childCount: styles.length,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

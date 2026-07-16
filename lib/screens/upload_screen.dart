@@ -18,6 +18,7 @@ import '../services/api_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
+import '../widgets/status_bar_style.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -312,333 +313,336 @@ class _UploadScreenState extends State<UploadScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          if (!_generationComplete)
-            SafeArea(
-              bottom: false,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppHeader(
-                      isDarkMode: _isDark,
-                      onToggleDarkMode: _toggleDark,
-                    ),
-                    const SizedBox(height: 16),
-                    _PageTitleRow(
-                      textColor: textColor,
-                      onBack: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _PhotoActionCard(
-                      isDark: _isDark,
-                      icon: Icons.camera_alt_outlined,
-                      title: 'Take a photo',
-                      subtitle: 'click here to use your camera to take pic',
-                      onTap: _showCameraPicker,
-                    ),
-                    const SizedBox(height: 16),
-                    _PhotoActionCard(
-                      isDark: _isDark,
-                      icon: Icons.image_outlined,
-                      title: 'Upload photo',
-                      subtitle: 'click here to upload pic from your gallery',
-                      onTap: _showGalleryPicker,
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionTitle(text: 'Crop & adjust', color: textColor),
-                    const SizedBox(height: 16),
-                    _CropPreview(
-                      isDark: _isDark,
-                      imagePath: _selectedImagePath,
-                      onClear: _selectedImagePath != null
-                          ? () {
-                              HapticFeedback.lightImpact();
-                              setState(() => _selectedImagePath = null);
-                            }
-                          : null,
-                    ),
-                    if (widget.style.fields.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      _SectionTitle(text: 'Customize', color: textColor),
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Stack(
+          children: [
+            if (!_generationComplete)
+              SafeArea(
+                bottom: false,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppHeader(
+                        isDarkMode: _isDark,
+                        onToggleDarkMode: _toggleDark,
+                      ),
                       const SizedBox(height: 16),
-                      DynamicStyleForm(
-                        fields: widget.style.fields,
-                        formKey: _fieldsFormKey,
-                        onChanged: (values, isValid) {
-                          _fieldValues = values;
-                          if (isValid != _fieldsValid && mounted) {
-                            setState(() => _fieldsValid = isValid);
-                          } else {
-                            _fieldsValid = isValid;
-                          }
+                      _PageTitleRow(
+                        textColor: textColor,
+                        onBack: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pop(context);
                         },
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-          if (_generationComplete)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ImagePreviewScreen(
-                              assetPath: widget.style.imagePath,
-                              title: widget.style.name,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        height: 380,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                          boxShadow: AppTheme.heavyShadow,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              buildStyleImage(
-                                widget.style.displayImage,
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                bottom: 16,
-                                right: 16,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Tap to zoom',
-                                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      const SizedBox(height: 16),
+                      _PhotoActionCard(
+                        isDark: _isDark,
+                        icon: Icons.camera_alt_outlined,
+                        title: 'Take a photo',
+                        subtitle: 'click here to use your camera to take pic',
+                        onTap: _showCameraPicker,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Generation Complete!',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: textColor,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Successfully applied ${widget.style.name} to your photo.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: _isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _saveToGallery,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        ),
-                        minimumSize: const Size(double.infinity, 0),
-                        elevation: 0,
+                      const SizedBox(height: 16),
+                      _PhotoActionCard(
+                        isDark: _isDark,
+                        icon: Icons.image_outlined,
+                        title: 'Upload photo',
+                        subtitle: 'click here to upload pic from your gallery',
+                        onTap: _showGalleryPicker,
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.download_rounded),
-                          SizedBox(width: 8),
-                          Text('Save to Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        ],
+                      const SizedBox(height: 24),
+                      _SectionTitle(text: 'Crop & adjust', color: textColor),
+                      const SizedBox(height: 16),
+                      _CropPreview(
+                        isDark: _isDark,
+                        imagePath: _selectedImagePath,
+                        onClear: _selectedImagePath != null
+                            ? () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _selectedImagePath = null);
+                              }
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _generationComplete = false;
-                                _selectedImagePath = null;
-                              });
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: textColor,
-                              side: BorderSide(
-                                color: _isDark ? Colors.white24 : Colors.black12,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusMedium),
-                              ),
-                            ),
-                            child: const Text(
-                              'Create Another',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              HapticFeedback.mediumImpact();
-                              CreationsProvider.of(context).setTab(1); // Set active tab to creations
-                              Navigator.popUntil(context, (route) => route.isFirst);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  _isDark ? AppTheme.white : AppTheme.black,
-                              foregroundColor:
-                                  _isDark ? AppTheme.black : AppTheme.white,
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusMedium),
-                              ),
-                            ),
-                            child: const Text(
-                              'View Creations',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
+                      if (widget.style.fields.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _SectionTitle(text: 'Customize', color: textColor),
+                        const SizedBox(height: 16),
+                        DynamicStyleForm(
+                          fields: widget.style.fields,
+                          formKey: _fieldsFormKey,
+                          onChanged: (values, isValid) {
+                            _fieldValues = values;
+                            if (isValid != _fieldsValid && mounted) {
+                              setState(() => _fieldsValid = isValid);
+                            } else {
+                              _fieldsValid = isValid;
+                            }
+                          },
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          if (!_generationComplete && !_isGenerating)
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _GenerateStyleButton(
-                    enabled: _selectedImagePath != null,
-                    isDark: _isDark,
-                    onTap: _startGeneration,
+                    ],
                   ),
                 ),
               ),
-            ),
 
-          if (_isGenerating)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.85),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 90,
-                      height: 90,
-                      child: Stack(
-                        children: [
-                          Center(
-                            child: CircularProgressIndicator(
-                              value: _generationProgress,
-                              color: AppTheme.accentPink,
-                              strokeWidth: 4,
-                            ),
-                          ),
-                          const Center(
-                            child: Icon(
-                              Icons.auto_awesome_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Generating... ${(_generationProgress * 100).toInt()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _generationStatus,
-                      style: const TextStyle(
-                        color: AppTheme.mediumGray,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (_isCheckingBalance)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.75),
-                child: const Center(
+            if (_generationComplete)
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(color: AppTheme.accentPurple),
-                      SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImagePreviewScreen(
+                                assetPath: widget.style.imagePath,
+                                title: widget.style.name,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 380,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                            boxShadow: AppTheme.heavyShadow,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                buildStyleImage(
+                                  widget.style.displayImage,
+                                  fit: BoxFit.cover,
+                                ),
+                                Positioned(
+                                  bottom: 16,
+                                  right: 16,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.6),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Tap to zoom',
+                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       Text(
-                        'Checking balance...',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        'Generation Complete!',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: textColor,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Successfully applied ${widget.style.name} to your photo.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: _isDark ? Colors.grey[400] : Colors.grey[600],
+                            ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _saveToGallery,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentPurple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                          ),
+                          minimumSize: const Size(double.infinity, 0),
+                          elevation: 0,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.download_rounded),
+                            SizedBox(width: 8),
+                            Text('Save to Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                setState(() {
+                                  _generationComplete = false;
+                                  _selectedImagePath = null;
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: textColor,
+                                side: BorderSide(
+                                  color: _isDark ? Colors.white24 : Colors.black12,
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(AppTheme.radiusMedium),
+                                ),
+                              ),
+                              child: const Text(
+                                'Create Another',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                CreationsProvider.of(context).setTab(1); // Set active tab to creations
+                                Navigator.popUntil(context, (route) => route.isFirst);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    _isDark ? AppTheme.white : AppTheme.black,
+                                foregroundColor:
+                                    _isDark ? AppTheme.black : AppTheme.white,
+                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(AppTheme.radiusMedium),
+                                ),
+                              ),
+                              child: const Text(
+                                'View Creations',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-        ],
+
+            if (!_generationComplete && !_isGenerating)
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _GenerateStyleButton(
+                      enabled: _selectedImagePath != null,
+                      isDark: _isDark,
+                      onTap: _startGeneration,
+                    ),
+                  ),
+                ),
+              ),
+
+            if (_isGenerating)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 90,
+                        height: 90,
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: CircularProgressIndicator(
+                                value: _generationProgress,
+                                color: AppTheme.accentPink,
+                                strokeWidth: 4,
+                              ),
+                            ),
+                            const Center(
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        'Generating... ${(_generationProgress * 100).toInt()}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _generationStatus,
+                        style: const TextStyle(
+                          color: AppTheme.mediumGray,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (_isCheckingBalance)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppTheme.accentPurple),
+                        SizedBox(height: 16),
+                        Text(
+                          'Checking balance...',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

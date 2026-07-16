@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
+import '../widgets/status_bar_style.dart';
 
 class PrivacyScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -56,106 +57,109 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _isDark ? AppTheme.white : AppTheme.black,
+    return StatusBarStyle(
+      isDark: _isDark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                          ),
                         ),
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                            size: 16),
                       ),
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: _isDark ? AppTheme.white : AppTheme.black,
-                          size: 16),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Privacy',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                _LinkTile(
+                  icon: Icons.shield_rounded,
+                  label: 'Privacy Policy',
+                  isDark: _isDark,
+                  textColor: textColor,
+                  surfaceColor: surfaceColor,
+                  onTap: () => _showNotYetAvailable('Privacy Policy'),
+                ),
+                const SizedBox(height: 10),
+                _LinkTile(
+                  icon: Icons.description_outlined,
+                  label: 'Terms of Service',
+                  isDark: _isDark,
+                  textColor: textColor,
+                  surfaceColor: surfaceColor,
+                  onTap: () => _showNotYetAvailable('Terms of Service'),
+                ),
+                const SizedBox(height: 10),
+                _LinkTile(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Delete Account',
+                  isDark: _isDark,
+                  textColor: Colors.redAccent,
+                  surfaceColor: surfaceColor,
+                  onTap: () => _showNotYetAvailable('Delete Account'),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'DATA PREFERENCES',
+                    style: TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Privacy',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              _LinkTile(
-                icon: Icons.shield_rounded,
-                label: 'Privacy Policy',
-                isDark: _isDark,
-                textColor: textColor,
-                surfaceColor: surfaceColor,
-                onTap: () => _showNotYetAvailable('Privacy Policy'),
-              ),
-              const SizedBox(height: 10),
-              _LinkTile(
-                icon: Icons.description_outlined,
-                label: 'Terms of Service',
-                isDark: _isDark,
-                textColor: textColor,
-                surfaceColor: surfaceColor,
-                onTap: () => _showNotYetAvailable('Terms of Service'),
-              ),
-              const SizedBox(height: 10),
-              _LinkTile(
-                icon: Icons.delete_outline_rounded,
-                label: 'Delete Account',
-                isDark: _isDark,
-                textColor: Colors.redAccent,
-                surfaceColor: surfaceColor,
-                onTap: () => _showNotYetAvailable('Delete Account'),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  'DATA PREFERENCES',
-                  style: TextStyle(
-                    color: AppTheme.mediumGray,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _ToggleTile(
-                icon: Icons.analytics_rounded,
-                label: 'Usage Analytics',
-                subtitle: 'Help us improve the app',
-                value: _analyticsEnabled,
-                isDarkMode: _isDark,
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-                onChanged: (v) => setState(() => _analyticsEnabled = v),
-              ),
-              const SizedBox(height: 10),
-              _ToggleTile(
-                icon: Icons.tune_rounded,
-                label: 'Personalization',
-                subtitle: 'Tailored style recommendations',
-                value: _personalizationEnabled,
-                isDarkMode: _isDark,
-                surfaceColor: surfaceColor,
-                textColor: textColor,
-                onChanged: _onPersonalizationChanged,
-              ),
-            ],
+                const SizedBox(height: 12),
+                _ToggleTile(
+                  icon: Icons.analytics_rounded,
+                  label: 'Usage Analytics',
+                  subtitle: 'Help us improve the app',
+                  value: _analyticsEnabled,
+                  isDarkMode: _isDark,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                  onChanged: (v) => setState(() => _analyticsEnabled = v),
+                ),
+                const SizedBox(height: 10),
+                _ToggleTile(
+                  icon: Icons.tune_rounded,
+                  label: 'Personalization',
+                  subtitle: 'Tailored style recommendations',
+                  value: _personalizationEnabled,
+                  isDarkMode: _isDark,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                  onChanged: _onPersonalizationChanged,
+                ),
+              ],
+            ),
           ),
         ),
       ),
