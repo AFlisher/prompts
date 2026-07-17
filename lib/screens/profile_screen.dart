@@ -36,6 +36,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _isDark = widget.isDarkMode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ProfileProvider.read(context).loadProfile();
+      // No-op if already loaded; covers signing in after the app-startup
+      // load ran while signed out, so the badge is correct on first open.
+      NotificationsProvider.read(context).init();
     });
   }
 
@@ -221,7 +224,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Credits: ${CreditProvider.of(context).credits} · ✨ AI Style Explorer',
+                      // The saved Bio (editable in Edit Profile), falling
+                      // back to the previous static tagline when unset.
+                      'Credits: ${CreditProvider.of(context).credits} · ✨ ${(profile?.bio ?? '').trim().isNotEmpty ? profile!.bio!.trim() : 'AI Style Explorer'}',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppTheme.mediumGray,
                         fontSize: 13,
@@ -314,6 +320,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textColor: textColor,
                 surface: surfaceColor,
                 onTap: _openNotifications,
+                // .of subscribes this screen to the manager, so the badge
+                // clears itself the moment notifications are read.
+                badgeCount: NotificationsProvider.of(context).unreadCount,
               ),
               const SizedBox(height: 10),
               _SettingsTile(
@@ -382,6 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     primaryColor: Colors.redAccent,
                     onPrimaryPressed: () async {
                       profileManager.clear();
+                      NotificationsProvider.read(context).clear();
                       await _authService.signOut();
                       if (mounted) {
                         Navigator.pushAndRemoveUntil(
@@ -462,6 +472,9 @@ class _SettingsTile extends StatelessWidget {
   final Color surface;
   final VoidCallback? onTap;
 
+  /// Unread-count badge (e.g. Notifications). Hidden when 0.
+  final int badgeCount;
+
   const _SettingsTile({
     required this.icon,
     required this.label,
@@ -469,6 +482,7 @@ class _SettingsTile extends StatelessWidget {
     required this.textColor,
     required this.surface,
     this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -494,6 +508,24 @@ class _SettingsTile extends StatelessWidget {
               ),
             ),
             const Spacer(),
+            if (badgeCount > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentPurple,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  badgeCount > 99 ? '99+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.mediumGray,
