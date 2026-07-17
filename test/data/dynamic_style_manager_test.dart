@@ -31,8 +31,8 @@ void main() {
           {'id': categoryId, 'name': 'Test Empty Category'}
         ]),
         // Genuinely empty, but a real (non-null) cached entry.
-        'styles_cache_v2_$categoryId': json.encode(<dynamic>[]),
-        'styles_timestamp_v2_$categoryId': DateTime.now().millisecondsSinceEpoch,
+        'styles_cache_v3_$categoryId': json.encode(<dynamic>[]),
+        'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
       });
 
       final manager = DynamicStyleManager();

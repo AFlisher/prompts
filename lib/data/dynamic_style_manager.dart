@@ -251,7 +251,7 @@ class DynamicStyleManager extends ChangeNotifier {
       }
 
       // 2. Otherwise read from specific category cache store
-      final String cacheKey = 'styles_cache_v2_${cat.id}';
+      final String cacheKey = 'styles_cache_v3_${cat.id}';
       try {
         final cachedData = await _cacheService.getCachedData(cacheKey);
         if (cachedData is List) {
@@ -276,10 +276,10 @@ class DynamicStyleManager extends ChangeNotifier {
     if (catIdx == -1) return;
 
     final hasStylesInMemory = _categories[catIdx].styles.isNotEmpty;
-    // v2: v1 entries were written before StyleModel.toJson serialized
-    // 'fields', so they'd keep serving styles without their dynamic form
-    // until the TTL expired. New namespace = one-time refetch instead.
-    final String cacheKey = 'styles_cache_v2_$categoryId';
+    // v3: v2 entries were written before minImages/maxImages were serialized,
+    // so a stale cache would render a multi-image style with one picker (and
+    // a server-rejected generate) until the TTL expired. New namespace = one-time refetch.
+    final String cacheKey = 'styles_cache_v3_$categoryId';
     
     // Load cached styles immediately (without blocking UI)
     final cachedStylesList = await _cacheService.getCachedData(cacheKey);
@@ -386,7 +386,7 @@ class DynamicStyleManager extends ChangeNotifier {
           final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
 
           final String newStylesStr = json.encode(stylesJsonList);
-          final String cacheKey = 'styles_cache_v2_$catId';
+          final String cacheKey = 'styles_cache_v3_$catId';
           final oldCatsJson = await _cacheService.getCachedData(cacheKey);
           final String oldStylesStr = oldCatsJson != null ? json.encode(oldCatsJson) : '';
 

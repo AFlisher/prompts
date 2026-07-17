@@ -306,8 +306,13 @@ class ApiService {
   }
 
   /// POST /api/generate
+  ///
+  /// [imagePaths] carries every source photo the style collected - one for
+  /// classic styles, up to the style's maxImages for multi-image styles. All
+  /// parts travel under the same 'file' field name, which the backend accepts
+  /// as an array (a single file is just an array of one).
   Future<String> generateStyleImage(
-    String imagePath,
+    List<String> imagePaths,
     String styleId, {
     Map<String, dynamic>? fieldValues,
   }) async {
@@ -328,7 +333,9 @@ class ApiService {
     if (fieldValues != null && fieldValues.isNotEmpty) {
       request.fields['fieldValues'] = json.encode(fieldValues);
     }
-    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    for (final imagePath in imagePaths) {
+      request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

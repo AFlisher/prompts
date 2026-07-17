@@ -15,6 +15,11 @@ class Style {
   final int sortOrder;
   final List<StyleField> fields;
 
+  /// How many source photos this style needs (defaults 1/1 - classic
+  /// single-image styles and older backend responses are unaffected).
+  final int minImages;
+  final int maxImages;
+
   Style({
     required this.id,
     required this.name,
@@ -28,6 +33,8 @@ class Style {
     required this.isEnabled,
     required this.sortOrder,
     this.fields = const [],
+    this.minImages = 1,
+    this.maxImages = 1,
   });
 
   factory Style.fromJson(Map<String, dynamic> json) {
@@ -44,6 +51,8 @@ class Style {
       isEnabled: json['isEnabled'] as bool? ?? true,
       sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
       fields: StyleField.listFromJson(json['fields']),
+      minImages: (json['minImages'] as num?)?.toInt() ?? 1,
+      maxImages: (json['maxImages'] as num?)?.toInt() ?? 1,
     );
   }
 
@@ -61,6 +70,8 @@ class Style {
       'isEnabled': isEnabled,
       'sortOrder': sortOrder,
       'fields': fields.map((f) => f.toJson()).toList(),
+      'minImages': minImages,
+      'maxImages': maxImages,
     };
   }
 
@@ -79,6 +90,8 @@ class Style {
       examples: const [],
       creditCost: creditCost,
       fields: fields,
+      minImages: minImages,
+      maxImages: maxImages,
     );
   }
 }
