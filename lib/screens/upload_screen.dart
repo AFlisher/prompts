@@ -36,9 +36,23 @@ class UploadScreen extends StatefulWidget {
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
+/// How many image cards the upload screen shows for a style: always at least
+/// [minImages] so required slots are visible up front, plus one empty "add"
+/// slot while the user is under [maxImages]. A 1/1 style therefore renders
+/// exactly one card - the pre-multi-image behavior.
+int visibleImageSlots({
+  required int minImages,
+  required int maxImages,
+  required int selectedCount,
+}) {
+  final base = selectedCount + 1 > minImages ? selectedCount + 1 : minImages;
+  final capped = base > maxImages ? maxImages : base;
+  return capped < 1 ? 1 : capped;
+}
+
 class _UploadScreenState extends State<UploadScreen> {
   late bool _isDark;
-  String? _selectedImagePath;
+  final List<String> _selectedImagePaths = [];
   bool _isGenerating = false;
   double _generationProgress = 0.0;
   String _generationStatus = 'Uploading photo...';
@@ -62,8 +76,11 @@ class _UploadScreenState extends State<UploadScreen> {
     widget.onToggleDarkMode?.call();
   }
 
+  int get _minImages => widget.style.minImages;
+  int get _maxImages => widget.style.maxImages;
+
   void _startGeneration() async {
-    if (_selectedImagePath == null) return;
+    if (_selectedImagePaths.length < _minImages) return;
 
     // Gate on the dynamic form: surface validation messages and stop if any
     // required/typed field is invalid, so we never call the paid endpoint
@@ -144,7 +161,7 @@ class _UploadScreenState extends State<UploadScreen> {
     try {
       // 4. Trigger backend generation pipeline which validates and deducts balance
       final generatedImageUrl = await apiService.generateStyleImage(
-        _selectedImagePath!,
+        List<String>.from(_selectedImagePaths),
         widget.style.id,
         fieldValues: _fieldValues,
       );
@@ -170,7 +187,8 @@ class _UploadScreenState extends State<UploadScreen> {
             styleId: widget.style.id,
             styleName: widget.style.name,
             imagePath: generatedImageUrl,
-            originalImagePath: _selectedImagePath,
+            originalImagePath:
+                _selectedImagePaths.isNotEmpty ? _selectedImagePaths.first : null,
             createdAt: DateTime.now(),
           ),
         );
@@ -346,7 +364,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         icon: Icons.camera_alt_outlined,
                         title: 'Take a photo',
                         subtitle: 'click here to use your camera to take pic',
-                        onTap: _showCameraPicker,
+                        onTap: () => _showCameraPicker(),
                       ),
                       const SizedBox(height: 16),
                       _PhotoActionCard(
@@ -354,21 +372,40 @@ class _UploadScreenState extends State<UploadScreen> {
                         icon: Icons.image_outlined,
                         title: 'Upload photo',
                         subtitle: 'click here to upload pic from your gallery',
-                        onTap: _showGalleryPicker,
+                        onTap: () => _showGalleryPicker(),
                       ),
                       const SizedBox(height: 24),
                       _SectionTitle(text: 'Crop & adjust', color: textColor),
                       const SizedBox(height: 16),
-                      _CropPreview(
-                        isDark: _isDark,
-                        imagePath: _selectedImagePath,
-                        onClear: _selectedImagePath != null
-                            ? () {
-                                HapticFeedback.lightImpact();
-                                setState(() => _selectedImagePath = null);
-                              }
-                            : null,
-                      ),
+                      // One card per slot: filled cards preview their image
+                      // (tap to replace, X to remove); the trailing empty
+                      // card accepts the next photo. A 1/1 style renders the
+                      // single card exactly as before.
+                      for (int slot = 0;
+                          slot < visibleImageSlots(
+                            minImages: _minImages,
+                            maxImages: _maxImages,
+                            selectedCount: _selectedImagePaths.length,
+                          );
+                          slot++) ...[
+                        if (slot > 0) const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: () => _showGalleryPicker(slot: slot),
+                          child: _CropPreview(
+                            isDark: _isDark,
+                            imagePath: slot < _selectedImagePaths.length
+                                ? _selectedImagePaths[slot]
+                                : null,
+                            onClear: slot < _selectedImagePaths.length
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    setState(() =>
+                                        _selectedImagePaths.removeAt(slot));
+                                  }
+                                : null,
+                          ),
+                        ),
+                      ],
                       if (widget.style.fields.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _SectionTitle(text: 'Customize', color: textColor),
@@ -503,7 +540,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                 HapticFeedback.lightImpact();
                                 setState(() {
                                   _generationComplete = false;
-                                  _selectedImagePath = null;
+                                  _selectedImagePaths.clear();
                                 });
                               },
                               style: OutlinedButton.styleFrom(
@@ -565,7 +602,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: _GenerateStyleButton(
-                      enabled: _selectedImagePath != null,
+                      enabled: _selectedImagePaths.length >= _minImages,
                       isDark: _isDark,
                       onTap: _startGeneration,
                     ),
@@ -648,13 +685,29 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Future<void> _showCameraPicker() async {
+  /// Stores a picked image. A tapped card passes its [slot] (replace);
+  /// the top action buttons pass none, filling the next free slot - or, when
+  /// the style is full, replacing the last image (which for a classic 1/1
+  /// style is exactly the old "picking again replaces the photo" behavior).
+  void _setPickedImage(String path, {int? slot}) {
+    setState(() {
+      if (slot != null && slot < _selectedImagePaths.length) {
+        _selectedImagePaths[slot] = path;
+      } else if (_selectedImagePaths.length < _maxImages) {
+        _selectedImagePaths.add(path);
+      } else {
+        _selectedImagePaths[_selectedImagePaths.length - 1] = path;
+      }
+    });
+  }
+
+  Future<void> _showCameraPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.camera);
       if (xFile != null) {
         HapticFeedback.lightImpact();
-        setState(() => _selectedImagePath = xFile.path);
+        _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'camera_access_denied') {
@@ -671,13 +724,13 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  Future<void> _showGalleryPicker() async {
+  Future<void> _showGalleryPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.gallery);
       if (xFile != null) {
         HapticFeedback.lightImpact();
-        setState(() => _selectedImagePath = xFile.path);
+        _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'photo_access_denied') {

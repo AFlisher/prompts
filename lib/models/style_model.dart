@@ -19,6 +19,11 @@ class StyleModel {
   /// Empty for classic styles (no placeholders) - fully backward compatible.
   final List<StyleField> fields;
 
+  /// How many source photos the user must/can select (defaults 1/1, so
+  /// classic single-image styles keep their exact current behavior).
+  final int minImages;
+  final int maxImages;
+
   const StyleModel({
     required this.id,
     required this.name,
@@ -33,6 +38,8 @@ class StyleModel {
     this.examples = const [],
     this.creditCost = 1,
     this.fields = const [],
+    this.minImages = 1,
+    this.maxImages = 1,
   });
 
   /// Prefer remote URL when available; falls back to bundled asset path.
@@ -53,6 +60,8 @@ class StyleModel {
       examples: examples,
       creditCost: creditCost ?? this.creditCost,
       fields: fields,
+      minImages: minImages,
+      maxImages: maxImages,
     );
   }
 
@@ -71,6 +80,8 @@ class StyleModel {
       'examples': examples,
       'creditCost': creditCost,
       'fields': fields.map((f) => f.toJson()).toList(),
+      'minImages': minImages,
+      'maxImages': maxImages,
     };
   }
 
@@ -89,6 +100,8 @@ class StyleModel {
       examples: (json['examples'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
       creditCost: (json['creditCost'] as num?)?.toInt() ?? 1,
       fields: StyleField.listFromJson(json['fields']),
+      minImages: (json['minImages'] as num?)?.toInt() ?? 1,
+      maxImages: (json['maxImages'] as num?)?.toInt() ?? 1,
     );
   }
 }
