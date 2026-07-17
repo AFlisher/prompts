@@ -123,14 +123,14 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                   delegate: SliverChildListDelegate.fixed([
                     _GuidelineCard(
                       good: true,
-                      title: 'High Resolution',
-                      body: 'Sharp, clear photo -\nno blur or pixelation',
+                      title: 'Clear, Sharp Photo',
+                      body: 'High resolution -\nno blur',
                       icon: Icons.verified,
                     ),
                     _GuidelineCard(
                       good: true,
                       title: 'Face Fully Visible',
-                      body: 'Whole face in frame,\nnothing covering it',
+                      body: 'No sunglasses or\nanything covering it',
                       icon: Icons.verified,
                     ),
                     _GuidelineCard(
@@ -141,50 +141,14 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                     ),
                     _GuidelineCard(
                       good: true,
-                      title: 'Face the Camera',
-                      body: 'Look straight\ninto the lens',
-                      icon: Icons.verified,
-                    ),
-                    _GuidelineCard(
-                      good: true,
                       title: 'One Person Only',
-                      body: 'Just you -\nno group photos',
+                      body: 'Facing the\ncamera directly',
                       icon: Icons.verified,
-                    ),
-                    _GuidelineCard(
-                      good: true,
-                      title: 'Hair Visible',
-                      body: 'Keep your hair in\nview when possible',
-                      icon: Icons.verified,
-                    ),
-                    _GuidelineCard(
-                      good: true,
-                      title: 'Original Ratio',
-                      body: 'Don\'t stretch or\ndistort the photo',
-                      icon: Icons.verified,
-                    ),
-                    _GuidelineCard(
-                      good: true,
-                      title: 'JPG, PNG or WEBP',
-                      body: 'Up to 10 MB\nfile size',
-                      icon: Icons.verified,
-                    ),
-                    _GuidelineCard(
-                      good: false,
-                      title: 'Sunglasses & Masks',
-                      body: 'Anything hiding\nyour face',
-                      icon: Icons.close,
                     ),
                     _GuidelineCard(
                       good: false,
                       title: 'Heavy Filters',
                       body: 'No beauty effects\nor strong filters',
-                      icon: Icons.close,
-                    ),
-                    _GuidelineCard(
-                      good: false,
-                      title: 'Extreme Expressions',
-                      body: 'A relaxed, natural\nlook works best',
                       icon: Icons.close,
                     ),
                     _GuidelineCard(
