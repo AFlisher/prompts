@@ -36,6 +36,25 @@ class UploadScreen extends StatefulWidget {
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
+/// The requirement line shown under "Crop & adjust" for multi-image styles:
+/// tells the user exactly how many photos to upload and tracks progress.
+/// Never shown for classic 1/1 styles (the UI is self-explanatory there).
+String imageRequirementLabel({
+  required int minImages,
+  required int maxImages,
+  required int selectedCount,
+}) {
+  final String requirement;
+  if (minImages == maxImages) {
+    requirement = 'Upload $minImages photos';
+  } else if (minImages <= 1) {
+    requirement = 'Upload up to $maxImages photos';
+  } else {
+    requirement = 'Upload at least $minImages photos (up to $maxImages)';
+  }
+  return '$requirement · $selectedCount of $maxImages added';
+}
+
 /// How many image cards the upload screen shows for a style: always at least
 /// [minImages] so required slots are visible up front, plus one empty "add"
 /// slot while the user is under [maxImages]. A 1/1 style therefore renders
@@ -376,6 +395,21 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                       const SizedBox(height: 24),
                       _SectionTitle(text: 'Crop & adjust', color: textColor),
+                      if (_maxImages > 1) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          imageRequirementLabel(
+                            minImages: _minImages,
+                            maxImages: _maxImages,
+                            selectedCount: _selectedImagePaths.length,
+                          ),
+                          style: const TextStyle(
+                            color: AppTheme.mediumGray,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       // One card per slot: filled cards preview their image
                       // (tap to replace, X to remove); the trailing empty
