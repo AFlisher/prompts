@@ -174,4 +174,44 @@ void main() {
     await tester.pump();
     expect(valid, isTrue);
   });
+
+  // MaterialApp pins themeMode: dark and screens simulate light mode manually,
+  // so the form must re-scope Theme from its isDarkMode flag or every field
+  // renders dark-mode (near-white) text on the light background.
+  testWidgets('isDarkMode re-scopes the ambient theme so fields stay readable', (tester) async {
+    final fields = [
+      const StyleField(key: 'team', label: 'Team', type: 'text', required: true, placeholder: 'Enter team', config: {'helpText': 'Any club', 'maxLength': 10}),
+      const StyleField(key: 'note', label: 'Note', type: 'textarea'),
+      const StyleField(key: 'age', label: 'Age', type: 'number'),
+      const StyleField(key: 'size', label: 'Size', type: 'dropdown', options: [StyleFieldOption(value: 'S', label: 'Small')]),
+      const StyleField(key: 'hd', label: 'HD', type: 'checkbox'),
+    ];
+
+    Widget host({required bool isDarkMode}) => MaterialApp(
+          // The real app's ambient theme: always dark.
+          theme: ThemeData(brightness: Brightness.dark),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DynamicStyleForm(fields: fields, isDarkMode: isDarkMode, onChanged: (_, __) {}),
+            ),
+          ),
+        );
+
+    // Light mode: every field type resolves against a light theme.
+    await tester.pumpWidget(host(isDarkMode: false));
+    await tester.pump();
+    for (final key in ['field_team', 'field_note', 'field_age', 'field_size', 'field_hd']) {
+      final themed = Theme.of(tester.element(find.byKey(ValueKey(key))));
+      expect(themed.brightness, Brightness.light, reason: '$key must see the light theme');
+      // Entered text/label derive from onSurface - must be dark on light.
+      expect(themed.colorScheme.onSurface.computeLuminance(), lessThan(0.5), reason: '$key text must be dark in light mode');
+    }
+
+    // Dark mode: unchanged - fields still see the dark theme.
+    await tester.pumpWidget(host(isDarkMode: true));
+    await tester.pump();
+    final themed = Theme.of(tester.element(find.byKey(const ValueKey('field_team'))));
+    expect(themed.brightness, Brightness.dark);
+    expect(themed.colorScheme.onSurface.computeLuminance(), greaterThan(0.5));
+  });
 }

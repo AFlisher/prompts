@@ -376,6 +376,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         DynamicStyleForm(
                           fields: widget.style.fields,
                           formKey: _fieldsFormKey,
+                          isDarkMode: _isDark,
                           onChanged: (values, isValid) {
                             _fieldValues = values;
                             if (isValid != _fieldsValid && mounted) {
