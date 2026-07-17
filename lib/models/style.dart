@@ -60,6 +60,7 @@ class Style {
       'isPremium': isPremium,
       'isEnabled': isEnabled,
       'sortOrder': sortOrder,
+      'fields': fields.map((f) => f.toJson()).toList(),
     };
   }
 

@@ -7,6 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prombt_app/models/style.dart';
+import 'package:prombt_app/models/style_model.dart';
 import 'package:prombt_app/models/wallet.dart';
 import 'package:prombt_app/models/credit_pack.dart';
 import 'package:prombt_app/models/category.dart';
@@ -59,6 +60,37 @@ void main() {
       expect(copy.id, original.id);
       expect(copy.creditCost, original.creditCost);
       expect(copy.isEnabled, original.isEnabled);
+    });
+
+    // Styles are cached locally as toJson() output; dynamic fields must
+    // survive the round-trip or cached styles silently lose their form.
+    test('round-trips dynamic fields through toJson', () {
+      final original = Style.fromJson({
+        'id': 's9', 'name': 'N', 'categoryId': 'c', 'creditCost': 1,
+        'fields': [
+          {
+            'key': 'team', 'label': 'Football Team', 'type': 'text',
+            'required': true, 'placeholder': 'Barcelona',
+            'config': {'minLength': 2, 'maxLength': 40}, 'sortOrder': 0,
+          },
+          {
+            'key': 'kit', 'label': 'Kit', 'type': 'dropdown',
+            'options': [{'value': 'home', 'label': 'Home'}, {'value': 'away', 'label': 'Away'}],
+            'sortOrder': 1,
+          },
+        ],
+      });
+      final copy = Style.fromJson(original.toJson());
+      expect(copy.fields, hasLength(2));
+      expect(copy.fields[0].key, 'team');
+      expect(copy.fields[0].required, isTrue);
+      expect(copy.fields[0].config['maxLength'], 40);
+      expect(copy.fields[1].type, 'dropdown');
+      expect(copy.fields[1].options.map((o) => o.value), ['home', 'away']);
+
+      final model = StyleModel.fromJson(original.toStyleModel().toJson());
+      expect(model.fields, hasLength(2));
+      expect(model.fields[0].label, 'Football Team');
     });
 
     test('maps to the legacy StyleModel preserving premium/cost/cover', () {

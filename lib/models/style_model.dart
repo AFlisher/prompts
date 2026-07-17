@@ -70,6 +70,7 @@ class StyleModel {
       'sortOrder': sortOrder,
       'examples': examples,
       'creditCost': creditCost,
+      'fields': fields.map((f) => f.toJson()).toList(),
     };
   }
 

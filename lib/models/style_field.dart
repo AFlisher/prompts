@@ -18,6 +18,8 @@ class StyleFieldOption {
     }
     return const StyleFieldOption(value: '', label: '');
   }
+
+  Map<String, dynamic> toJson() => {'value': value, 'label': label};
 }
 
 class StyleField {
@@ -57,6 +59,19 @@ class StyleField {
       sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     );
   }
+
+  /// Round-trips through [fromJson] losslessly - styles are cached locally as
+  /// JSON, so a field dropped here would silently vanish from cached styles.
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'label': label,
+        'type': type,
+        'required': required,
+        'placeholder': placeholder,
+        'options': options.map((o) => o.toJson()).toList(),
+        'config': config,
+        'sortOrder': sortOrder,
+      };
 
   static List<StyleField> listFromJson(dynamic raw) {
     if (raw is! List) return const [];
