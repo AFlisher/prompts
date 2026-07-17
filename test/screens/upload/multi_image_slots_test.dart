@@ -72,7 +72,9 @@ void main() {
     testWidgets('a classic single-image style renders one empty card', (tester) async {
       await tester.pumpWidget(_host(_style()));
       await tester.pump();
-      expect(find.text('No photo added yet'), findsOneWidget);
+      expect(find.text('Add your photo'), findsOneWidget);
+      // Single-image styles get the full-width card, not slot tiles.
+      expect(find.text('Photo 1'), findsNothing);
       // No requirement line for a 1/1 style - the UI is unchanged.
       expect(find.textContaining('of 1 added'), findsNothing);
     });
@@ -80,7 +82,9 @@ void main() {
     testWidgets('a two-image style renders two empty cards and the requirement line', (tester) async {
       await tester.pumpWidget(_host(_style(minImages: 2, maxImages: 2)));
       await tester.pump();
-      expect(find.text('No photo added yet'), findsNWidgets(2));
+      expect(find.text('Add photo'), findsNWidgets(2));
+      expect(find.text('Photo 1'), findsOneWidget);
+      expect(find.text('Photo 2'), findsOneWidget);
       expect(find.text('Upload 2 photos · 0 of 2 added'), findsOneWidget);
     });
   });
