@@ -19,6 +19,7 @@ import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
 import '../widgets/status_bar_style.dart';
+import '../widgets/press_scale.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -378,22 +379,30 @@ class _UploadScreenState extends State<UploadScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      _PhotoActionCard(
-                        isDark: _isDark,
-                        icon: Icons.camera_alt_outlined,
-                        title: 'Take a photo',
-                        subtitle: 'click here to use your camera to take pic',
-                        onTap: () => _showCameraPicker(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PhotoActionCard(
+                              isDark: _isDark,
+                              icon: Icons.camera_alt_rounded,
+                              title: 'Take a photo',
+                              subtitle: 'Use your camera',
+                              onTap: () => _showCameraPicker(),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: _PhotoActionCard(
+                              isDark: _isDark,
+                              icon: Icons.photo_library_rounded,
+                              title: 'Upload photo',
+                              subtitle: 'From your gallery',
+                              onTap: () => _showGalleryPicker(),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      _PhotoActionCard(
-                        isDark: _isDark,
-                        icon: Icons.image_outlined,
-                        title: 'Upload photo',
-                        subtitle: 'click here to upload pic from your gallery',
-                        onTap: () => _showGalleryPicker(),
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
                       _SectionTitle(text: 'Crop & adjust', color: textColor),
                       if (_maxImages > 1) ...[
                         const SizedBox(height: 6),
@@ -860,8 +869,7 @@ class _PageTitleRow extends StatelessWidget {
           'Choose photo',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: textColor,
-                fontWeight: FontWeight.w900,
-                shadows: _MetallicStyles.textShadow,
+                fontWeight: FontWeight.w800,
               ),
         ),
       ],
@@ -881,14 +889,17 @@ class _SectionTitle extends StatelessWidget {
       text,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: color,
-            fontWeight: FontWeight.w900,
-            shadows: _MetallicStyles.textShadow,
+            fontWeight: FontWeight.w800,
           ),
     );
   }
 }
 
-class _PhotoActionCard extends StatefulWidget {
+/// Take a photo / Upload photo entry points. Redesigned as a pair of compact
+/// icon-badge tiles - the same gradient-circle + label language used for
+/// settings rows and the multi-image "add photo" tiles - instead of the
+/// page's old full-width metallic bars.
+class _PhotoActionCard extends StatelessWidget {
   final bool isDark;
   final IconData icon;
   final String title;
@@ -904,73 +915,58 @@ class _PhotoActionCard extends StatefulWidget {
   });
 
   @override
-  State<_PhotoActionCard> createState() => _PhotoActionCardState();
-}
-
-class _PhotoActionCardState extends State<_PhotoActionCard> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final textColor = widget.isDark ? AppTheme.white : AppTheme.black;
-    final subtitleColor =
-        widget.isDark ? Colors.grey[400]! : const Color(0xFF4A4A4A);
+    final textColor = isDark ? AppTheme.white : AppTheme.black;
+    final surface = isDark ? AppTheme.darkCard : Colors.white;
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
+    return PressScale(
+      onTap: () {
         HapticFeedback.lightImpact();
-        widget.onTap();
+        onTap();
       },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: _MetallicStyles.cardDecoration(isDark: widget.isDark),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: widget.isDark
-                      ? AppTheme.darkSurface
-                      : const Color(0xFFF8F8F8),
-                  border: Border.all(color: textColor, width: 1.2),
-                  borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppTheme.accentPurple, AppTheme.accentPink],
                 ),
-                child: Icon(widget.icon, color: textColor, size: 28),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: textColor,
-                            fontWeight: FontWeight.w900,
-                            shadows: _MetallicStyles.textShadow,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: subtitleColor,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
-                          ),
-                    ),
-                  ],
-                ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.mediumGray,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1219,123 +1215,38 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
           duration: const Duration(milliseconds: 100),
           child: Container(
             height: 58,
-            decoration: _MetallicStyles.buttonDecoration(isDark: widget.isDark),
-            child: Row(
-              children: [
-                const SizedBox(width: 24),
-                const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
-                Expanded(
-                  child: Text(
-                    'Generate Style',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          shadows: _MetallicStyles.textShadow,
-                        ),
-                  ),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.accentPurple, AppTheme.accentPink],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                const SizedBox(width: 52 ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                const SizedBox(width: 10),
+                Text(
+                  'Generate Style',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _MetallicStyles {
-  static const textShadow = [
-    Shadow(
-      color: Color(0x66000000),
-      blurRadius: 3,
-      offset: Offset(1, 1),
-    ),
-  ];
-
-  static BoxDecoration cardDecoration({required bool isDark}) {
-    if (isDark) {
-      return BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF4A4A4A),
-            Color(0xFF2E2E2E),
-            Color(0xFF525252),
-            Color(0xFF383838),
-          ],
-          stops: [0.0, 0.35, 0.65, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.white, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 6,
-            offset: const Offset(2, 3),
-          ),
-        ],
-      );
-    }
-
-    return BoxDecoration(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFF0F0F0),
-          Color(0xFFD4D4D4),
-          Color(0xFFFAFAFA),
-          Color(0xFFC8C8C8),
-        ],
-        stops: [0.0, 0.35, 0.65, 1.0],
-      ),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: AppTheme.black, width: 1.2),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.32),
-          blurRadius: 6,
-          offset: const Offset(2, 3),
-        ),
-      ],
-    );
-  }
-
-  static BoxDecoration buttonDecoration({required bool isDark}) {
-    return BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [
-                Color(0xFF5A5A5A),
-                Color(0xFF1A1A1A),
-                Color(0xFF6E6E6E),
-                Color(0xFF303030),
-              ]
-            : const [
-                Color(0xFFECECEC),
-                Color(0xFF8A8A8A),
-                Color(0xFFF5F5F5),
-                Color(0xFF707070),
-              ],
-        stops: const [0.0, 0.3, 0.55, 1.0],
-      ),
-      borderRadius: BorderRadius.circular(30),
-      border: Border.all(
-        color: isDark ? Colors.white54 : AppTheme.black,
-        width: 1.2,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.38),
-          blurRadius: 8,
-          offset: const Offset(2, 4),
-        ),
-      ],
     );
   }
 }
