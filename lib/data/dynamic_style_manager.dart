@@ -72,12 +72,44 @@ class DynamicStyleManager extends ChangeNotifier {
   // Track loading state for each category ID
   final Set<String> _loadingCategoryIds = {};
 
+  // Home screen's search category filter. Lives here (not as local State on
+  // HomeScreen) so it survives a tab switch away and back - MainShell tears
+  // down and rebuilds HomeScreen's own State on every tab change (see
+  // KeyedSubtree(key: ValueKey<int>(currentIndex)) in main_shell.dart), but
+  // this manager is a single instance held for the app's lifetime.
+  Set<String> _selectedCategoryFilterIds = {};
+
   List<CategoryModel> get categories => List.unmodifiable(_categories);
   bool get isInitialized => _isInitialized;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  Set<String> get selectedCategoryFilterIds => Set.unmodifiable(_selectedCategoryFilterIds);
 
   bool isCategoryLoading(String categoryId) => _loadingCategoryIds.contains(categoryId);
+
+  /// Replaces the whole filter set at once - used when applying the picker
+  /// bottom sheet's selection.
+  void setCategoryFilters(Set<String> categoryIds) {
+    if (setEquals(_selectedCategoryFilterIds, categoryIds)) return;
+    _selectedCategoryFilterIds = Set.from(categoryIds);
+    notifyListeners();
+  }
+
+  /// Removes a single category from the active filter - used by a chip's
+  /// own remove (x) button.
+  void removeCategoryFilter(String categoryId) {
+    if (_selectedCategoryFilterIds.remove(categoryId)) {
+      notifyListeners();
+    }
+  }
+
+  /// Used by both "Clear All" below the search bar and "Reset" inside the
+  /// picker sheet.
+  void clearCategoryFilters() {
+    if (_selectedCategoryFilterIds.isEmpty) return;
+    _selectedCategoryFilterIds = {};
+    notifyListeners();
+  }
 
   /// Initialize and load categories from cache first, then sync categories from backend API
   Future<void> init() async {

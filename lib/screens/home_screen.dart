@@ -11,6 +11,7 @@ import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../services/haptic_service.dart';
+import '../widgets/category_filter_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -78,6 +79,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final categories = styleManager.categories;
     final isLoading = styleManager.isLoading;
     final error = styleManager.error;
+    final selectedCategoryIds = styleManager.selectedCategoryFilterIds;
+    final isCategoryFiltered = selectedCategoryIds.isNotEmpty;
+    final visibleCategories = isCategoryFiltered
+        ? categories.where((c) => selectedCategoryIds.contains(c.id)).toList()
+        : categories;
+
+    // Trending/Recommended are cross-category views (deliberately not part
+    // of `categories` - see the comments on their section widgets below),
+    // so they're hidden entirely once a category filter narrows the screen
+    // to specific categories rather than showing off-scope styles.
+    final showTrendingAndRecommended = !isCategoryFiltered;
+
+    final isSearchingOrFiltering = _searchQuery.isNotEmpty || isCategoryFiltered;
+    final stillLoadingRelevantSections = visibleCategories.any(
+          (c) => !c.hasLoadedStyles || styleManager.isCategoryLoading(c.id),
+        ) ||
+        (showTrendingAndRecommended && !styleManager.hasLoadedTrending) ||
+        (showTrendingAndRecommended && !styleManager.hasLoadedRecommended);
+    final hasAnyMatch = visibleCategories.any((c) => _filterStyles(c.styles).isNotEmpty) ||
+        (showTrendingAndRecommended && _filterStyles(styleManager.trendingStyles).isNotEmpty) ||
+        (showTrendingAndRecommended && _filterStyles(styleManager.recommendedStyles).isNotEmpty);
+    final showEmptySearchState = isSearchingOrFiltering &&
+        categories.isNotEmpty &&
+        !stillLoadingRelevantSections &&
+        !hasAnyMatch;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -111,53 +137,80 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(38, 20, 38, 0),
-                    child: custom.SearchBar(
-                      onChanged: (q) => setState(() => _searchQuery = q),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: custom.SearchBar(
+                            onChanged: (q) => setState(() => _searchQuery = q),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _FilterButton(
+                          isDark: isDark,
+                          activeCount: selectedCategoryIds.length,
+                          onTap: () => _openCategoryFilterSheet(context, styleManager),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                if (isCategoryFiltered)
+                  SliverToBoxAdapter(
+                    child: _SelectedFilterChipsRow(
+                      isDark: isDark,
+                      categories: categories,
+                      selectedIds: selectedCategoryIds,
+                      onRemove: styleManager.removeCategoryFilter,
+                      onClearAll: styleManager.clearCategoryFilters,
+                    ),
+                  ),
 
                 // Recommended For You renders above Trending whenever it has
                 // something to show - a personalized view over the user's
                 // own favorite/creation history, not a category itself, so
                 // it isn't part of `categories` and doesn't participate in
-                // category ordering either.
-                SliverToBoxAdapter(
-                  child: _RecommendedSectionWidget(
-                    textColor: textColor,
-                    isDark: isDark,
-                    sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
-                      return _buildHorizontalSection(
-                        title: title,
-                        styles: styles,
-                        textColor: txtColor,
-                        isDark: dark,
-                        isLoading: loading,
-                      );
-                    },
+                // category ordering either. Hidden while a category filter
+                // is active (showTrendingAndRecommended) - see its
+                // definition above for why.
+                if (showTrendingAndRecommended)
+                  SliverToBoxAdapter(
+                    child: _RecommendedSectionWidget(
+                      textColor: textColor,
+                      isDark: isDark,
+                      sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                        return _buildHorizontalSection(
+                          title: title,
+                          styles: styles,
+                          textColor: txtColor,
+                          isDark: dark,
+                          isLoading: loading,
+                        );
+                      },
+                    ),
                   ),
-                ),
 
                 // Trending always renders first among the remaining
                 // sections, ahead of every category section below - it's a
                 // dynamic view over isTrending styles, not a category
                 // itself, so it isn't part of `categories` and doesn't
                 // participate in category ordering.
-                SliverToBoxAdapter(
-                  child: _TrendingSectionWidget(
-                    textColor: textColor,
-                    isDark: isDark,
-                    sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
-                      return _buildHorizontalSection(
-                        title: title,
-                        styles: styles,
-                        textColor: txtColor,
-                        isDark: dark,
-                        isLoading: loading,
-                      );
-                    },
+                if (showTrendingAndRecommended)
+                  SliverToBoxAdapter(
+                    child: _TrendingSectionWidget(
+                      textColor: textColor,
+                      isDark: isDark,
+                      sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                        return _buildHorizontalSection(
+                          title: title,
+                          styles: styles,
+                          textColor: txtColor,
+                          isDark: dark,
+                          isLoading: loading,
+                        );
+                      },
+                    ),
                   ),
-                ),
 
                 // Conditional UI based on API State
                 if (isLoading && categories.isEmpty)
@@ -213,11 +266,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   )
+                else if (showEmptySearchState)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptySearchState(isDark: isDark),
+                  )
                 else
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final category = categories[index];
+                        final category = visibleCategories[index];
                         return _CategorySectionWidget(
                           category: category,
                           styleManager: styleManager,
@@ -234,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           },
                         );
                       },
-                      childCount: categories.length,
+                      childCount: visibleCategories.length,
                     ),
                   ),
                 const SliverToBoxAdapter(
@@ -345,6 +403,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  Future<void> _openCategoryFilterSheet(
+    BuildContext context,
+    DynamicStyleManager styleManager,
+  ) async {
+    HapticService.light();
+    // styleManager.categories is already cached/loaded by this point (Home
+    // fetches it on mount) - the sheet never issues its own category fetch.
+    final applied = await showCategoryFilterSheet(
+      context,
+      isDarkMode: widget.isDarkMode,
+      categories: styleManager.categories,
+      initialSelectedIds: styleManager.selectedCategoryFilterIds,
+    );
+    // null means dismissed without pressing Apply - leave the filter as-is.
+    if (applied != null) {
+      styleManager.setCategoryFilters(applied);
+    }
   }
 }
 
@@ -605,6 +682,217 @@ class _CategorySectionWidgetState extends State<_CategorySectionWidget> {
       widget.textColor,
       widget.isDark,
       isLoading,
+    );
+  }
+}
+
+/// Opens the category picker sheet. Shows a small badge with the active
+/// filter count so the button itself communicates filter state without
+/// needing the chips row visible (e.g. while scrolled past it).
+class _FilterButton extends StatelessWidget {
+  final bool isDark;
+  final int activeCount;
+  final VoidCallback onTap;
+
+  const _FilterButton({
+    required this.isDark,
+    required this.activeCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = activeCount > 0;
+    final bg = isActive
+        ? AppTheme.accentPurple
+        : (isDark ? AppTheme.darkCard : AppTheme.lightGray);
+    final iconColor = isActive ? Colors.white : (isDark ? AppTheme.white : AppTheme.black);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          border: Border.all(
+            color: isActive
+                ? Colors.transparent
+                : (isDark ? Colors.white12 : Colors.black12),
+          ),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.tune_rounded, color: iconColor, size: 22),
+            if (isActive)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.accentPink,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$activeCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The removable-chip row shown below the search bar once at least one
+/// category filter is active. Resolves ids to names against the live
+/// `categories` list (rather than caching names in the filter set itself)
+/// so a category rename is reflected immediately without extra state.
+class _SelectedFilterChipsRow extends StatelessWidget {
+  final bool isDark;
+  final List<CategoryModel> categories;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onRemove;
+  final VoidCallback onClearAll;
+
+  const _SelectedFilterChipsRow({
+    required this.isDark,
+    required this.categories,
+    required this.selectedIds,
+    required this.onRemove,
+    required this.onClearAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDark ? AppTheme.white : AppTheme.black;
+    final selected = categories.where((c) => selectedIds.contains(c.id)).toList();
+    if (selected.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(38, 14, 26, 0),
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          clipBehavior: Clip.none,
+          itemCount: selected.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            if (index == selected.length) {
+              return GestureDetector(
+                onTap: () {
+                  HapticService.light();
+                  onClearAll();
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Center(
+                  child: Text(
+                    'Clear All',
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final category = selected[index];
+            return InputChip(
+              key: ValueKey(category.id),
+              label: Text(category.name),
+              onDeleted: () {
+                HapticService.light();
+                onRemove(category.id);
+              },
+              deleteIcon: const Icon(Icons.close_rounded, size: 16),
+              deleteIconColor: Colors.white,
+              labelStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              backgroundColor: AppTheme.accentPurple,
+              side: BorderSide.none,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The unified "nothing matched" state shown when an active search and/or
+/// category filter excludes every style, instead of the previous behavior
+/// of every section silently collapsing to a blank scroll area.
+class _EmptySearchState extends StatelessWidget {
+  final bool isDark;
+
+  const _EmptySearchState({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDark ? AppTheme.white : AppTheme.black;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCard : AppTheme.lightGray,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                color: AppTheme.mediumGray,
+                size: 36,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No styles found',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Try a different search term or adjust your category filters.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.mediumGray, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
