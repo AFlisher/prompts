@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -8,6 +7,7 @@ import '../main.dart';
 import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/status_bar_style.dart';
+import '../services/haptic_service.dart';
 
 class ArabicStylesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -83,7 +83,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          HapticFeedback.lightImpact();
+                          HapticService.light();
                           Navigator.pop(context);
                         },
                         child: Container(
@@ -162,7 +162,7 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
   }
 
   void _openDetails(BuildContext context, StyleModel style, String heroTag) {
-    HapticFeedback.lightImpact();
+    HapticService.selection();
     Navigator.push(
       context,
       MaterialPageRoute(

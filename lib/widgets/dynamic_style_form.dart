@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/style_field.dart';
 import '../theme/app_theme.dart';
+import '../services/haptic_service.dart';
 
 /// A fully data-driven form built from a style's [StyleField] definitions.
 ///
@@ -236,7 +237,10 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       ],
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (v) => _validate(f, v),
-      onChanged: (v) => _set(f.key, v ?? ''),
+      onChanged: (v) {
+        HapticService.selection();
+        _set(f.key, v ?? '');
+      },
     );
   }
 
@@ -246,7 +250,10 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       contentPadding: EdgeInsets.zero,
       title: Text(f.required ? '${f.label} *' : f.label),
       value: _values[f.key] == true,
-      onChanged: (v) => setState(() => _set(f.key, v)),
+      onChanged: (v) {
+        HapticService.selection();
+        setState(() => _set(f.key, v));
+      },
     );
   }
 

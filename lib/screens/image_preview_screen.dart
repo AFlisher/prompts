@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
+import '../services/haptic_service.dart';
 
 class ImagePreviewScreen extends StatefulWidget {
   final String? assetPath;
@@ -25,7 +25,6 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   bool _isSaving = false;
 
   void _handleSave() async {
-    HapticFeedback.mediumImpact();
     setState(() {
       _isSaving = true;
     });
@@ -41,7 +40,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
     });
 
     if (savedPath != null) {
-      HapticFeedback.vibrate();
+      HapticService.light();
       SuccessHUD.show(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

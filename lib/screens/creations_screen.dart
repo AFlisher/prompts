@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
@@ -8,6 +7,7 @@ import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../theme/app_button_styles.dart';
+import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 
@@ -93,7 +93,7 @@ class MyCreationsScreen extends StatelessWidget {
           const SizedBox(height: 32),
           GestureDetector(
             onTap: () {
-              HapticFeedback.mediumImpact();
+              HapticService.medium();
               CreationsProvider.of(context).setTab(0); // Navigate to Home
             },
             child: Container(
@@ -161,7 +161,7 @@ class MyCreationsScreen extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        HapticFeedback.mediumImpact();
+        HapticService.medium();
         _showCreationDetailSheet(context, item);
       },
       child: Container(
@@ -316,7 +316,7 @@ class MyCreationsScreen extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
                     onPressed: () {
-                      HapticFeedback.heavyImpact();
+                      HapticService.heavy();
                       CreationsProvider.of(context).deleteCreation(item.id);
                       Navigator.pop(context); // Close sheet
                     },
@@ -327,7 +327,7 @@ class MyCreationsScreen extends StatelessWidget {
 
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.mediumImpact();
+                  HapticService.medium();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -419,8 +419,6 @@ class MyCreationsScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       onPressed: () async {
-                        HapticFeedback.mediumImpact();
-
                         final savedPath = await GallerySaver.saveImage(
                           assetPath: item.imagePath,
                         );
@@ -428,7 +426,7 @@ class MyCreationsScreen extends StatelessWidget {
                         if (!context.mounted) return;
 
                         if (savedPath != null) {
-                          HapticFeedback.vibrate();
+                          HapticService.light();
                           SuccessHUD.show(context);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -453,7 +451,7 @@ class MyCreationsScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        HapticFeedback.mediumImpact();
+                        HapticService.light();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Share link generated!'),

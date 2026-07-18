@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
@@ -10,6 +10,7 @@ import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
+import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import 'paywall_screen.dart';
 import '../utils/image_helper.dart';
@@ -107,7 +108,7 @@ class _UploadScreenState extends State<UploadScreen> {
     if (widget.style.fields.isNotEmpty) {
       final formOk = _fieldsFormKey.currentState?.validate() ?? true;
       if (!formOk || !_fieldsValid) {
-        HapticFeedback.mediumImpact();
+        HapticService.medium();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please complete the required fields before generating.')),
         );
@@ -148,7 +149,7 @@ class _UploadScreenState extends State<UploadScreen> {
   void _startGenerationActual(CreditManager creditManager) async {
     final apiService = ApiService();
 
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _isGenerating = true;
       _generationProgress = 0.0;
@@ -196,7 +197,7 @@ class _UploadScreenState extends State<UploadScreen> {
           _generationComplete = true;
           _generationStatus = 'Success';
         });
-        HapticFeedback.heavyImpact();
+        HapticService.heavy();
 
         // Add to creations
         final creationsManager = CreationsProvider.of(context);
@@ -323,8 +324,6 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _saveToGallery() async {
-    HapticFeedback.mediumImpact();
-
     final savedPath = await GallerySaver.saveImage(
       assetPath: widget.style.imagePath,
     );
@@ -332,7 +331,7 @@ class _UploadScreenState extends State<UploadScreen> {
     if (!mounted) return;
 
     if (savedPath != null) {
-      HapticFeedback.vibrate();
+      HapticService.light();
       SuccessHUD.show(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -373,7 +372,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       _PageTitleRow(
                         textColor: textColor,
                         onBack: () {
-                          HapticFeedback.lightImpact();
+                          HapticService.light();
                           Navigator.pop(context);
                         },
                       ),
@@ -444,7 +443,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                         : null,
                                     onClear: slot < _selectedImagePaths.length
                                         ? () {
-                                            HapticFeedback.lightImpact();
+                                            HapticService.light();
                                             setState(() => _selectedImagePaths
                                                 .removeAt(slot));
                                           }
@@ -487,7 +486,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          HapticFeedback.mediumImpact();
+                          HapticService.medium();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -586,7 +585,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () {
-                                HapticFeedback.lightImpact();
+                                HapticService.light();
                                 setState(() {
                                   _generationComplete = false;
                                   _selectedImagePaths.clear();
@@ -613,7 +612,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                HapticFeedback.mediumImpact();
+                                HapticService.medium();
                                 CreationsProvider.of(context).setTab(1); // Set active tab to creations
                                 Navigator.popUntil(context, (route) => route.isFirst);
                               },
@@ -755,7 +754,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.camera);
       if (xFile != null) {
-        HapticFeedback.lightImpact();
+        HapticService.light();
         _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
@@ -778,7 +777,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.gallery);
       if (xFile != null) {
-        HapticFeedback.lightImpact();
+        HapticService.light();
         _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
@@ -920,7 +919,7 @@ class _PhotoActionCardState extends State<_PhotoActionCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        HapticFeedback.lightImpact();
+        HapticService.light();
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
@@ -1438,7 +1437,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
 
             TextButton(
               onPressed: () {
-                HapticFeedback.lightImpact();
+                HapticService.light();
                 Navigator.pop(context);
               },
               child: Text(

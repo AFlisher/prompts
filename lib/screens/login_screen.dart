@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
@@ -7,6 +6,7 @@ import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_service.dart';
+import '../services/haptic_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -58,8 +58,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _handleSignIn() async {
     if (!_formKey.currentState!.validate()) return;
 
-    HapticFeedback.mediumImpact();
-
     setState(() {
       _isLoading = true;
     });
@@ -94,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (!mounted) return;
 
+      HapticService.medium();
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainShell()),
@@ -121,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   void _navigateToRegister() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RegisterScreen()),
@@ -129,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   void _navigateToForgotPassword() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
@@ -137,7 +136,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleGoogleSignIn() async {
-    HapticFeedback.mediumImpact();
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -170,6 +168,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (!mounted) return;
 
+      HapticService.medium();
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainShell()),

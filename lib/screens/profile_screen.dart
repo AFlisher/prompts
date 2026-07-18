@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
@@ -8,6 +7,7 @@ import '../widgets/press_scale.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
+import '../services/haptic_service.dart';
 import 'privacy_screen.dart';
 import 'change_password_screen.dart';
 import '../main.dart';
@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openEditProfile() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => EditProfileScreen(isDarkMode: _isDark)),
@@ -51,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openNotifications() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => NotificationsScreen(isDarkMode: _isDark)),
@@ -59,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openPrivacy() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => PrivacyScreen(isDarkMode: _isDark)),
@@ -67,7 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openChangePassword() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => ChangePasswordScreen(isDarkMode: _isDark)),
@@ -75,7 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openWalletHistory() {
-    HapticFeedback.lightImpact();
+    HapticService.light();
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => WalletHistoryScreen(isDarkMode: _isDark)),
@@ -274,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ProBannerCard(
                 isDarkMode: _isDark,
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  HapticService.light();
                   Navigator.push(
                     context,
                     fadeSlidePageRoute((_) => PaywallScreen(isDarkMode: _isDark)),
@@ -341,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textColor: textColor,
                 surface: surfaceColor,
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  HapticService.light();
                   showAboutDialog(
                     context: context,
                     applicationName: 'StyliAI',
@@ -378,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 textColor: Colors.redAccent,
                 surface: surfaceColor,
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  HapticService.light();
                   showAppIconDialog(
                     context,
                     icon: Icons.logout_rounded,
@@ -390,6 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     primaryLabel: 'Sign Out',
                     primaryColor: Colors.redAccent,
                     onPrimaryPressed: () async {
+                      HapticService.heavy();
                       profileManager.clear();
                       NotificationsProvider.read(context).clear();
                       await _authService.signOut();

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/style_model.dart';
 import '../widgets/app_header.dart';
@@ -11,6 +10,7 @@ import '../main.dart';
 import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../services/haptic_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -90,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               styleManager.fetchFromApi(),
               CreditProvider.of(context).fetchWallet(),
             ]);
+            HapticService.medium();
           },
           child: FadeTransition(
             opacity: _headerFadeAnim,
@@ -317,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _openAllStyles(String title, List<StyleModel> styles) {
-    HapticFeedback.lightImpact();
+    HapticService.selection();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -332,7 +333,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _onStyleTapped(StyleModel style, String heroTag) {
-    HapticFeedback.lightImpact();
+    HapticService.selection();
     Navigator.push(
       context,
       MaterialPageRoute(

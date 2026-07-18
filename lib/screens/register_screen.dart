@@ -1,9 +1,9 @@
   import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
 import 'email_verification_screen.dart';
 import '../services/auth_service.dart';
+import '../services/haptic_service.dart';
 class RegisterScreen extends StatefulWidget {
   final String? prefilledEmail;
   const RegisterScreen({super.key, this.prefilledEmail});
@@ -64,6 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
+      HapticService.medium();
       Navigator.push(
         context,
         MaterialPageRoute(

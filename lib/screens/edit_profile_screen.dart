@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/press_scale.dart';
 import '../main.dart';
+import '../services/haptic_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/status_bar_style.dart';
 
@@ -64,7 +64,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    HapticFeedback.selectionClick();
+    HapticService.selection();
     Navigator.pop(context); // Close bottom sheet
     try {
       final picker = ImagePicker();
@@ -92,7 +92,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showImageSourceSheet() {
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     final textColor = _isDark ? Colors.white : AppTheme.black;
 
     showAppBottomSheet(
@@ -142,7 +142,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _handleSave() async {
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() => _isSaving = true);
 
     try {
@@ -219,7 +219,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
+                        HapticService.light();
                         Navigator.pop(context);
                       },
                       child: Container(

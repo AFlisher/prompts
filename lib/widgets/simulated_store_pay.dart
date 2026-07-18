@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
+import '../services/haptic_service.dart';
 
 /// Shows a highly realistic simulated App Store (iOS) or Google Play Store (Android)
 /// purchase confirmation sheet depending on the platform.
@@ -64,7 +64,7 @@ class _IOSAppStoreSheetState extends State<_IOSAppStoreSheet> {
   Timer? _faceIdTimer;
 
   void _triggerPayment() {
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _state = 1; // FaceID Scanning
     });
@@ -75,9 +75,9 @@ class _IOSAppStoreSheetState extends State<_IOSAppStoreSheet> {
           _state = 2; // Success
         });
         // Satisyfing double haptic click for Apple Pay success
-        HapticFeedback.heavyImpact();
+        HapticService.heavy();
         Future.delayed(const Duration(milliseconds: 100), () {
-          HapticFeedback.heavyImpact();
+          HapticService.heavy();
         });
 
         // Close after success animation completes
@@ -141,7 +141,7 @@ class _IOSAppStoreSheetState extends State<_IOSAppStoreSheet> {
                 ),
                 GestureDetector(
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    HapticService.light();
                     Navigator.pop(context, false);
                   },
                   child: Container(
@@ -387,7 +387,7 @@ class _AndroidPlayStoreSheetState extends State<_AndroidPlayStoreSheet> {
   bool _isDone = false;
 
   void _confirmAndroidPayment() async {
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _isProcessing = true;
     });
@@ -399,7 +399,7 @@ class _AndroidPlayStoreSheetState extends State<_AndroidPlayStoreSheet> {
         _isProcessing = false;
         _isDone = true;
       });
-      HapticFeedback.vibrate();
+      HapticService.vibrate();
 
       await Future.delayed(const Duration(milliseconds: 900));
       if (mounted) {

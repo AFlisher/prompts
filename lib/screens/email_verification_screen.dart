@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
 import '../services/auth_service.dart';
+import '../services/haptic_service.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -57,7 +57,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void _handleVerificationSuccess() {
     if (!mounted) return;
 
-    HapticFeedback.heavyImpact();
+    HapticService.medium();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -72,7 +72,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Future<void> _handleResendLink() async {
     if (!_canResend || _isLoading) return;
 
-    HapticFeedback.lightImpact();
+    HapticService.light();
     setState(() {
       _isLoading = true;
     });
@@ -233,7 +233,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                           height: 56,
                           child: OutlinedButton(
                             onPressed: () {
-                              HapticFeedback.lightImpact();
+                              HapticService.light();
                               Navigator.popUntil(context, (route) => route.isFirst);
                             },
                             style: OutlinedButton.styleFrom(

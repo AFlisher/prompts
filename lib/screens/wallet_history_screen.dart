@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/wallet.dart';
 import '../services/wallet_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
 import '../widgets/status_bar_style.dart';
+import '../services/haptic_service.dart';
 
 class WalletHistoryScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -70,7 +70,7 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
+                        HapticService.light();
                         Navigator.pop(context);
                       },
                       child: Container(
@@ -137,7 +137,10 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadHistory,
+      onRefresh: () async {
+        await _loadHistory();
+        HapticService.medium();
+      },
       color: AppTheme.accentPurple,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),

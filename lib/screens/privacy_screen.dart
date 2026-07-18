@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
+import '../services/haptic_service.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/status_bar_style.dart';
 import 'legal_document_screen.dart';
@@ -20,6 +20,7 @@ class PrivacyScreen extends StatefulWidget {
 class _PrivacyScreenState extends State<PrivacyScreen> {
   late bool _isDark;
   bool _personalizationEnabled = true;
+  bool _hapticFeedbackEnabled = HapticService.enabled;
   final _profileService = ProfileService();
 
   @override
@@ -30,10 +31,19 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
         ProfileProvider.read(context).profile?.personalizationEnabled ?? true;
   }
 
+  void _onHapticFeedbackChanged(bool value) {
+    setState(() => _hapticFeedbackEnabled = value);
+    HapticService.setEnabled(value);
+    // Fires only if the toggle just turned ON (setEnabled updates the flag
+    // synchronously first), giving immediate confirmation without needing a
+    // special case for the off-state.
+    HapticService.selection();
+  }
+
   Future<void> _onPersonalizationChanged(bool value) async {
     final previous = _personalizationEnabled;
     setState(() => _personalizationEnabled = value);
-    HapticFeedback.lightImpact();
+    HapticService.selection();
 
     try {
       final updated =
@@ -73,7 +83,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
+                        HapticService.light();
                         Navigator.pop(context);
                       },
                       child: Container(
@@ -145,6 +155,17 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   textColor: textColor,
                   onChanged: _onPersonalizationChanged,
                 ),
+                const SizedBox(height: 10),
+                _ToggleTile(
+                  icon: Icons.vibration_rounded,
+                  label: 'Haptic Feedback',
+                  subtitle: 'Subtle vibration on key actions',
+                  value: _hapticFeedbackEnabled,
+                  isDarkMode: _isDark,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                  onChanged: _onHapticFeedbackChanged,
+                ),
               ],
             ),
           ),
@@ -192,7 +213,7 @@ class _LinkTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return PressScale(
       onTap: () {
-        HapticFeedback.lightImpact();
+        HapticService.light();
         onTap();
       },
       child: Container(

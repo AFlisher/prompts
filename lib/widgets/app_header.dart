@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../screens/paywall_screen.dart';
+import '../services/haptic_service.dart';
 
 class AppHeader extends StatelessWidget {
   final bool isDarkMode;
@@ -60,7 +60,7 @@ class AppHeader extends StatelessWidget {
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  HapticService.light();
                   Navigator.push(
                     context,
                     MaterialPageRoute(

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
 import '../main.dart';
 import '../models/credit_pack.dart';
 import '../services/api_service.dart';
 import '../widgets/simulated_store_pay.dart';
+import '../services/haptic_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/status_bar_style.dart';
 
@@ -68,7 +68,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final selectedPack = _packs.firstWhere((p) => p.id == _selectedPackId);
     final creditsToAdded = selectedPack.credits;
 
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _isLoading = true;
     });
@@ -99,7 +99,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       _isLoading = false;
     });
 
-    HapticFeedback.vibrate();
+    HapticService.vibrate();
 
     // Show a success dialog
     showDialog(
@@ -201,7 +201,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         padding: const EdgeInsets.all(16),
                         child: GestureDetector(
                           onTap: () {
-                            HapticFeedback.lightImpact();
+                            HapticService.light();
                             Navigator.pop(context);
                           },
                           child: Container(
@@ -489,7 +489,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     return GestureDetector(
       onTap: () {
-        HapticFeedback.lightImpact();
+        HapticService.selection();
         setState(() {
           _selectedPackId = packId;
         });
@@ -599,7 +599,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget _buildFooterLink(String text, Color textColor, VoidCallback onTap) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.lightImpact();
+        HapticService.light();
         onTap();
       },
       child: Text(

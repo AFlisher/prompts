@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/status_bar_style.dart';
 import '../main.dart';
 import '../data/notifications_manager.dart';
 import '../models/notification_model.dart';
+import '../services/haptic_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -44,7 +44,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         body: SafeArea(
           child: RefreshIndicator(
             color: AppTheme.accentPurple,
-            onRefresh: () => NotificationsProvider.read(context).fetch(),
+            onRefresh: () async {
+              await NotificationsProvider.read(context).fetch();
+              HapticService.medium();
+            },
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -57,7 +60,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       children: [
                         GestureDetector(
                           onTap: () {
-                            HapticFeedback.lightImpact();
+                            HapticService.light();
                             Navigator.pop(context);
                           },
                           child: Container(
@@ -258,7 +261,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 onTap: n.isRead
                     ? null
                     : () {
-                        HapticFeedback.lightImpact();
+                        HapticService.light();
                         NotificationsProvider.read(context).markRead(n.id);
                       },
               ),
@@ -310,7 +313,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _openSettings(Color textColor) {
-    HapticFeedback.selectionClick();
+    HapticService.selection();
     showAppBottomSheet(
       context,
       isDarkMode: _isDark,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../widgets/status_bar_style.dart';
+import '../services/haptic_service.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -46,7 +46,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() => _isSaving = true);
 
     try {
@@ -115,7 +115,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          HapticFeedback.lightImpact();
+                          HapticService.light();
                           Navigator.pop(context);
                         },
                         child: Container(
