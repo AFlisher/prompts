@@ -13,7 +13,7 @@ import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import 'paywall_screen.dart';
-import '../utils/image_helper.dart';
+import '../widgets/progressive_network_image.dart';
 import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../services/generation/image_generation_service.dart';
@@ -80,6 +80,12 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _generationComplete = false;
   Timer? _generationTimer;
   bool _isCheckingBalance = false;
+
+  // The actual generated creation - set on a successful generation, shown on
+  // the "Generation Complete" screen and used for save/share (never the
+  // style's own cover image, which is a preset asset, not the user's photo).
+  String? _generatedImageUrl;
+  String? _generatedThumbnailUrl;
 
   // Dynamic prompt-template inputs for this style (empty for classic styles).
   final GlobalKey<FormState> _fieldsFormKey = GlobalKey<FormState>();
@@ -189,6 +195,7 @@ class _UploadScreenState extends State<UploadScreen> {
         fieldValues: _fieldValues,
       );
       final generatedImageUrl = result.imageUrl;
+      final generatedThumbnailUrl = result.thumbnailUrl;
 
       // Cancel local animation timer and sync wallet stats from server
       _generationTimer?.cancel();
@@ -200,6 +207,8 @@ class _UploadScreenState extends State<UploadScreen> {
           _isGenerating = false;
           _generationComplete = true;
           _generationStatus = 'Success';
+          _generatedImageUrl = generatedImageUrl;
+          _generatedThumbnailUrl = generatedThumbnailUrl;
         });
         HapticService.heavy();
 
@@ -211,6 +220,7 @@ class _UploadScreenState extends State<UploadScreen> {
             styleId: widget.style.id,
             styleName: widget.style.name,
             imagePath: generatedImageUrl,
+            thumbnailUrl: generatedThumbnailUrl,
             originalImagePath:
                 _selectedImagePaths.isNotEmpty ? _selectedImagePaths.first : null,
             createdAt: DateTime.now(),
@@ -328,8 +338,10 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _saveToGallery() async {
+    // Always the just-generated creation's full-resolution original, never
+    // the style's own preset cover image and never a thumbnail.
     final savedPath = await GallerySaver.saveImage(
-      assetPath: widget.style.imagePath,
+      assetPath: _generatedImageUrl ?? widget.style.imagePath,
     );
 
     if (!mounted) return;
@@ -495,7 +507,8 @@ class _UploadScreenState extends State<UploadScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => ImagePreviewScreen(
-                                assetPath: widget.style.imagePath,
+                                assetPath: _generatedImageUrl ?? widget.style.imagePath,
+                                thumbnailPath: _generatedThumbnailUrl,
                                 title: widget.style.name,
                               ),
                             ),
@@ -514,8 +527,15 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                buildStyleImage(
-                                  widget.style.displayImage,
+                                // The actual generated creation - progressive:
+                                // its thumbnail (if the backend produced one)
+                                // shows immediately while the full-resolution
+                                // original loads in behind it.
+                                ProgressiveNetworkImage(
+                                  thumbnailUrl: _generatedThumbnailUrl ??
+                                      _generatedImageUrl ??
+                                      widget.style.displayImage,
+                                  originalUrl: _generatedImageUrl ?? widget.style.displayImage,
                                   fit: BoxFit.cover,
                                 ),
                                 Positioned(
@@ -593,6 +613,8 @@ class _UploadScreenState extends State<UploadScreen> {
                                 setState(() {
                                   _generationComplete = false;
                                   _selectedImagePaths.clear();
+                                  _generatedImageUrl = null;
+                                  _generatedThumbnailUrl = null;
                                 });
                               },
                               style: OutlinedButton.styleFrom(

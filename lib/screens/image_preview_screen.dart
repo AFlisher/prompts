@@ -2,19 +2,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/gallery_saver.dart';
-import '../utils/image_helper.dart';
+import '../widgets/progressive_network_image.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 
 class ImagePreviewScreen extends StatefulWidget {
   final String? assetPath;
   final String? filePath;
+
+  /// Shown immediately while [assetPath] (the full-resolution original)
+  /// loads in the background - see [ProgressiveNetworkImage]. Ignored when
+  /// [assetPath] is null (a local [filePath] preview has no thumbnail).
+  final String? thumbnailPath;
   final String title;
 
   const ImagePreviewScreen({
     super.key,
     this.assetPath,
     this.filePath,
+    this.thumbnailPath,
     required this.title,
   });
 
@@ -73,8 +79,9 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                 // so this must dispatch on scheme like every other image in
                 // the app instead of assuming a bundled asset.
                 child: widget.assetPath != null
-                    ? buildStyleImage(
-                        widget.assetPath!,
+                    ? ProgressiveNetworkImage(
+                        thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
+                        originalUrl: widget.assetPath!,
                         fit: BoxFit.contain,
                       )
                     : Image.file(

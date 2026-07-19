@@ -21,13 +21,14 @@ class NanoBananaProvider implements ImageGenerationProvider {
     Map<String, dynamic>? fieldValues,
     String? negativePrompt,
   }) async {
-    final imageUrl = await _apiService.generateStyleImage(
+    final result = await _apiService.generateStyleImage(
       imagePaths,
       styleId,
       fieldValues: fieldValues,
     );
     return GenerationResult(
-      imageUrl: imageUrl,
+      imageUrl: result.imageUrl,
+      thumbnailUrl: result.thumbnailUrl,
       provider: ImageGenerationProviderType.nano,
     );
   }

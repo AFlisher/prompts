@@ -5,6 +5,10 @@ class StyleModel {
   final String name;
   final String imagePath;
   final String imageUrl;
+
+  /// ~320x400 WebP browsing thumbnail. Null/empty until the backend has
+  /// generated one (see [displayThumbnail] for the browsing-safe fallback).
+  final String? thumbnailUrl;
   final bool isFavorite;
   final bool isTrending;
   final String description;
@@ -29,6 +33,7 @@ class StyleModel {
     required this.name,
     required this.imagePath,
     this.imageUrl = '',
+    this.thumbnailUrl,
     this.isFavorite = false,
     this.isTrending = false,
     this.isPro = false,
@@ -45,12 +50,20 @@ class StyleModel {
   /// Prefer remote URL when available; falls back to bundled asset path.
   String get displayImage => imageUrl.isNotEmpty ? imageUrl : imagePath;
 
+  /// The small, browsing-optimized image every grid/list/card should render.
+  /// Falls back to [displayImage] when no thumbnail exists yet (e.g. a style
+  /// created before the thumbnail system, or before the backfill script has
+  /// reached it) - so a browsing screen never has nothing to show.
+  String get displayThumbnail =>
+      (thumbnailUrl != null && thumbnailUrl!.isNotEmpty) ? thumbnailUrl! : displayImage;
+
   StyleModel copyWith({bool? isFavorite, bool? isPro, int? creditCost}) {
     return StyleModel(
       id: id,
       name: name,
       imagePath: imagePath,
       imageUrl: imageUrl,
+      thumbnailUrl: thumbnailUrl,
       isFavorite: isFavorite ?? this.isFavorite,
       isTrending: isTrending,
       isPro: isPro ?? this.isPro,
@@ -71,6 +84,7 @@ class StyleModel {
       'name': name,
       'imagePath': imagePath,
       'imageUrl': imageUrl,
+      'thumbnailUrl': thumbnailUrl,
       'isFavorite': isFavorite,
       'isTrending': isTrending,
       'isPro': isPro,
@@ -91,6 +105,7 @@ class StyleModel {
       name: json['name'] as String,
       imagePath: json['imagePath'] as String,
       imageUrl: (json['imageUrl'] as String?) ?? '',
+      thumbnailUrl: json['thumbnailUrl'] as String?,
       isFavorite: (json['isFavorite'] as bool?) ?? false,
       isTrending: (json['isTrending'] as bool?) ?? false,
       isPro: (json['isPro'] as bool?) ?? false,
