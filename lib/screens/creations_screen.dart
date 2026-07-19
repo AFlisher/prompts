@@ -11,6 +11,7 @@ import '../theme/app_button_styles.dart';
 import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../widgets/progressive_network_image.dart';
 import '../utils/image_helper.dart';
 
 class MyCreationsScreen extends StatelessWidget {
@@ -183,13 +184,15 @@ class MyCreationsScreen extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Main generated image - item.imagePath is a full network URL for
+              // Main generated image - browsing-only, so this always uses the
+              // thumbnail (falls back to the full imagePath if no thumbnail
+              // exists yet). item.displayThumbnail is a full network URL for
               // backend-generated creations (any provider) and a bundled asset
               // path for pre-migration local-only ones, so this must dispatch
               // on scheme like every other image in the app instead of
               // assuming one or the other.
               buildStyleImage(
-                item.imagePath,
+                item.displayThumbnail,
                 fit: BoxFit.cover,
               ),
 
@@ -339,6 +342,7 @@ class MyCreationsScreen extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => ImagePreviewScreen(
                         assetPath: item.imagePath,
+                        thumbnailPath: item.displayThumbnail,
                         title: item.styleName,
                       ),
                     ),
@@ -360,9 +364,13 @@ class MyCreationsScreen extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Styled generation output photo
-                        buildStyleImage(
-                          item.imagePath,
+                        // Styled generation output photo - progressive: the
+                        // thumbnail (already cached from the grid) shows
+                        // immediately while the full-resolution original
+                        // loads in behind it.
+                        ProgressiveNetworkImage(
+                          thumbnailUrl: item.displayThumbnail,
+                          originalUrl: item.imagePath,
                           fit: BoxFit.cover,
                         ),
 

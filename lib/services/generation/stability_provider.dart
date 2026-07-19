@@ -22,13 +22,14 @@ class StabilityProvider implements ImageGenerationProvider {
     Map<String, dynamic>? fieldValues,
     String? negativePrompt,
   }) async {
-    final imageUrl = await _apiService.generateStabilityImage(
+    final result = await _apiService.generateStabilityImage(
       prompt: prompt,
       styleId: styleId,
       negativePrompt: negativePrompt,
     );
     return GenerationResult(
-      imageUrl: imageUrl,
+      imageUrl: result.imageUrl,
+      thumbnailUrl: result.thumbnailUrl,
       provider: ImageGenerationProviderType.stability,
     );
   }

@@ -328,7 +328,10 @@ class ApiService {
   /// classic styles, up to the style's maxImages for multi-image styles. All
   /// parts travel under the same 'file' field name, which the backend accepts
   /// as an array (a single file is just an array of one).
-  Future<String> generateStyleImage(
+  ///
+  /// Returns both the full-resolution original and its server-generated
+  /// browsing thumbnail (null if thumbnail generation failed server-side).
+  Future<({String imageUrl, String? thumbnailUrl})> generateStyleImage(
     List<String> imagePaths,
     String styleId, {
     Map<String, dynamic>? fieldValues,
@@ -362,7 +365,10 @@ class ApiService {
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
-    return jsonMap['generatedImageUrl'] as String;
+    return (
+      imageUrl: jsonMap['generatedImageUrl'] as String,
+      thumbnailUrl: jsonMap['thumbnailUrl'] as String?,
+    );
   }
 
   /// POST /api/ai/generate
@@ -376,7 +382,10 @@ class ApiService {
   /// is usually empty for a style-driven generation - pass [styleId] and the
   /// backend resolves the real prompt itself. Supply [prompt] directly only
   /// for free-text generation with no backing style.
-  Future<String> generateStabilityImage({
+  ///
+  /// Returns both the full-resolution original and its server-generated
+  /// browsing thumbnail (null if thumbnail generation failed server-side).
+  Future<({String imageUrl, String? thumbnailUrl})> generateStabilityImage({
     String? prompt,
     String? styleId,
     String? negativePrompt,
@@ -401,6 +410,9 @@ class ApiService {
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
-    return jsonMap['imageUrl'] as String;
+    return (
+      imageUrl: jsonMap['imageUrl'] as String,
+      thumbnailUrl: jsonMap['thumbnailUrl'] as String?,
+    );
   }
 }

@@ -11,6 +11,12 @@ class CreationItem {
   final String styleId;
   final String styleName;
   final String imagePath; // The resulting styled photo asset path
+
+  /// ~320x400 WebP browsing thumbnail of [imagePath]. Null for creations made
+  /// before the thumbnail system existed, or migrated from the pre-backend
+  /// local-only store - callers should fall back to [imagePath] in that case
+  /// (see [displayThumbnail]).
+  final String? thumbnailUrl;
   final String? originalImagePath; // The user's input photo file path
   final DateTime createdAt;
 
@@ -19,15 +25,22 @@ class CreationItem {
     required this.styleId,
     required this.styleName,
     required this.imagePath,
+    this.thumbnailUrl,
     this.originalImagePath,
     required this.createdAt,
   });
+
+  /// The small, browsing-optimized image every grid/list card should render.
+  /// Falls back to the full [imagePath] when no thumbnail exists yet.
+  String get displayThumbnail =>
+      (thumbnailUrl != null && thumbnailUrl!.isNotEmpty) ? thumbnailUrl! : imagePath;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'styleId': styleId,
         'styleName': styleName,
         'imagePath': imagePath,
+        'thumbnailUrl': thumbnailUrl,
         'originalImagePath': originalImagePath,
         'createdAt': createdAt.toIso8601String(),
       };
@@ -43,6 +56,7 @@ class CreationItem {
       styleId: (json['styleId'] as String?) ?? '',
       styleName: json['styleName'] as String,
       imagePath: (json['imagePath'] as String?) ?? (json['imageUrl'] as String?) ?? '',
+      thumbnailUrl: json['thumbnailUrl'] as String?,
       originalImagePath: json['originalImagePath'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );

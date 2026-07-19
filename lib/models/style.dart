@@ -9,6 +9,11 @@ class Style {
   final String? negativePrompt;
   final int creditCost;
   final String coverImage;
+
+  /// ~320x400 WebP browsing thumbnail. Null for styles the backfill/upload
+  /// pipeline hasn't generated one for yet - callers should fall back to
+  /// [coverImage] in that case (see [StyleModel.displayThumbnail]).
+  final String? coverImageThumbnail;
   final bool isTrending;
   final bool isPremium;
   final bool isEnabled;
@@ -28,6 +33,7 @@ class Style {
     this.negativePrompt,
     required this.creditCost,
     required this.coverImage,
+    this.coverImageThumbnail,
     required this.isTrending,
     required this.isPremium,
     required this.isEnabled,
@@ -46,6 +52,7 @@ class Style {
       negativePrompt: json['negativePrompt'] as String?,
       creditCost: (json['creditCost'] as num?)?.toInt() ?? 1,
       coverImage: json['coverImage'] as String? ?? '',
+      coverImageThumbnail: json['coverImageThumbnail'] as String?,
       isTrending: json['isTrending'] as bool? ?? false,
       isPremium: json['isPremium'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? true,
@@ -65,6 +72,7 @@ class Style {
       'negativePrompt': negativePrompt,
       'creditCost': creditCost,
       'coverImage': coverImage,
+      'coverImageThumbnail': coverImageThumbnail,
       'isTrending': isTrending,
       'isPremium': isPremium,
       'isEnabled': isEnabled,
@@ -82,6 +90,7 @@ class Style {
       name: name,
       imagePath: coverImage,
       imageUrl: coverImage,
+      thumbnailUrl: coverImageThumbnail,
       isTrending: isTrending,
       isPro: isPremium,
       prompt: prompt,
