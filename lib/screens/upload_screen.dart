@@ -16,6 +16,7 @@ import 'paywall_screen.dart';
 import '../utils/image_helper.dart';
 import '../data/credit_manager.dart';
 import '../services/api_service.dart';
+import '../services/generation/image_generation_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
@@ -147,8 +148,6 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _startGenerationActual(CreditManager creditManager) async {
-    final apiService = ApiService();
-
     HapticService.medium();
     setState(() {
       _isGenerating = true;
@@ -179,12 +178,17 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
-      // 4. Trigger backend generation pipeline which validates and deducts balance
-      final generatedImageUrl = await apiService.generateStyleImage(
-        List<String>.from(_selectedImagePaths),
-        widget.style.id,
+      // 4. Trigger backend generation pipeline which validates and deducts
+      // balance. Which provider actually runs (Nano Banana, Stability AI,
+      // ...) is decided entirely by ImageGenerationConfig - this screen
+      // never knows or cares which one it is.
+      final result = await ImageGenerationService.generate(
+        prompt: widget.style.prompt,
+        styleId: widget.style.id,
+        imagePaths: List<String>.from(_selectedImagePaths),
         fieldValues: _fieldValues,
       );
+      final generatedImageUrl = result.imageUrl;
 
       // Cancel local animation timer and sync wallet stats from server
       _generationTimer?.cancel();

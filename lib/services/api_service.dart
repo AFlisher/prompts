@@ -45,6 +45,23 @@ class ApiService {
     return headers;
   }
 
+  /// Shared by every generation endpoint that returns a structured
+  /// `{code, message}` error body (currently `/api/generate` and
+  /// `/api/ai/generate`), so the parsing/fallback logic lives in one place
+  /// instead of being copied per provider.
+  Never _throwGenerationError(http.Response response) {
+    Map<String, dynamic>? body;
+    try {
+      body = json.decode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      body = null;
+    }
+    throw ApiException(
+      (body?['code'] as String?) ?? 'UNKNOWN_ERROR',
+      (body?['message'] as String?) ?? 'Failed to generate image. Status: ${response.statusCode}',
+    );
+  }
+
   /// GET /api/categories
   Future<List<Category>> getCategories() async {
     final headers = await _getHeaders();
@@ -341,19 +358,41 @@ class ApiService {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
-      Map<String, dynamic>? body;
-      try {
-        body = json.decode(response.body) as Map<String, dynamic>;
-      } catch (_) {
-        body = null;
-      }
-      throw ApiException(
-        (body?['code'] as String?) ?? 'UNKNOWN_ERROR',
-        (body?['message'] as String?) ?? 'Failed to generate image. Status: ${response.statusCode}',
-      );
+      _throwGenerationError(response);
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
     return jsonMap['generatedImageUrl'] as String;
+  }
+
+  /// POST /api/ai/generate
+  ///
+  /// Text-to-image generation via the Stability AI backend integration -
+  /// no source image is sent (the endpoint doesn't accept one); same auth
+  /// header and `{code, message}` error-body handling as [generateStyleImage].
+  Future<String> generateStabilityImage(
+    String prompt, {
+    String? negativePrompt,
+    String? aspectRatio,
+    String? style,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/ai/generate'),
+      headers: headers,
+      body: json.encode({
+        'prompt': prompt,
+        if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
+        if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
+        if (style != null && style.isNotEmpty) 'style': style,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      _throwGenerationError(response);
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    return jsonMap['imageUrl'] as String;
   }
 }
