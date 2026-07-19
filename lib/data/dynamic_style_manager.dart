@@ -72,12 +72,44 @@ class DynamicStyleManager extends ChangeNotifier {
   // Track loading state for each category ID
   final Set<String> _loadingCategoryIds = {};
 
+  // Home screen's search category filter. Lives here (not as local State on
+  // HomeScreen) so it survives a tab switch away and back - MainShell tears
+  // down and rebuilds HomeScreen's own State on every tab change (see
+  // KeyedSubtree(key: ValueKey<int>(currentIndex)) in main_shell.dart), but
+  // this manager is a single instance held for the app's lifetime.
+  Set<String> _selectedCategoryFilterIds = {};
+
   List<CategoryModel> get categories => List.unmodifiable(_categories);
   bool get isInitialized => _isInitialized;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  Set<String> get selectedCategoryFilterIds => Set.unmodifiable(_selectedCategoryFilterIds);
 
   bool isCategoryLoading(String categoryId) => _loadingCategoryIds.contains(categoryId);
+
+  /// Replaces the whole filter set at once - used when applying the picker
+  /// bottom sheet's selection.
+  void setCategoryFilters(Set<String> categoryIds) {
+    if (setEquals(_selectedCategoryFilterIds, categoryIds)) return;
+    _selectedCategoryFilterIds = Set.from(categoryIds);
+    notifyListeners();
+  }
+
+  /// Removes a single category from the active filter - used by a chip's
+  /// own remove (x) button.
+  void removeCategoryFilter(String categoryId) {
+    if (_selectedCategoryFilterIds.remove(categoryId)) {
+      notifyListeners();
+    }
+  }
+
+  /// Used by both "Clear All" below the search bar and "Reset" inside the
+  /// picker sheet.
+  void clearCategoryFilters() {
+    if (_selectedCategoryFilterIds.isEmpty) return;
+    _selectedCategoryFilterIds = {};
+    notifyListeners();
+  }
 
   /// Initialize and load categories from cache first, then sync categories from backend API
   Future<void> init() async {
@@ -251,7 +283,7 @@ class DynamicStyleManager extends ChangeNotifier {
       }
 
       // 2. Otherwise read from specific category cache store
-      final String cacheKey = 'styles_cache_v2_${cat.id}';
+      final String cacheKey = 'styles_cache_v3_${cat.id}';
       try {
         final cachedData = await _cacheService.getCachedData(cacheKey);
         if (cachedData is List) {
@@ -276,10 +308,10 @@ class DynamicStyleManager extends ChangeNotifier {
     if (catIdx == -1) return;
 
     final hasStylesInMemory = _categories[catIdx].styles.isNotEmpty;
-    // v2: v1 entries were written before StyleModel.toJson serialized
-    // 'fields', so they'd keep serving styles without their dynamic form
-    // until the TTL expired. New namespace = one-time refetch instead.
-    final String cacheKey = 'styles_cache_v2_$categoryId';
+    // v3: v2 entries were written before minImages/maxImages were serialized,
+    // so a stale cache would render a multi-image style with one picker (and
+    // a server-rejected generate) until the TTL expired. New namespace = one-time refetch.
+    final String cacheKey = 'styles_cache_v3_$categoryId';
     
     // Load cached styles immediately (without blocking UI)
     final cachedStylesList = await _cacheService.getCachedData(cacheKey);
@@ -386,7 +418,7 @@ class DynamicStyleManager extends ChangeNotifier {
           final List<Map<String, dynamic>> stylesJsonList = styleModels.map((s) => s.toJson()).toList();
 
           final String newStylesStr = json.encode(stylesJsonList);
-          final String cacheKey = 'styles_cache_v2_$catId';
+          final String cacheKey = 'styles_cache_v3_$catId';
           final oldCatsJson = await _cacheService.getCachedData(cacheKey);
           final String oldStylesStr = oldCatsJson != null ? json.encode(oldCatsJson) : '';
 

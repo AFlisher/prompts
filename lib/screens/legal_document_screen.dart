@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_bar_style.dart';
+import '../services/haptic_service.dart';
 
 /// A simple in-app reader for the app's legal documents (Privacy Policy /
 /// Terms of Service), opened from PrivacyScreen's link tiles.
@@ -47,7 +47,7 @@ class LegalDocumentScreen extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
+                        HapticService.light();
                         Navigator.pop(context);
                       },
                       child: Container(

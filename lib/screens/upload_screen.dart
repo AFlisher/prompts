@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
@@ -10,11 +10,13 @@ import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
+import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import 'paywall_screen.dart';
-import '../utils/image_helper.dart';
+import '../widgets/progressive_network_image.dart';
 import '../data/credit_manager.dart';
 import '../services/api_service.dart';
+import '../services/generation/image_generation_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
@@ -36,15 +38,54 @@ class UploadScreen extends StatefulWidget {
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
+/// The requirement line shown under "Crop & adjust" for multi-image styles:
+/// tells the user exactly how many photos to upload and tracks progress.
+/// Never shown for classic 1/1 styles (the UI is self-explanatory there).
+String imageRequirementLabel({
+  required int minImages,
+  required int maxImages,
+  required int selectedCount,
+}) {
+  final String requirement;
+  if (minImages == maxImages) {
+    requirement = 'Upload $minImages photos';
+  } else if (minImages <= 1) {
+    requirement = 'Upload up to $maxImages photos';
+  } else {
+    requirement = 'Upload at least $minImages photos (up to $maxImages)';
+  }
+  return '$requirement · $selectedCount of $maxImages added';
+}
+
+/// How many image cards the upload screen shows for a style: always at least
+/// [minImages] so required slots are visible up front, plus one empty "add"
+/// slot while the user is under [maxImages]. A 1/1 style therefore renders
+/// exactly one card - the pre-multi-image behavior.
+int visibleImageSlots({
+  required int minImages,
+  required int maxImages,
+  required int selectedCount,
+}) {
+  final base = selectedCount + 1 > minImages ? selectedCount + 1 : minImages;
+  final capped = base > maxImages ? maxImages : base;
+  return capped < 1 ? 1 : capped;
+}
+
 class _UploadScreenState extends State<UploadScreen> {
   late bool _isDark;
-  String? _selectedImagePath;
+  final List<String> _selectedImagePaths = [];
   bool _isGenerating = false;
   double _generationProgress = 0.0;
   String _generationStatus = 'Uploading photo...';
   bool _generationComplete = false;
   Timer? _generationTimer;
   bool _isCheckingBalance = false;
+
+  // The actual generated creation - set on a successful generation, shown on
+  // the "Generation Complete" screen and used for save/share (never the
+  // style's own cover image, which is a preset asset, not the user's photo).
+  String? _generatedImageUrl;
+  String? _generatedThumbnailUrl;
 
   // Dynamic prompt-template inputs for this style (empty for classic styles).
   final GlobalKey<FormState> _fieldsFormKey = GlobalKey<FormState>();
@@ -62,8 +103,11 @@ class _UploadScreenState extends State<UploadScreen> {
     widget.onToggleDarkMode?.call();
   }
 
+  int get _minImages => widget.style.minImages;
+  int get _maxImages => widget.style.maxImages;
+
   void _startGeneration() async {
-    if (_selectedImagePath == null) return;
+    if (_selectedImagePaths.length < _minImages) return;
 
     // Gate on the dynamic form: surface validation messages and stop if any
     // required/typed field is invalid, so we never call the paid endpoint
@@ -71,7 +115,7 @@ class _UploadScreenState extends State<UploadScreen> {
     if (widget.style.fields.isNotEmpty) {
       final formOk = _fieldsFormKey.currentState?.validate() ?? true;
       if (!formOk || !_fieldsValid) {
-        HapticFeedback.mediumImpact();
+        HapticService.medium();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please complete the required fields before generating.')),
         );
@@ -110,9 +154,7 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _startGenerationActual(CreditManager creditManager) async {
-    final apiService = ApiService();
-
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _isGenerating = true;
       _generationProgress = 0.0;
@@ -142,12 +184,18 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
-      // 4. Trigger backend generation pipeline which validates and deducts balance
-      final generatedImageUrl = await apiService.generateStyleImage(
-        _selectedImagePath!,
-        widget.style.id,
+      // 4. Trigger backend generation pipeline which validates and deducts
+      // balance. Which provider actually runs (Nano Banana, Stability AI,
+      // ...) is decided entirely by ImageGenerationConfig - this screen
+      // never knows or cares which one it is.
+      final result = await ImageGenerationService.generate(
+        prompt: widget.style.prompt,
+        styleId: widget.style.id,
+        imagePaths: List<String>.from(_selectedImagePaths),
         fieldValues: _fieldValues,
       );
+      final generatedImageUrl = result.imageUrl;
+      final generatedThumbnailUrl = result.thumbnailUrl;
 
       // Cancel local animation timer and sync wallet stats from server
       _generationTimer?.cancel();
@@ -159,8 +207,10 @@ class _UploadScreenState extends State<UploadScreen> {
           _isGenerating = false;
           _generationComplete = true;
           _generationStatus = 'Success';
+          _generatedImageUrl = generatedImageUrl;
+          _generatedThumbnailUrl = generatedThumbnailUrl;
         });
-        HapticFeedback.heavyImpact();
+        HapticService.heavy();
 
         // Add to creations
         final creationsManager = CreationsProvider.of(context);
@@ -170,7 +220,9 @@ class _UploadScreenState extends State<UploadScreen> {
             styleId: widget.style.id,
             styleName: widget.style.name,
             imagePath: generatedImageUrl,
-            originalImagePath: _selectedImagePath,
+            thumbnailUrl: generatedThumbnailUrl,
+            originalImagePath:
+                _selectedImagePaths.isNotEmpty ? _selectedImagePaths.first : null,
             createdAt: DateTime.now(),
           ),
         );
@@ -286,16 +338,16 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _saveToGallery() async {
-    HapticFeedback.mediumImpact();
-
+    // Always the just-generated creation's full-resolution original, never
+    // the style's own preset cover image and never a thumbnail.
     final savedPath = await GallerySaver.saveImage(
-      assetPath: widget.style.imagePath,
+      assetPath: _generatedImageUrl ?? widget.style.imagePath,
     );
 
     if (!mounted) return;
 
     if (savedPath != null) {
-      HapticFeedback.vibrate();
+      HapticService.light();
       SuccessHUD.show(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -336,7 +388,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       _PageTitleRow(
                         textColor: textColor,
                         onBack: () {
-                          HapticFeedback.lightImpact();
+                          HapticService.light();
                           Navigator.pop(context);
                         },
                       ),
@@ -346,7 +398,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         icon: Icons.camera_alt_outlined,
                         title: 'Take a photo',
                         subtitle: 'click here to use your camera to take pic',
-                        onTap: _showCameraPicker,
+                        onTap: () => _showCameraPicker(),
                       ),
                       const SizedBox(height: 16),
                       _PhotoActionCard(
@@ -354,21 +406,70 @@ class _UploadScreenState extends State<UploadScreen> {
                         icon: Icons.image_outlined,
                         title: 'Upload photo',
                         subtitle: 'click here to upload pic from your gallery',
-                        onTap: _showGalleryPicker,
+                        onTap: () => _showGalleryPicker(),
                       ),
                       const SizedBox(height: 24),
                       _SectionTitle(text: 'Crop & adjust', color: textColor),
+                      if (_maxImages > 1) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          imageRequirementLabel(
+                            minImages: _minImages,
+                            maxImages: _maxImages,
+                            selectedCount: _selectedImagePaths.length,
+                          ),
+                          style: const TextStyle(
+                            color: AppTheme.mediumGray,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
-                      _CropPreview(
-                        isDark: _isDark,
-                        imagePath: _selectedImagePath,
-                        onClear: _selectedImagePath != null
-                            ? () {
-                                HapticFeedback.lightImpact();
-                                setState(() => _selectedImagePath = null);
-                              }
-                            : null,
-                      ),
+                      // One tile per slot: filled tiles preview their image
+                      // (tap to replace, X to remove); empty tiles invite the
+                      // next photo. Single-image styles keep one full-width
+                      // card; multi-image styles lay square tiles out two per
+                      // row so the slots read as a set, not stacked boxes.
+                      LayoutBuilder(builder: (context, constraints) {
+                        final slots = visibleImageSlots(
+                          minImages: _minImages,
+                          maxImages: _maxImages,
+                          selectedCount: _selectedImagePaths.length,
+                        );
+                        final multi = _maxImages > 1;
+                        final tileWidth = multi
+                            ? (constraints.maxWidth - 14) / 2
+                            : constraints.maxWidth;
+                        return Wrap(
+                          spacing: 14,
+                          runSpacing: 14,
+                          children: [
+                            for (int slot = 0; slot < slots; slot++)
+                              SizedBox(
+                                width: tileWidth,
+                                child: GestureDetector(
+                                  onTap: () => _showGalleryPicker(slot: slot),
+                                  child: _CropPreview(
+                                    isDark: _isDark,
+                                    compact: multi,
+                                    label: multi ? 'Photo ${slot + 1}' : null,
+                                    imagePath: slot < _selectedImagePaths.length
+                                        ? _selectedImagePaths[slot]
+                                        : null,
+                                    onClear: slot < _selectedImagePaths.length
+                                        ? () {
+                                            HapticService.light();
+                                            setState(() => _selectedImagePaths
+                                                .removeAt(slot));
+                                          }
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      }),
                       if (widget.style.fields.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _SectionTitle(text: 'Customize', color: textColor),
@@ -376,6 +477,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         DynamicStyleForm(
                           fields: widget.style.fields,
                           formKey: _fieldsFormKey,
+                          isDarkMode: _isDark,
                           onChanged: (values, isValid) {
                             _fieldValues = values;
                             if (isValid != _fieldsValid && mounted) {
@@ -400,12 +502,13 @@ class _UploadScreenState extends State<UploadScreen> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          HapticFeedback.mediumImpact();
+                          HapticService.medium();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ImagePreviewScreen(
-                                assetPath: widget.style.imagePath,
+                                assetPath: _generatedImageUrl ?? widget.style.imagePath,
+                                thumbnailPath: _generatedThumbnailUrl,
                                 title: widget.style.name,
                               ),
                             ),
@@ -424,8 +527,15 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                buildStyleImage(
-                                  widget.style.displayImage,
+                                // The actual generated creation - progressive:
+                                // its thumbnail (if the backend produced one)
+                                // shows immediately while the full-resolution
+                                // original loads in behind it.
+                                ProgressiveNetworkImage(
+                                  thumbnailUrl: _generatedThumbnailUrl ??
+                                      _generatedImageUrl ??
+                                      widget.style.displayImage,
+                                  originalUrl: _generatedImageUrl ?? widget.style.displayImage,
                                   fit: BoxFit.cover,
                                 ),
                                 Positioned(
@@ -499,10 +609,12 @@ class _UploadScreenState extends State<UploadScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () {
-                                HapticFeedback.lightImpact();
+                                HapticService.light();
                                 setState(() {
                                   _generationComplete = false;
-                                  _selectedImagePath = null;
+                                  _selectedImagePaths.clear();
+                                  _generatedImageUrl = null;
+                                  _generatedThumbnailUrl = null;
                                 });
                               },
                               style: OutlinedButton.styleFrom(
@@ -526,7 +638,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                HapticFeedback.mediumImpact();
+                                HapticService.medium();
                                 CreationsProvider.of(context).setTab(1); // Set active tab to creations
                                 Navigator.popUntil(context, (route) => route.isFirst);
                               },
@@ -564,7 +676,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: _GenerateStyleButton(
-                      enabled: _selectedImagePath != null,
+                      enabled: _selectedImagePaths.length >= _minImages,
                       isDark: _isDark,
                       onTap: _startGeneration,
                     ),
@@ -647,13 +759,29 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Future<void> _showCameraPicker() async {
+  /// Stores a picked image. A tapped card passes its [slot] (replace);
+  /// the top action buttons pass none, filling the next free slot - or, when
+  /// the style is full, replacing the last image (which for a classic 1/1
+  /// style is exactly the old "picking again replaces the photo" behavior).
+  void _setPickedImage(String path, {int? slot}) {
+    setState(() {
+      if (slot != null && slot < _selectedImagePaths.length) {
+        _selectedImagePaths[slot] = path;
+      } else if (_selectedImagePaths.length < _maxImages) {
+        _selectedImagePaths.add(path);
+      } else {
+        _selectedImagePaths[_selectedImagePaths.length - 1] = path;
+      }
+    });
+  }
+
+  Future<void> _showCameraPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.camera);
       if (xFile != null) {
-        HapticFeedback.lightImpact();
-        setState(() => _selectedImagePath = xFile.path);
+        HapticService.light();
+        _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'camera_access_denied') {
@@ -670,13 +798,13 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  Future<void> _showGalleryPicker() async {
+  Future<void> _showGalleryPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.gallery);
       if (xFile != null) {
-        HapticFeedback.lightImpact();
-        setState(() => _selectedImagePath = xFile.path);
+        HapticService.light();
+        _setPickedImage(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'photo_access_denied') {
@@ -817,7 +945,7 @@ class _PhotoActionCardState extends State<_PhotoActionCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        HapticFeedback.lightImpact();
+        HapticService.light();
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
@@ -874,93 +1002,207 @@ class _PhotoActionCardState extends State<_PhotoActionCard> {
   }
 }
 
+/// Rounded-rect dashed outline for the empty photo tiles - reads as an
+/// inviting drop-target rather than a hard empty box.
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  const _DashedBorderPainter({required this.color, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const dash = 7.0;
+    const gap = 5.0;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0.8, 0.8, size.width - 1.6, size.height - 1.6),
+        Radius.circular(radius),
+      ));
+
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(distance, distance + dash),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
+}
+
 class _CropPreview extends StatelessWidget {
   final bool isDark;
   final String? imagePath;
   final VoidCallback? onClear;
 
+  /// Compact mode: the square half-width tile used by multi-image styles.
+  final bool compact;
+
+  /// Small chip naming the slot ("Photo 1") - multi-image styles only.
+  final String? label;
+
   const _CropPreview({
     required this.isDark,
     required this.imagePath,
     this.onClear,
+    this.compact = false,
+    this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isDark ? AppTheme.white : AppTheme.black;
-    final emptyFill = isDark ? const Color(0xFF3A3A3A) : const Color(0xFF9E9E9E);
-    final placeholderColor =
-        isDark ? Colors.grey[500]! : const Color(0xFFEEEEEE);
+    final radius = AppTheme.radiusLarge;
+    final emptyFill = isDark
+        ? AppTheme.darkCard
+        : AppTheme.accentPurple.withValues(alpha: 0.045);
+    final dashColor = isDark
+        ? Colors.white.withValues(alpha: 0.30)
+        : AppTheme.accentPurple.withValues(alpha: 0.45);
+
+    Widget labelChip() => Positioned(
+          top: 10,
+          left: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+
+    if (imagePath == null) {
+      return Container(
+        height: compact ? 180 : 280,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: emptyFill,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: CustomPaint(
+          painter: _DashedBorderPainter(color: dashColor, radius: radius),
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: compact ? 52 : 68,
+                      height: compact ? 52 : 68,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [AppTheme.accentPurple, AppTheme.accentPink],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: Colors.white,
+                        size: compact ? 26 : 32,
+                      ),
+                    ),
+                    SizedBox(height: compact ? 10 : 14),
+                    Text(
+                      compact ? 'Add photo' : 'Add your photo',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : AppTheme.black,
+                        fontSize: compact ? 13.5 : 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to choose from your gallery',
+                        style: TextStyle(
+                          color: AppTheme.mediumGray,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (label != null) labelChip(),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Container(
-      height: 280,
+      height: compact ? 180 : 280,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: imagePath == null ? emptyFill : null,
-        border: Border.all(color: borderColor, width: 1.2),
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 6,
-            offset: const Offset(2, 3),
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: imagePath == null
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: placeholderColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: isDark ? Colors.grey[700] : const Color(0xFFBDBDBD),
-                    size: 32,
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: _buildFilled(labelChip),
+      ),
+    );
+  }
+
+  Widget _buildFilled(Widget Function() labelChip) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.file(File(imagePath!), fit: BoxFit.cover),
+        if (label != null) labelChip(),
+        if (onClear != null)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: GestureDetector(
+              onTap: onClear,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  'No photo added yet',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: isDark ? Colors.grey[400] : const Color(0xFF757575),
-                        fontWeight: FontWeight.w800,
-                        shadows: _MetallicStyles.textShadow,
-                      ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 20,
                 ),
-              ],
-            )
-              : Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.file(File(imagePath!), fit: BoxFit.cover),
-                if (onClear != null)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: onClear,
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
+          ),
+      ],
     );
   }
 }
@@ -1221,7 +1463,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
 
             TextButton(
               onPressed: () {
-                HapticFeedback.lightImpact();
+                HapticService.light();
                 Navigator.pop(context);
               },
               child: Text(

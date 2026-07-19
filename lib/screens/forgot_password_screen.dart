@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/haptic_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -27,7 +27,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     // Dismiss keyboard immediately to expand viewport height and prevent layout overflow
     FocusScope.of(context).unfocus();
 
-    HapticFeedback.mediumImpact();
+    HapticService.medium();
     setState(() {
       _isLoading = true;
     });

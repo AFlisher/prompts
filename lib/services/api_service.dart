@@ -45,6 +45,23 @@ class ApiService {
     return headers;
   }
 
+  /// Shared by every generation endpoint that returns a structured
+  /// `{code, message}` error body (currently `/api/generate` and
+  /// `/api/ai/generate`), so the parsing/fallback logic lives in one place
+  /// instead of being copied per provider.
+  Never _throwGenerationError(http.Response response) {
+    Map<String, dynamic>? body;
+    try {
+      body = json.decode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      body = null;
+    }
+    throw ApiException(
+      (body?['code'] as String?) ?? 'UNKNOWN_ERROR',
+      (body?['message'] as String?) ?? 'Failed to generate image. Status: ${response.statusCode}',
+    );
+  }
+
   /// GET /api/categories
   Future<List<Category>> getCategories() async {
     final headers = await _getHeaders();
@@ -306,8 +323,16 @@ class ApiService {
   }
 
   /// POST /api/generate
-  Future<String> generateStyleImage(
-    String imagePath,
+  ///
+  /// [imagePaths] carries every source photo the style collected - one for
+  /// classic styles, up to the style's maxImages for multi-image styles. All
+  /// parts travel under the same 'file' field name, which the backend accepts
+  /// as an array (a single file is just an array of one).
+  ///
+  /// Returns both the full-resolution original and its server-generated
+  /// browsing thumbnail (null if thumbnail generation failed server-side).
+  Future<({String imageUrl, String? thumbnailUrl})> generateStyleImage(
+    List<String> imagePaths,
     String styleId, {
     Map<String, dynamic>? fieldValues,
   }) async {
@@ -328,25 +353,66 @@ class ApiService {
     if (fieldValues != null && fieldValues.isNotEmpty) {
       request.fields['fieldValues'] = json.encode(fieldValues);
     }
-    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    for (final imagePath in imagePaths) {
+      request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
-      Map<String, dynamic>? body;
-      try {
-        body = json.decode(response.body) as Map<String, dynamic>;
-      } catch (_) {
-        body = null;
-      }
-      throw ApiException(
-        (body?['code'] as String?) ?? 'UNKNOWN_ERROR',
-        (body?['message'] as String?) ?? 'Failed to generate image. Status: ${response.statusCode}',
-      );
+      _throwGenerationError(response);
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
-    return jsonMap['generatedImageUrl'] as String;
+    return (
+      imageUrl: jsonMap['generatedImageUrl'] as String,
+      thumbnailUrl: jsonMap['thumbnailUrl'] as String?,
+    );
+  }
+
+  /// POST /api/ai/generate
+  ///
+  /// Text-to-image generation via the Stability AI backend integration -
+  /// no source image is sent (the endpoint doesn't accept one); same auth
+  /// header and `{code, message}` error-body handling as [generateStyleImage].
+  ///
+  /// GET /api/styles never sends a style's prompt text to the client (kept
+  /// server-side only, same protection /api/generate relies on), so [prompt]
+  /// is usually empty for a style-driven generation - pass [styleId] and the
+  /// backend resolves the real prompt itself. Supply [prompt] directly only
+  /// for free-text generation with no backing style.
+  ///
+  /// Returns both the full-resolution original and its server-generated
+  /// browsing thumbnail (null if thumbnail generation failed server-side).
+  Future<({String imageUrl, String? thumbnailUrl})> generateStabilityImage({
+    String? prompt,
+    String? styleId,
+    String? negativePrompt,
+    String? aspectRatio,
+    String? style,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$_backendUrl/api/ai/generate'),
+      headers: headers,
+      body: json.encode({
+        if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+        if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
+        if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
+        if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
+        if (style != null && style.isNotEmpty) 'style': style,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      _throwGenerationError(response);
+    }
+
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
+    return (
+      imageUrl: jsonMap['imageUrl'] as String,
+      thumbnailUrl: jsonMap['thumbnailUrl'] as String?,
+    );
   }
 }

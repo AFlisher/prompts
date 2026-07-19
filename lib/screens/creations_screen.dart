@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
@@ -8,8 +8,11 @@ import '../utils/gallery_saver.dart';
 import '../widgets/success_hud.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../theme/app_button_styles.dart';
+import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../widgets/progressive_network_image.dart';
+import '../utils/image_helper.dart';
 
 class MyCreationsScreen extends StatelessWidget {
   final bool isDarkMode;
@@ -93,7 +96,7 @@ class MyCreationsScreen extends StatelessWidget {
           const SizedBox(height: 32),
           GestureDetector(
             onTap: () {
-              HapticFeedback.mediumImpact();
+              HapticService.medium();
               CreationsProvider.of(context).setTab(0); // Navigate to Home
             },
             child: Container(
@@ -161,7 +164,7 @@ class MyCreationsScreen extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        HapticFeedback.mediumImpact();
+        HapticService.medium();
         _showCreationDetailSheet(context, item);
       },
       child: Container(
@@ -181,9 +184,15 @@ class MyCreationsScreen extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Main generated image
-              Image.asset(
-                item.imagePath,
+              // Main generated image - browsing-only, so this always uses the
+              // thumbnail (falls back to the full imagePath if no thumbnail
+              // exists yet). item.displayThumbnail is a full network URL for
+              // backend-generated creations (any provider) and a bundled asset
+              // path for pre-migration local-only ones, so this must dispatch
+              // on scheme like every other image in the app instead of
+              // assuming one or the other.
+              buildStyleImage(
+                item.displayThumbnail,
                 fit: BoxFit.cover,
               ),
 
@@ -316,7 +325,7 @@ class MyCreationsScreen extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
                     onPressed: () {
-                      HapticFeedback.heavyImpact();
+                      HapticService.heavy();
                       CreationsProvider.of(context).deleteCreation(item.id);
                       Navigator.pop(context); // Close sheet
                     },
@@ -327,12 +336,13 @@ class MyCreationsScreen extends StatelessWidget {
 
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.mediumImpact();
+                  HapticService.medium();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => ImagePreviewScreen(
                         assetPath: item.imagePath,
+                        thumbnailPath: item.displayThumbnail,
                         title: item.styleName,
                       ),
                     ),
@@ -354,9 +364,13 @@ class MyCreationsScreen extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Styled generation output photo
-                        Image.asset(
-                          item.imagePath,
+                        // Styled generation output photo - progressive: the
+                        // thumbnail (already cached from the grid) shows
+                        // immediately while the full-resolution original
+                        // loads in behind it.
+                        ProgressiveNetworkImage(
+                          thumbnailUrl: item.displayThumbnail,
+                          originalUrl: item.imagePath,
                           fit: BoxFit.cover,
                         ),
 
@@ -419,8 +433,6 @@ class MyCreationsScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       onPressed: () async {
-                        HapticFeedback.mediumImpact();
-
                         final savedPath = await GallerySaver.saveImage(
                           assetPath: item.imagePath,
                         );
@@ -428,7 +440,7 @@ class MyCreationsScreen extends StatelessWidget {
                         if (!context.mounted) return;
 
                         if (savedPath != null) {
-                          HapticFeedback.vibrate();
+                          HapticService.light();
                           SuccessHUD.show(context);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -452,12 +464,32 @@ class MyCreationsScreen extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        HapticFeedback.mediumImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Share link generated!'),
-                            behavior: SnackBarBehavior.floating,
+                      onPressed: () async {
+                        HapticService.light();
+                        final bytes = await GallerySaver.loadBytes(item.imagePath);
+
+                        if (!context.mounted) return;
+
+                        if (bytes == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to share image.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        await SharePlus.instance.share(
+                          ShareParams(
+                            files: [
+                              XFile.fromData(
+                                bytes,
+                                name: 'StyliAI_${item.id}',
+                                mimeType: GallerySaver.mimeTypeFor(item.imagePath),
+                              ),
+                            ],
+                            text: 'Check out my ${item.styleName} photo, made with StyliAI!',
                           ),
                         );
                       },

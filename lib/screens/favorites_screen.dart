@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/style_model.dart';
 import '../main.dart';
 import 'style_details_screen.dart';
 import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../services/haptic_service.dart';
 
 class FavoritesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -147,7 +147,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       cardWidth: cardWidth,
                       heroTag: heroTag,
                       onTap: () {
-                        HapticFeedback.lightImpact();
+                        HapticService.selection();
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -161,7 +161,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         );
                       },
                       onUnfavorite: () {
-                        HapticFeedback.mediumImpact();
+                        HapticService.light();
                         favManager.toggleFavorite(style.id);
                       },
                     );

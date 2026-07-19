@@ -18,11 +18,13 @@ import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 import 'services/theme_preference_service.dart';
+import 'services/haptic_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ThemePreferenceService.load();
+  await HapticService.load();
 
   try {
     // تحميل ملف .env

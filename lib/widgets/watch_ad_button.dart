@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../data/credit_manager.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
+import '../services/haptic_service.dart';
 
 /// The "Watch an Ad for a Free Credit" button, reactive to [CreditManager]'s
 /// ad-watching state. Shared between the not-enough-credits sheet
@@ -28,7 +28,7 @@ class WatchAdButton extends StatelessWidget {
             onPressed: creditManager.isWatchingAd
                 ? null
                 : () async {
-                    HapticFeedback.lightImpact();
+                    HapticService.light();
                     final rewarded = await creditManager.watchAdForCredit();
                     if (!context.mounted) return;
                     if (rewarded) {

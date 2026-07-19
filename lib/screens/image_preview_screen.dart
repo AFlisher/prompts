@@ -1,19 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../utils/gallery_saver.dart';
+import '../widgets/progressive_network_image.dart';
 import '../widgets/success_hud.dart';
+import '../services/haptic_service.dart';
 
 class ImagePreviewScreen extends StatefulWidget {
   final String? assetPath;
   final String? filePath;
+
+  /// Shown immediately while [assetPath] (the full-resolution original)
+  /// loads in the background - see [ProgressiveNetworkImage]. Ignored when
+  /// [assetPath] is null (a local [filePath] preview has no thumbnail).
+  final String? thumbnailPath;
   final String title;
 
   const ImagePreviewScreen({
     super.key,
     this.assetPath,
     this.filePath,
+    this.thumbnailPath,
     required this.title,
   });
 
@@ -25,7 +32,6 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   bool _isSaving = false;
 
   void _handleSave() async {
-    HapticFeedback.mediumImpact();
     setState(() {
       _isSaving = true;
     });
@@ -41,7 +47,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
     });
 
     if (savedPath != null) {
-      HapticFeedback.vibrate();
+      HapticService.light();
       SuccessHUD.show(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,9 +74,14 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
               clipBehavior: Clip.none,
               child: Hero(
                 tag: widget.assetPath ?? widget.filePath ?? 'image_preview',
+                // assetPath holds either a bundled asset key or a full
+                // network URL (backend-generated creations use the latter),
+                // so this must dispatch on scheme like every other image in
+                // the app instead of assuming a bundled asset.
                 child: widget.assetPath != null
-                    ? Image.asset(
-                        widget.assetPath!,
+                    ? ProgressiveNetworkImage(
+                        thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
+                        originalUrl: widget.assetPath!,
                         fit: BoxFit.contain,
                       )
                     : Image.file(

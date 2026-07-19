@@ -93,6 +93,22 @@ void main() {
       expect(model.fields[0].label, 'Football Team');
     });
 
+    // Image bounds also ride the same cached-JSON path.
+    test('round-trips minImages/maxImages and defaults them to 1', () {
+      final legacy = Style.fromJson({'id': 's', 'name': 'N'});
+      expect(legacy.minImages, 1);
+      expect(legacy.maxImages, 1);
+
+      final multi = Style.fromJson({'id': 's', 'name': 'N', 'minImages': 2, 'maxImages': 3});
+      final copy = Style.fromJson(multi.toJson());
+      expect(copy.minImages, 2);
+      expect(copy.maxImages, 3);
+
+      final model = StyleModel.fromJson(multi.toStyleModel().toJson());
+      expect(model.minImages, 2);
+      expect(model.maxImages, 3);
+    });
+
     test('maps to the legacy StyleModel preserving premium/cost/cover', () {
       final m = Style.fromJson({
         'id': 's', 'name': 'N', 'coverImage': 'http://c/i.png',

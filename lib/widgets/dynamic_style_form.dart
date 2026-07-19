@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/style_field.dart';
+import '../theme/app_theme.dart';
+import '../services/haptic_service.dart';
 
 /// A fully data-driven form built from a style's [StyleField] definitions.
 ///
@@ -15,11 +17,21 @@ class DynamicStyleForm extends StatefulWidget {
   final void Function(Map<String, dynamic> values, bool isValid) onChanged;
   final GlobalKey<FormState>? formKey;
 
+  /// The screen's light/dark state. MaterialApp pins `themeMode: dark`, and
+  /// post-auth screens simulate light mode with manual colors instead - so the
+  /// ambient Theme is always dark and every field would render dark-mode text
+  /// on a light background. When set, the form re-scopes Theme to the matching
+  /// AppTheme so all field colors (text, hint, label, helper, counter,
+  /// borders) resolve from the real Material theme. When null, the ambient
+  /// Theme is used as-is.
+  final bool? isDarkMode;
+
   const DynamicStyleForm({
     super.key,
     required this.fields,
     required this.onChanged,
     this.formKey,
+    this.isDarkMode,
   });
 
   @override
@@ -144,17 +156,22 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
   @override
   Widget build(BuildContext context) {
     if (widget.fields.isEmpty) return const SizedBox.shrink();
-    return Form(
-      key: widget.formKey ?? GlobalKey<FormState>(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final f in widget.fields)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildField(f),
-            ),
-        ],
+    final isDark =
+        widget.isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
+    return Theme(
+      data: isDark ? AppTheme.darkTheme : AppTheme.lightTheme,
+      child: Form(
+        key: widget.formKey ?? GlobalKey<FormState>(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final f in widget.fields)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildField(f),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -220,7 +237,10 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       ],
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (v) => _validate(f, v),
-      onChanged: (v) => _set(f.key, v ?? ''),
+      onChanged: (v) {
+        HapticService.selection();
+        _set(f.key, v ?? '');
+      },
     );
   }
 
@@ -230,7 +250,10 @@ class _DynamicStyleFormState extends State<DynamicStyleForm> {
       contentPadding: EdgeInsets.zero,
       title: Text(f.required ? '${f.label} *' : f.label),
       value: _values[f.key] == true,
-      onChanged: (v) => setState(() => _set(f.key, v)),
+      onChanged: (v) {
+        HapticService.selection();
+        setState(() => _set(f.key, v));
+      },
     );
   }
 

@@ -1,13 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import '../widgets/style_card.dart';
+import '../widgets/progressive_network_image.dart';
 import 'upload_screen.dart';
 import '../main.dart';
-import '../utils/image_helper.dart';
+import '../services/haptic_service.dart';
 import '../widgets/status_bar_style.dart';
 
 class StyleDetailsScreen extends StatefulWidget {
@@ -83,7 +83,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                     isDarkMode: isDark,
                     marginTop: 16,
                     onBack: () {
-                      HapticFeedback.lightImpact();
+                      HapticService.light();
                       Navigator.pop(context);
                     },
                     onShare: _shareStyle,
@@ -169,7 +169,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                     onTapCancel: () => setState(() => _tryButtonPressed = false),
                     onTapUp: () {
                       setState(() => _tryButtonPressed = false);
-                      HapticFeedback.mediumImpact();
+                      HapticService.medium();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -199,7 +199,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
   }
 
   void _toggleFavorite() {
-    HapticFeedback.mediumImpact();
+    HapticService.light();
     final nowFavorite = FavoritesProvider.of(context).toggleFavorite(widget.style.id);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -213,7 +213,7 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
   }
 
   void _shareStyle() {
-    HapticFeedback.selectionClick();
+    HapticService.light();
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -257,7 +257,7 @@ class _SimilarStylesSectionState extends State<_SimilarStylesSection> {
   }
 
   void _onStyleTapped(StyleModel style) {
-    HapticFeedback.lightImpact();
+    HapticService.selection();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -365,12 +365,13 @@ class _HeroStyleCard extends StatelessWidget {
               children: [
                 GestureDetector(
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    HapticService.light();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => FullScreenImageViewer(
                           imagePath: style.displayImage,
+                          thumbnailPath: style.displayThumbnail,
                           heroTag: heroTag,
                         ),
                       ),
@@ -378,8 +379,9 @@ class _HeroStyleCard extends StatelessWidget {
                   },
                   child: Hero(
                     tag: heroTag,
-                    child: buildStyleImage(
-                      style.displayImage,
+                    child: ProgressiveNetworkImage(
+                      thumbnailUrl: style.displayThumbnail,
+                      originalUrl: style.displayImage,
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -633,11 +635,17 @@ class _TryButton extends StatelessWidget {
 
 class FullScreenImageViewer extends StatelessWidget {
   final String imagePath;
+
+  /// Shown immediately while [imagePath] (the full-resolution original)
+  /// loads in the background - see [ProgressiveNetworkImage]. Defaults to
+  /// [imagePath] itself (no progressive upgrade) when omitted.
+  final String? thumbnailPath;
   final String heroTag;
 
   const FullScreenImageViewer({
     super.key,
     required this.imagePath,
+    this.thumbnailPath,
     required this.heroTag,
   });
 
@@ -655,8 +663,9 @@ class FullScreenImageViewer extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: buildStyleImage(
-                  imagePath,
+                child: ProgressiveNetworkImage(
+                  thumbnailUrl: thumbnailPath ?? imagePath,
+                  originalUrl: imagePath,
                   fit: BoxFit.contain,
                 ),
               ),

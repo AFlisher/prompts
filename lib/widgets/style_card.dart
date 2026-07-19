@@ -89,7 +89,7 @@ class _StyleCardState extends State<StyleCard> {
         (widget.cardWidth / StyleCard.imageAspectRatio * dpr).round();
 
     final image = buildStyleImage(
-      style.displayImage,
+      style.displayThumbnail,
       fit: BoxFit.cover,
       memCacheWidth: cacheWidth,
       memCacheHeight: cacheHeight,

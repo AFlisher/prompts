@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'login_screen.dart';
 import '../services/auth_service.dart';
 import '../services/theme_preference_service.dart';
+import '../services/haptic_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -23,6 +24,7 @@ class _MainShellState extends State<MainShell> {
   bool _isDarkMode = ThemePreferenceService.isDarkMode;
 
   void _toggleDarkMode() {
+    HapticService.selection();
     setState(() => _isDarkMode = !_isDarkMode);
     ThemePreferenceService.setIsDarkMode(_isDarkMode);
   }
@@ -219,7 +221,7 @@ class _MainShellState extends State<MainShell> {
                     isDarkMode: _isDarkMode,
                     collapsed: collapsed,
                     onTap: (index) {
-                      HapticFeedback.lightImpact();
+                      HapticService.light();
                       creationsManager.setTab(index);
                     },
                   );
