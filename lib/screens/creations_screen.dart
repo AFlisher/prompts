@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
@@ -455,12 +456,32 @@ class MyCreationsScreen extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         HapticService.light();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Share link generated!'),
-                            behavior: SnackBarBehavior.floating,
+                        final bytes = await GallerySaver.loadBytes(item.imagePath);
+
+                        if (!context.mounted) return;
+
+                        if (bytes == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to share image.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        await SharePlus.instance.share(
+                          ShareParams(
+                            files: [
+                              XFile.fromData(
+                                bytes,
+                                name: 'StyliAI_${item.id}',
+                                mimeType: GallerySaver.mimeTypeFor(item.imagePath),
+                              ),
+                            ],
+                            text: 'Check out my ${item.styleName} photo, made with StyliAI!',
                           ),
                         );
                       },
