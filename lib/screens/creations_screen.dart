@@ -10,6 +10,7 @@ import '../theme/app_button_styles.dart';
 import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
+import '../utils/image_helper.dart';
 
 class MyCreationsScreen extends StatelessWidget {
   final bool isDarkMode;
@@ -181,8 +182,12 @@ class MyCreationsScreen extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Main generated image
-              Image.asset(
+              // Main generated image - item.imagePath is a full network URL for
+              // backend-generated creations (any provider) and a bundled asset
+              // path for pre-migration local-only ones, so this must dispatch
+              // on scheme like every other image in the app instead of
+              // assuming one or the other.
+              buildStyleImage(
                 item.imagePath,
                 fit: BoxFit.cover,
               ),
@@ -355,7 +360,7 @@ class MyCreationsScreen extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         // Styled generation output photo
-                        Image.asset(
+                        buildStyleImage(
                           item.imagePath,
                           fit: BoxFit.cover,
                         ),

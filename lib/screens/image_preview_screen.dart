@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/gallery_saver.dart';
+import '../utils/image_helper.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 
@@ -67,8 +68,12 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
               clipBehavior: Clip.none,
               child: Hero(
                 tag: widget.assetPath ?? widget.filePath ?? 'image_preview',
+                // assetPath holds either a bundled asset key or a full
+                // network URL (backend-generated creations use the latter),
+                // so this must dispatch on scheme like every other image in
+                // the app instead of assuming a bundled asset.
                 child: widget.assetPath != null
-                    ? Image.asset(
+                    ? buildStyleImage(
                         widget.assetPath!,
                         fit: BoxFit.contain,
                       )
