@@ -370,8 +370,15 @@ class ApiService {
   /// Text-to-image generation via the Stability AI backend integration -
   /// no source image is sent (the endpoint doesn't accept one); same auth
   /// header and `{code, message}` error-body handling as [generateStyleImage].
-  Future<String> generateStabilityImage(
-    String prompt, {
+  ///
+  /// GET /api/styles never sends a style's prompt text to the client (kept
+  /// server-side only, same protection /api/generate relies on), so [prompt]
+  /// is usually empty for a style-driven generation - pass [styleId] and the
+  /// backend resolves the real prompt itself. Supply [prompt] directly only
+  /// for free-text generation with no backing style.
+  Future<String> generateStabilityImage({
+    String? prompt,
+    String? styleId,
     String? negativePrompt,
     String? aspectRatio,
     String? style,
@@ -381,7 +388,8 @@ class ApiService {
       Uri.parse('$_backendUrl/api/ai/generate'),
       headers: headers,
       body: json.encode({
-        'prompt': prompt,
+        if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+        if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
         if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
         if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
         if (style != null && style.isNotEmpty) 'style': style,
