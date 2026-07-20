@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -36,6 +40,34 @@ class UploadScreen extends StatefulWidget {
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
+}
+
+/// Decodes raw picked-photo bytes and re-encodes them as a standard JPEG,
+/// downscaling anything larger than [_maxUploadDimension] on its longest
+/// side first. Runs inside [compute] (a background isolate) since decoding
+/// a full-resolution photo is CPU-heavy and would otherwise jank the UI
+/// thread. Returns null if the bytes don't decode as an image at all -
+/// e.g. a corrupted/truncated file, or a format the local `image` package
+/// can't read (some HEIC variants) - so the caller can reject the photo
+/// instead of ever handing an undecodable file to Image.file/the crop
+/// preview.
+const int _maxUploadDimension = 2048;
+
+Uint8List? _normalizeImageBytes(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+
+  final longestSide =
+      decoded.width > decoded.height ? decoded.width : decoded.height;
+  final normalized = longestSide > _maxUploadDimension
+      ? img.copyResize(
+          decoded,
+          width: decoded.width >= decoded.height ? _maxUploadDimension : null,
+          height: decoded.height > decoded.width ? _maxUploadDimension : null,
+        )
+      : decoded;
+
+  return Uint8List.fromList(img.encodeJpg(normalized, quality: 90));
 }
 
 /// The requirement line shown under "Crop & adjust" for multi-image styles:
@@ -106,7 +138,20 @@ class _UploadScreenState extends State<UploadScreen> {
   int get _minImages => widget.style.minImages;
   int get _maxImages => widget.style.maxImages;
 
+  // Single source of truth for "a generation request is already in flight"
+  // (covers both the balance check and the generation call itself), so the
+  // button, the entry-point guard below, and any future callers all agree
+  // on the same state instead of drifting out of sync.
+  bool get _isBusy => _isCheckingBalance || _isGenerating;
+
   void _startGeneration() async {
+    // Reject concurrent calls at the method level - not just by disabling
+    // the button - so fast double-taps, multi-touch, or any other caller
+    // can never start a second generation (and a second credit deduction)
+    // while one is already running. This check plus the synchronous
+    // setState below (before the first await) closes the race window,
+    // since Dart runs this method body synchronously up to that point.
+    if (_isBusy) return;
     if (_selectedImagePaths.length < _minImages) return;
 
     // Gate on the dynamic form: surface validation messages and stop if any
@@ -373,13 +418,15 @@ class _UploadScreenState extends State<UploadScreen> {
           children: [
             if (!_generationComplete)
               SafeArea(
-                bottom: false,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                       AppHeader(
                         isDarkMode: _isDark,
                         onToggleDarkMode: _toggleDark,
@@ -488,8 +535,26 @@ class _UploadScreenState extends State<UploadScreen> {
                           },
                         ),
                       ],
-                    ],
-                  ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Persistent footer: laid out below the scrollable
+                    // content (not floating over it), so it's always the
+                    // last thing on screen and can never overlap the photo
+                    // previews, prompts, or any other content above it,
+                    // regardless of screen size or how much content there is.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                      child: _GenerateStyleButton(
+                        enabled: !_isBusy &&
+                            _selectedImagePaths.length >= _minImages,
+                        isLoading: _isBusy,
+                        isDark: _isDark,
+                        onTap: _startGeneration,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -666,24 +731,6 @@ class _UploadScreenState extends State<UploadScreen> {
                 ),
               ),
 
-            if (!_generationComplete && !_isGenerating)
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 0,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _GenerateStyleButton(
-                      enabled: _selectedImagePaths.length >= _minImages,
-                      isDark: _isDark,
-                      onTap: _startGeneration,
-                    ),
-                  ),
-                ),
-              ),
-
             if (_isGenerating)
               Positioned.fill(
                 child: Container(
@@ -775,13 +822,66 @@ class _UploadScreenState extends State<UploadScreen> {
     });
   }
 
+  /// Validates and normalizes a freshly picked photo before it ever reaches
+  /// the crop preview or lets the Generate button think it has a usable
+  /// photo. Decoding happens off the main isolate (via [compute]) since a
+  /// full-resolution camera photo can be tens of megapixels; the same call
+  /// both proves the file actually decodes (catching corrupted/truncated
+  /// files and formats the local codec can't handle, e.g. some HEIC
+  /// variants) and re-encodes to a standard JPEG, downscaling anything
+  /// larger than the app will ever need for style generation. This mirrors
+  /// the normalize-to-JPEG guarantee profile_service.dart already makes for
+  /// avatar uploads. Returns null (and never touches _selectedImagePaths)
+  /// if the picked file can't be turned into a usable photo.
+  Future<void> _handlePickedFile(String rawPath, {int? slot}) async {
+    Uint8List rawBytes;
+    try {
+      rawBytes = await File(rawPath).readAsBytes();
+    } catch (e) {
+      debugPrint('[UploadScreen] Could not read picked file: $e');
+      _showImageErrorSnackBar();
+      return;
+    }
+
+    final normalizedBytes = await compute(_normalizeImageBytes, rawBytes);
+    if (!mounted) return;
+
+    if (normalizedBytes == null) {
+      debugPrint('[UploadScreen] Picked file failed to decode: $rawPath');
+      _showImageErrorSnackBar();
+      return;
+    }
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final outFile = File(
+        '${tempDir.path}/upload_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await outFile.writeAsBytes(normalizedBytes);
+      if (!mounted) return;
+      HapticService.light();
+      _setPickedImage(outFile.path, slot: slot);
+    } catch (e) {
+      debugPrint('[UploadScreen] Could not save normalized image: $e');
+      if (mounted) _showImageErrorSnackBar();
+    }
+  }
+
+  void _showImageErrorSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("This photo couldn't be loaded. Please choose a different one."),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _showCameraPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.camera);
       if (xFile != null) {
-        HapticService.light();
-        _setPickedImage(xFile.path, slot: slot);
+        await _handlePickedFile(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'camera_access_denied') {
@@ -803,8 +903,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.gallery);
       if (xFile != null) {
-        HapticService.light();
-        _setPickedImage(xFile.path, slot: slot);
+        await _handlePickedFile(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'photo_access_denied') {
@@ -1209,11 +1308,13 @@ class _CropPreview extends StatelessWidget {
 
 class _GenerateStyleButton extends StatefulWidget {
   final bool enabled;
+  final bool isLoading;
   final bool isDark;
   final VoidCallback onTap;
 
   const _GenerateStyleButton({
     required this.enabled,
+    required this.isLoading,
     required this.isDark,
     required this.onTap,
   });
@@ -1248,10 +1349,19 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
             child: Row(
               children: [
                 const SizedBox(width: 24),
-                const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                widget.isLoading
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
                 Expanded(
                   child: Text(
-                    'Generate Style',
+                    widget.isLoading ? 'Generating...' : 'Generate Style',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Colors.white,

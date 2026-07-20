@@ -142,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       children: [
                         Expanded(
                           child: custom.SearchBar(
+                            isDark: isDark,
                             onChanged: (q) => setState(() => _searchQuery = q),
                           ),
                         ),
@@ -703,32 +704,46 @@ class _FilterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = activeCount > 0;
+    // The active (accent purple) state is a selection state, not a theme
+    // one, and stays identical in both themes. Inactive: this now mirrors
+    // the search bar and top capsule exactly - Light Mode is a dark
+    // (AppTheme.black) control, Dark Mode deliberately inverts to the Light
+    // Theme's own cream/off-white background (never pure white) - so all
+    // three controls read as one consistent, unified surface regardless of
+    // theme.
     final bg = isActive
         ? AppTheme.accentPurple
-        : (isDark ? AppTheme.darkCard : AppTheme.lightGray);
-    final iconColor = isActive ? Colors.white : (isDark ? AppTheme.white : AppTheme.black);
+        : (isDark ? AppTheme.lightBackground : AppTheme.black);
+    final iconColor = isActive ? Colors.white : (isDark ? AppTheme.black : Colors.white);
+    final borderColor = isActive
+        ? Colors.transparent
+        : (isDark ? Colors.black12 : Colors.white12);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
         width: 52,
         height: 52,
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          border: Border.all(
-            color: isActive
-                ? Colors.transparent
-                : (isDark ? Colors.white12 : Colors.black12),
-          ),
+          border: Border.all(color: borderColor),
+          boxShadow: AppTheme.themeAwareShadow(isDark),
         ),
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            Icon(Icons.tune_rounded, color: iconColor, size: 22),
+            TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: iconColor),
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOutCubic,
+              builder: (context, color, _) =>
+                  Icon(Icons.tune_rounded, color: color, size: 22),
+            ),
             if (isActive)
               Positioned(
                 top: -4,
