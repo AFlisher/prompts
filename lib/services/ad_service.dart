@@ -4,12 +4,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Loads and shows AdMob rewarded ads. Ad unit IDs below are Google's public
-/// TEST IDs (Roadmap Item 3.1) - replace with real ad unit IDs before release.
+/// Loads and shows AdMob rewarded ads using the production ad unit ID.
 class AdService {
   static String get _rewardedAdUnitId {
-    if (Platform.isAndroid) return 'ca-app-pub-3940256099942544/5224354917';
-    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/1712485313';
+    if (Platform.isAndroid) {
+      return 'ca-app-pub-6702560936975523/1997493396';
+    }
+
+    // Replace with your own iOS rewarded ad unit ID before publishing on iOS.
+    if (Platform.isIOS) {
+      return 'ca-app-pub-3940256099942544/1712485313';
+    }
+
     throw UnsupportedError('Rewarded ads are not supported on this platform.');
   }
 
@@ -51,7 +57,7 @@ class AdService {
     final ad = _rewardedAd;
     if (ad == null) return false;
 
-    _rewardedAd = null; // an ad instance can only be shown once
+    _rewardedAd = null; // An ad instance can only be shown once.
 
     final completer = Completer<bool>();
 
@@ -59,13 +65,17 @@ class AdService {
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         if (!completer.isCompleted) completer.complete(true);
-        // Preload the next one for next time.
+
+        // Preload the next ad.
         preload();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('[AdService] Failed to show rewarded ad: $error');
         ad.dispose();
-        if (!completer.isCompleted) completer.complete(false);
+
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
       },
     );
 
