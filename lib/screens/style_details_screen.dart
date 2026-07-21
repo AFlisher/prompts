@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -214,12 +215,14 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
 
   void _shareStyle() {
     HapticService.light();
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sharing ${widget.style.name}'),
-        duration: const Duration(milliseconds: 900),
-        behavior: SnackBarBehavior.floating,
+    // No hosted app download link exists in the project yet (see the
+    // Paywall/Legal screens' own "nothing invented" precedent) - the
+    // message is left to stand on its own rather than appending a
+    // placeholder URL that doesn't go anywhere.
+    SharePlus.instance.share(
+      ShareParams(
+        text: "Check out the '${widget.style.name}' style on StyliAI - "
+            'turn your photos into stunning AI-generated art!',
       ),
     );
   }
