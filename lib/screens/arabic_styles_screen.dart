@@ -44,10 +44,20 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // .read(), not .of(): reactivity is handled by the ListenableBuilder
+    // below, scoped to categoryCatalog specifically so a Trending/
+    // Recommended/Filters change never rebuilds this screen.
+    final styleManager = StyleProvider.read(context);
+    return ListenableBuilder(
+      listenable: styleManager.categoryCatalog,
+      builder: (context, _) => _buildScaffold(context, styleManager),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, DynamicStyleManager styleManager) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
 
-    final styleManager = StyleProvider.of(context);
     final categories = styleManager.categories;
     final arabicCategory = categories.firstWhere(
       (c) => c.id == 'arabic',

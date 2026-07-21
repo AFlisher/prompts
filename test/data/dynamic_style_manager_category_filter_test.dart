@@ -7,6 +7,13 @@
 // rebuilds HomeScreen's State on every tab switch (KeyedSubtree keyed on
 // the tab index) - only manager-level state survives navigating away and
 // back, which the filter is required to do.
+//
+// Notifications are asserted on manager.categoryFilter (a CategoryFilterNotifier),
+// not on the manager itself: DynamicStyleManager was split into independent
+// per-slice ChangeNotifiers (categoryCatalog/categoryFilter/trending/
+// recommended) so a filter change no longer rebuilds Categories/Trending/
+// Recommended-only widgets - the manager itself never fires its own
+// notifyListeners() anymore.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prombt_app/data/dynamic_style_manager.dart';
@@ -25,7 +32,7 @@ void main() {
     test('setCategoryFilters replaces the set and notifies listeners', () {
       final manager = DynamicStyleManager();
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
 
       manager.setCategoryFilters({'cat-1', 'cat-2'});
 
@@ -38,7 +45,7 @@ void main() {
       manager.setCategoryFilters({'cat-1'});
 
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
       manager.setCategoryFilters({'cat-1'});
 
       expect(notifyCount, 0);
@@ -49,7 +56,7 @@ void main() {
       manager.setCategoryFilters({'cat-1', 'cat-2'});
 
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
       manager.removeCategoryFilter('cat-1');
 
       expect(manager.selectedCategoryFilterIds, {'cat-2'});
@@ -61,7 +68,7 @@ void main() {
       manager.setCategoryFilters({'cat-1'});
 
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
       manager.removeCategoryFilter('cat-does-not-exist');
 
       expect(manager.selectedCategoryFilterIds, {'cat-1'});
@@ -73,7 +80,7 @@ void main() {
       manager.setCategoryFilters({'cat-1', 'cat-2', 'cat-3'});
 
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
       manager.clearCategoryFilters();
 
       expect(manager.selectedCategoryFilterIds, isEmpty);
@@ -84,7 +91,7 @@ void main() {
       final manager = DynamicStyleManager();
 
       var notifyCount = 0;
-      manager.addListener(() => notifyCount++);
+      manager.categoryFilter.addListener(() => notifyCount++);
       manager.clearCategoryFilters();
 
       expect(notifyCount, 0);

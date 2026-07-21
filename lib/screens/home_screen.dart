@@ -78,11 +78,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // .read(), not .of(): DynamicStyleManager itself never fires its own
+    // notifyListeners() anymore (see dynamic_style_manager.dart) - each
+    // slice (categoryCatalog/categoryFilter/trending/recommended) notifies
+    // independently. This whole build() only needs categoryCatalog and
+    // categoryFilter, wired up via the ListenableBuilder below, so a
+    // Trending or Recommended change never re-runs it.
+    final styleManager = StyleProvider.read(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([styleManager.categoryCatalog, styleManager.categoryFilter]),
+      builder: (context, _) => _buildHomeContent(context, styleManager),
+    );
+  }
+
+  Widget _buildHomeContent(BuildContext context, DynamicStyleManager styleManager) {
     final isDark = widget.isDarkMode;
     final bgColor = isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = isDark ? AppTheme.white : AppTheme.black;
 
-    final styleManager = StyleProvider.of(context);
     final categories = styleManager.categories;
     final isLoading = styleManager.isLoading;
     final error = styleManager.error;
@@ -655,21 +668,29 @@ class _RecommendedSectionWidgetState extends State<_RecommendedSectionWidget> {
       return const SizedBox.shrink();
     }
 
-    final styleManager = StyleProvider.of(context);
-    final styles = styleManager.recommendedStyles;
-    final isLoading = styleManager.isRecommendedLoading;
+    // .read(), not .of(): only the `recommended` slice below is what this
+    // section actually needs to react to - a Trending/Categories/Filters
+    // change must never rebuild it.
+    final styleManager = StyleProvider.read(context);
+    return ListenableBuilder(
+      listenable: styleManager.recommended,
+      builder: (context, _) {
+        final styles = styleManager.recommendedStyles;
+        final isLoading = styleManager.isRecommendedLoading;
 
-    if (styleManager.hasLoadedRecommended && styles.isEmpty) {
-      return const SizedBox.shrink();
-    }
+        if (styleManager.hasLoadedRecommended && styles.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
-    return widget.sectionBuilder(
-      context,
-      'Recommended For You',
-      styles,
-      widget.textColor,
-      widget.isDark,
-      isLoading,
+        return widget.sectionBuilder(
+          context,
+          'Recommended For You',
+          styles,
+          widget.textColor,
+          widget.isDark,
+          isLoading,
+        );
+      },
     );
   }
 }
@@ -683,24 +704,30 @@ class _TrendingSectionWidgetState extends State<_TrendingSectionWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch styleManager to rebuild when trending styles update (e.g. an
-    // admin toggles a style's Trending switch and the app later refreshes).
-    final styleManager = StyleProvider.of(context);
+    // .read(), not .of(): listen to the `trending` slice specifically (via
+    // ListenableBuilder below) so a Categories/Recommended/Filters change
+    // never rebuilds this section - only trending refreshing (e.g. an admin
+    // toggles a style's Trending switch and the app later refreshes) does.
+    final styleManager = StyleProvider.read(context);
+    return ListenableBuilder(
+      listenable: styleManager.trending,
+      builder: (context, _) {
+        final styles = styleManager.trendingStyles;
+        final isLoading = styleManager.isTrendingLoading;
 
-    final styles = styleManager.trendingStyles;
-    final isLoading = styleManager.isTrendingLoading;
+        if (styleManager.hasLoadedTrending && styles.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
-    if (styleManager.hasLoadedTrending && styles.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return widget.sectionBuilder(
-      context,
-      'Trending Styles',
-      styles,
-      widget.textColor,
-      widget.isDark,
-      isLoading,
+        return widget.sectionBuilder(
+          context,
+          'Trending Styles',
+          styles,
+          widget.textColor,
+          widget.isDark,
+          isLoading,
+        );
+      },
     );
   }
 }
@@ -745,37 +772,45 @@ class _CategorySectionWidgetState extends State<_CategorySectionWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch styleManager to rebuild when categories or styles update
-    final styleManager = StyleProvider.of(context);
-    
-    // Always fetch the freshest category instance from state manager to avoid holding stale state
-    final category = styleManager.categories.firstWhere(
-      (c) => c.id == widget.category.id,
-      orElse: () => widget.category,
-    );
+    // Listens to categoryCatalog specifically (not the whole styleManager -
+    // already had direct access to it via widget.styleManager, no context
+    // lookup needed either way), so a Trending/Recommended/Filters change
+    // never rebuilds a category section.
+    return ListenableBuilder(
+      listenable: widget.styleManager.categoryCatalog,
+      builder: (context, _) {
+        // Always fetch the freshest category instance from state manager to
+        // avoid holding stale state.
+        final category = widget.styleManager.categories.firstWhere(
+          (c) => c.id == widget.category.id,
+          orElse: () => widget.category,
+        );
 
-    final isLoading = styleManager.isCategoryLoading(category.id);
-    final styles = category.styles;
+        final isLoading = widget.styleManager.isCategoryLoading(category.id);
+        final styles = category.styles;
 
-    // Auto-reload if this category's styles have never been resolved yet (or,
-    // for a future LRU eviction, if it gets reset back to unloaded). Keyed on
-    // hasLoadedStyles rather than styles.isEmpty so a category that's
-    // genuinely empty (loaded, confirmed zero styles) doesn't reload forever.
-    if (!category.hasLoadedStyles && !isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _loadStyles();
+        // Auto-reload if this category's styles have never been resolved yet
+        // (or, for a future LRU eviction, if it gets reset back to
+        // unloaded). Keyed on hasLoadedStyles rather than styles.isEmpty so
+        // a category that's genuinely empty (loaded, confirmed zero styles)
+        // doesn't reload forever.
+        if (!category.hasLoadedStyles && !isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _loadStyles();
+            }
+          });
         }
-      });
-    }
 
-    return widget.sectionBuilder(
-      context,
-      category.name,
-      styles,
-      widget.textColor,
-      widget.isDark,
-      isLoading,
+        return widget.sectionBuilder(
+          context,
+          category.name,
+          styles,
+          widget.textColor,
+          widget.isDark,
+          isLoading,
+        );
+      },
     );
   }
 }

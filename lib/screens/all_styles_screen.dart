@@ -42,13 +42,28 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Home's "See All" always passes an explicit (already-filtered) list -
+    // only the no-`styles`-provided fallback path needs to read the live
+    // category catalog, and only that path needs to react to it changing.
+    if (widget.styles != null) {
+      return _buildScaffold(context, widget.styles!);
+    }
+    // .read(), not .of(): reactivity is handled by the ListenableBuilder
+    // below, scoped to categoryCatalog specifically so a Trending/
+    // Recommended/Filters change never rebuilds this screen.
+    final styleManager = StyleProvider.read(context);
+    return ListenableBuilder(
+      listenable: styleManager.categoryCatalog,
+      builder: (context, _) => _buildScaffold(
+        context,
+        styleManager.categories.expand((c) => c.styles).toList(),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, List<StyleModel> styles) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
-    final styles = widget.styles ??
-        StyleProvider.of(context)
-            .categories
-            .expand((c) => c.styles)
-            .toList();
     // Matches the SliverGrid below: crossAxisCount 2, 20px padding each
     // side, 12px crossAxisSpacing.
     final cardWidth = (MediaQuery.sizeOf(context).width - 40 - 12) / 2;

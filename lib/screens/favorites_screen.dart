@@ -33,7 +33,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Future<void> _loadFavorites() async {
     final favManager = FavoritesProvider.of(context);
-    final styleManager = StyleProvider.of(context);
+    // .read(), not .of(): this only ever calls loadFavoriteStyles() below,
+    // a one-shot cache/memory lookup, not something this screen renders
+    // reactively - the actual trigger for re-running this method is
+    // FavoritesProvider changing (favManager.of above), not the style
+    // catalog, so a Categories/Trending/Recommended/Filters change no
+    // longer re-triggers this screen at all.
+    final styleManager = StyleProvider.read(context);
     final ids = favManager.favoriteIds.toList();
 
     final favs = await styleManager.loadFavoriteStyles(ids);
