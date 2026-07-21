@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../services/ad_service.dart';
 import '../services/wallet_service.dart';
+import '../services/network_client.dart';
 
 class CreditManager extends ChangeNotifier {
   // Not a cached or real value - just the starting point before the first
@@ -56,7 +57,7 @@ class CreditManager extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("[CreditManager] Error fetching wallet info: $e");
-      _error = 'Failed to load wallet stats: $e';
+      _error = friendlyNetworkErrorMessage(e);
       _isLoading = false;
       notifyListeners();
     }

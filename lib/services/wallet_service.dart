@@ -1,46 +1,25 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/wallet.dart';
 import 'auth_service.dart';
+import 'network_client.dart';
 
 class WalletService {
   final AuthService _authService = AuthService();
+  late final AuthorizedHttpClient _client = AuthorizedHttpClient(_authService);
 
   String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
 
-  /// Prepares authorized headers automatically.
-  Future<Map<String, String>> _getHeaders() async {
-    try {
-      await _authService.ensureValidSession();
-    } catch (e) {
-      debugPrint("[WalletService] Session check error: $e");
-    }
-
-    final accessToken = await _authService.getAccessToken();
-
-    final Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    if (accessToken != null && accessToken.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $accessToken';
-    }
-
-    return headers;
-  }
-
   /// GET /api/wallet
   Future<Wallet> getWallet() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/wallet'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/wallet'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load wallet. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load wallet.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -49,14 +28,13 @@ class WalletService {
 
   /// POST /api/wallet/reward - reports that the user watched a rewarded ad.
   Future<AdRewardResult> rewardAd() async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_backendUrl/api/wallet/reward'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.post(Uri.parse('$_backendUrl/api/wallet/reward'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to record ad reward. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to record ad reward.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -65,14 +43,13 @@ class WalletService {
 
   /// GET /api/wallet/history - the authenticated user's transaction ledger, newest first.
   Future<List<WalletTransaction>> getWalletHistory() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/wallet/history'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/wallet/history'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load wallet history. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load wallet history.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);

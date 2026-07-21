@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/profile_model.dart';
 import '../services/profile_service.dart';
+import '../services/network_client.dart';
 
 class ProfileManager extends ChangeNotifier {
   final ProfileService _profileService = ProfileService();
@@ -28,7 +29,7 @@ class ProfileManager extends ChangeNotifier {
       _profile = await _profileService.getProfile();
       _isLoading = false;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyNetworkErrorMessage(e);
       _isLoading = false;
     }
     notifyListeners();

@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'network_client.dart';
 import '../models/category.dart';
 import '../models/style.dart';
 import '../models/credit_pack.dart';
@@ -21,29 +21,9 @@ class ApiException implements Exception {
 
 class ApiService {
   final AuthService _authService = AuthService();
+  late final AuthorizedHttpClient _client = AuthorizedHttpClient(_authService);
 
   String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
-
-  /// Prepares authorized headers automatically.
-  Future<Map<String, String>> _getHeaders() async {
-    try {
-      await _authService.ensureValidSession();
-    } catch (e) {
-      debugPrint("[ApiService] Session check error: $e");
-    }
-
-    final accessToken = await _authService.getAccessToken();
-
-    final Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    if (accessToken != null && accessToken.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $accessToken';
-    }
-
-    return headers;
-  }
 
   /// Shared by every generation endpoint that returns a structured
   /// `{code, message}` error body (currently `/api/generate` and
@@ -64,14 +44,13 @@ class ApiService {
 
   /// GET /api/categories
   Future<List<Category>> getCategories() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/categories'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/categories'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load categories. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load categories.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -80,14 +59,13 @@ class ApiService {
 
   /// GET /api/styles
   Future<List<Style>> getStyles() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/styles'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/styles'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load styles. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load styles.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -96,14 +74,13 @@ class ApiService {
 
   /// GET /api/credit-packs
   Future<List<CreditPack>> getCreditPacks() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/credit-packs'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/credit-packs'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load credit packs. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load credit packs.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -112,14 +89,13 @@ class ApiService {
 
   /// GET /api/styles?categoryId=<categoryId>
   Future<List<Style>> getStylesByCategory(String categoryId) async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/styles?categoryId=$categoryId'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?categoryId=$categoryId'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load styles for category. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load styles for category.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -133,14 +109,13 @@ class ApiService {
   /// Trending category; this is a filtered read of the same styles rows
   /// returned by [getStylesByCategory].
   Future<List<Style>> getTrendingStyles() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/styles?trending=true'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?trending=true'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load trending styles. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load trending styles.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -155,14 +130,13 @@ class ApiService {
   /// personalization is off or there isn't enough favorite/creation history
   /// yet to personalize from.
   Future<List<Style>> getRecommendedStyles() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/styles?recommended=true'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?recommended=true'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load recommended styles. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load recommended styles.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -176,14 +150,13 @@ class ApiService {
   /// and not gated by the personalization setting, since it's style-to-style
   /// similarity, not the caller's own history.
   Future<List<Style>> getSimilarStyles(String styleId, {int limit = 10}) async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/styles/$styleId/similar?limit=$limit'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/styles/$styleId/similar?limit=$limit'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load similar styles. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load similar styles.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -192,14 +165,13 @@ class ApiService {
 
   /// GET /api/favorites
   Future<List<String>> getFavorites() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/favorites'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/favorites'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load favorites. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load favorites.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -208,42 +180,42 @@ class ApiService {
 
   /// POST /api/favorites
   Future<void> addFavorite(String styleId) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_backendUrl/api/favorites'),
-      headers: headers,
-      body: json.encode({'styleId': styleId}),
+    final response = await _client.send(
+      (headers) => http.post(
+        Uri.parse('$_backendUrl/api/favorites'),
+        headers: headers,
+        body: json.encode({'styleId': styleId}),
+      ),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 201) {
-      throw Exception('Failed to add favorite. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to add favorite.');
     }
   }
 
   /// DELETE /api/favorites/:styleId
   Future<void> removeFavorite(String styleId) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('$_backendUrl/api/favorites/$styleId'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.delete(Uri.parse('$_backendUrl/api/favorites/$styleId'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 204) {
-      throw Exception('Failed to remove favorite. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to remove favorite.');
     }
   }
 
   /// GET /api/notifications
   Future<({List<AppNotification> notifications, int unreadCount})>
       getNotifications() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/notifications'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/notifications'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load notifications. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load notifications.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -258,14 +230,13 @@ class ApiService {
 
   /// POST /api/notifications/:id/read — returns the fresh unread count.
   Future<int> markNotificationRead(String id) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_backendUrl/api/notifications/$id/read'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.post(Uri.parse('$_backendUrl/api/notifications/$id/read'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to mark notification read. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to mark notification read.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -274,14 +245,13 @@ class ApiService {
 
   /// GET /api/creations
   Future<List<Map<String, dynamic>>> getCreations() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$_backendUrl/api/creations'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.get(Uri.parse('$_backendUrl/api/creations'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load creations. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to load creations.');
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
@@ -290,14 +260,13 @@ class ApiService {
 
   /// DELETE /api/creations/:id
   Future<void> deleteCreation(String id) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('$_backendUrl/api/creations/$id'),
-      headers: headers,
+    final response = await _client.send(
+      (headers) => http.delete(Uri.parse('$_backendUrl/api/creations/$id'), headers: headers),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 204) {
-      throw Exception('Failed to delete creation. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to delete creation.');
     }
   }
 
@@ -307,15 +276,17 @@ class ApiService {
   Future<int> migrateCreations(List<Map<String, dynamic>> creations) async {
     if (creations.isEmpty) return 0;
 
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_backendUrl/api/creations/migrate'),
-      headers: headers,
-      body: json.encode({'creations': creations}),
+    final response = await _client.send(
+      (headers) => http.post(
+        Uri.parse('$_backendUrl/api/creations/migrate'),
+        headers: headers,
+        body: json.encode({'creations': creations}),
+      ),
+      timeout: NetworkTimeouts.api,
     );
 
     if (response.statusCode != 201) {
-      throw Exception('Failed to migrate creations. Status: ${response.statusCode}');
+      throw HttpStatusException(response.statusCode, 'Failed to migrate creations.');
     }
 
     final Map<String, dynamic> jsonMap = json.decode(response.body);
@@ -336,29 +307,37 @@ class ApiService {
     String styleId, {
     Map<String, dynamic>? fieldValues,
   }) async {
-    final headers = await _getHeaders();
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$_backendUrl/api/generate'),
+    final response = await _client.send(
+      (headers) async {
+        // Rebuilt from scratch on every call (including a 401 retry) - a
+        // MultipartRequest can only be sent once, but http.MultipartFile.
+        // fromPath reads lazily from imagePaths at send time, so rebuilding
+        // is safe and re-reads the same local files.
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$_backendUrl/api/generate'),
+        );
+
+        if (headers.containsKey('Authorization')) {
+          request.headers['Authorization'] = headers['Authorization']!;
+        }
+
+        request.fields['styleId'] = styleId;
+        // Dynamic prompt-template values (if any) travel as a JSON string
+        // field. The server validates and substitutes them; the client
+        // never builds the final prompt.
+        if (fieldValues != null && fieldValues.isNotEmpty) {
+          request.fields['fieldValues'] = json.encode(fieldValues);
+        }
+        for (final imagePath in imagePaths) {
+          request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+        }
+
+        final streamedResponse = await request.send();
+        return http.Response.fromStream(streamedResponse);
+      },
+      timeout: NetworkTimeouts.upload,
     );
-
-    if (headers.containsKey('Authorization')) {
-      request.headers['Authorization'] = headers['Authorization']!;
-    }
-
-    request.fields['styleId'] = styleId;
-    // Dynamic prompt-template values (if any) travel as a JSON string field.
-    // The server validates and substitutes them; the client never builds the
-    // final prompt.
-    if (fieldValues != null && fieldValues.isNotEmpty) {
-      request.fields['fieldValues'] = json.encode(fieldValues);
-    }
-    for (final imagePath in imagePaths) {
-      request.files.add(await http.MultipartFile.fromPath('file', imagePath));
-    }
-
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode != 200) {
       _throwGenerationError(response);
@@ -392,17 +371,19 @@ class ApiService {
     String? aspectRatio,
     String? style,
   }) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_backendUrl/api/ai/generate'),
-      headers: headers,
-      body: json.encode({
-        if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
-        if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
-        if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
-        if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
-        if (style != null && style.isNotEmpty) 'style': style,
-      }),
+    final response = await _client.send(
+      (headers) => http.post(
+        Uri.parse('$_backendUrl/api/ai/generate'),
+        headers: headers,
+        body: json.encode({
+          if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+          if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
+          if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
+          if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
+          if (style != null && style.isNotEmpty) 'style': style,
+        }),
+      ),
+      timeout: NetworkTimeouts.upload,
     );
 
     if (response.statusCode != 200) {

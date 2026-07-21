@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import 'email_verification_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
 class RegisterScreen extends StatefulWidget {
   final String? prefilledEmail;
   const RegisterScreen({super.key, this.prefilledEmail});
@@ -73,12 +74,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } on AuthException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) {

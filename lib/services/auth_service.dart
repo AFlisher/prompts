@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'network_client.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -107,6 +109,9 @@ class AuthService {
         'password': password,
         'fullName': fullName,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Registration request timed out'),
     );
 
     if (response.statusCode != 201) {
@@ -132,6 +137,9 @@ class AuthService {
         'email': email,
         'password': password,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Sign-in request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -172,6 +180,9 @@ class AuthService {
       Uri.parse('$_backendUrl/api/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'idToken': idToken}),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Google sign-in request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -214,6 +225,9 @@ class AuthService {
       body: json.encode({
         'refreshToken': refreshToken,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Token refresh request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -238,9 +252,21 @@ class AuthService {
 
   static Future<bool>? _activeSessionCheck;
 
-  /// Ensures current session is valid; auto-refreshes if access token is expired.
-  /// Returns true if the session is successfully verified and restored locally.
-  Future<bool> ensureValidSession() async {
+  /// Ensures current session is valid; auto-refreshes if access token is
+  /// expired. Returns true if the session is successfully verified and
+  /// restored locally.
+  ///
+  /// [forceRefresh] skips the client-side expiry check and always attempts
+  /// a refresh via the refresh token - used by [AuthorizedHttpClient] after
+  /// a server-returned 401, since the server can reject a token the local
+  /// JWT `exp` check still considers valid (e.g. server-side revocation).
+  /// A forceRefresh call always runs fresh rather than sharing/polluting the
+  /// dedup slot a concurrent plain call might already be using.
+  Future<bool> ensureValidSession({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      return _ensureValidSessionInternal(forceRefresh: true);
+    }
+
     if (_activeSessionCheck != null) {
       debugPrint("[AuthService] Reusing active ensureValidSession check future.");
       return _activeSessionCheck!;
@@ -256,7 +282,7 @@ class AuthService {
     }
   }
 
-  Future<bool> _ensureValidSessionInternal() async {
+  Future<bool> _ensureValidSessionInternal({bool forceRefresh = false}) async {
     debugPrint("[AuthService] Calling ensureValidSession()...");
     // Two independent keys in secure storage - no shared state between them,
     // so read both concurrently instead of one after another.
@@ -274,8 +300,8 @@ class AuthService {
       return false;
     }
 
-    if (_isTokenExpired(accessToken)) {
-      debugPrint("[AuthService] Access token is expired. Refresh required.");
+    if (forceRefresh || _isTokenExpired(accessToken)) {
+      debugPrint("[AuthService] Access token is expired or refresh forced. Refresh required.");
       if (refreshToken != null && refreshToken.isNotEmpty) {
         try {
           await refreshSession(refreshToken);
@@ -330,6 +356,9 @@ class AuthService {
         'currentPassword': currentPassword,
         'newPassword': newPassword,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Change password request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -378,6 +407,9 @@ class AuthService {
       final response = await http.get(
         Uri.parse('$_backendUrl/api/auth/status?email=${Uri.encodeComponent(email)}'),
         headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        NetworkTimeouts.auth,
+        onTimeout: () => throw TimeoutException('Verification status check timed out'),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -398,6 +430,9 @@ class AuthService {
       body: json.encode({
         'email': email,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Forgot password request timed out'),
     );
 
     if (response.statusCode != 200) {
@@ -416,6 +451,9 @@ class AuthService {
       body: json.encode({
         'email': email,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Resend verification request timed out'),
     );
 
     if (response.statusCode != 200) {

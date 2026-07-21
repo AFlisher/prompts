@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image/image.dart' as img;
@@ -5,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/profile_model.dart';
 import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
+import 'network_client.dart';
 
 class ProfileService {
   final SupabaseClient? _client = _safeGetClient();
@@ -40,7 +42,11 @@ class ProfileService {
         .from('profiles')
         .select()
         .eq('id', user.id)
-        .single();
+        .single()
+        .timeout(
+          NetworkTimeouts.api,
+          onTimeout: () => throw TimeoutException('Load profile request timed out'),
+        );
 
     final profile = Profile.fromJson(response);
     debugPrint("[ProfileService] Loaded profile: email=${profile.email}, provider=${profile.provider}");
@@ -96,6 +102,9 @@ class ProfileService {
             upsert: true,
             contentType: 'image/jpeg',
           ),
+        ).timeout(
+          NetworkTimeouts.upload,
+          onTimeout: () => throw TimeoutException('Avatar upload timed out'),
         );
 
     Directory? tempDir;
@@ -117,7 +126,11 @@ class ProfileService {
         .update({'avatar_url': publicUrl})
         .eq('id', user.id)
         .select()
-        .single();
+        .single()
+        .timeout(
+          NetworkTimeouts.api,
+          onTimeout: () => throw TimeoutException('Update profile request timed out'),
+        );
 
     return Profile.fromJson(response);
   }
@@ -163,7 +176,11 @@ class ProfileService {
         .update(updates)
         .eq('id', user.id)
         .select()
-        .single();
+        .single()
+        .timeout(
+          NetworkTimeouts.api,
+          onTimeout: () => throw TimeoutException('Update profile request timed out'),
+        );
 
     return Profile.fromJson(response);
   }

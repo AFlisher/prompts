@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -91,7 +92,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) {

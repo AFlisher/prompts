@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:gal/gal.dart';
+import '../services/network_client.dart';
 
 class GallerySaver {
   /// Loads raw bytes for either a bundled asset key or an http(s) URL - the
@@ -13,7 +15,10 @@ class GallerySaver {
   static Future<Uint8List?> loadBytes(String path) async {
     try {
       if (path.startsWith('http://') || path.startsWith('https://')) {
-        final response = await http.get(Uri.parse(path));
+        final response = await http.get(Uri.parse(path)).timeout(
+              NetworkTimeouts.api,
+              onTimeout: () => throw TimeoutException('Image download timed out'),
+            );
         if (response.statusCode != 200) return null;
         return response.bodyBytes;
       }

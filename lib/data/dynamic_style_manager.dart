@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/style_model.dart';
 import '../services/api_service.dart';
 import '../services/local_cache_service.dart';
+import '../services/network_client.dart';
 
 class CategoryModel {
   final String id;
@@ -249,7 +250,7 @@ class CategoryCatalogNotifier extends ChangeNotifier {
     } catch (e) {
       debugPrint("[CategoryCatalogNotifier] Error fetching categories: $e");
       if (!hasCachedCategories) {
-        _error = 'Failed to load categories: $e';
+        _error = friendlyNetworkErrorMessage(e);
         _isLoading = false;
         notifyListeners();
       } else {

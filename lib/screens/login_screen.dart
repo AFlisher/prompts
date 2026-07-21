@@ -6,6 +6,7 @@ import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -107,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) {
@@ -181,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign-in failed: ${e.toString()}')),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);

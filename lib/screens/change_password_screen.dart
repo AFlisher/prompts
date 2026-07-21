@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../widgets/status_bar_style.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -79,7 +80,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to change password: ${e.toString()}'),
+          content: Text(friendlyNetworkErrorMessage(e)),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
         ),

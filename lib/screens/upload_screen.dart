@@ -21,6 +21,7 @@ import '../widgets/progressive_network_image.dart';
 import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../services/generation/image_generation_service.dart';
+import '../services/network_client.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
@@ -344,7 +345,7 @@ class _UploadScreenState extends State<UploadScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Generation failed: ${errorMsg.replaceAll('Exception: ', '')}'),
+                content: Text(friendlyNetworkErrorMessage(e)),
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
