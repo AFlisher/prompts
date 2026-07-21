@@ -367,11 +367,22 @@ class MyCreationsScreen extends StatelessWidget {
                         // Styled generation output photo - progressive: the
                         // thumbnail (already cached from the grid) shows
                         // immediately while the full-resolution original
-                        // loads in behind it.
+                        // loads in behind it. This box is a fixed 340px-tall
+                        // card, never zoomable itself (tapping it opens a
+                        // separate ImagePreviewScreen, which decodes its own
+                        // full-res copy independently) - so the original only
+                        // needs decoding at this box's actual on-screen size.
+                        // Width matches showAppBottomSheet's default
+                        // horizontal padding (24px each side).
                         ProgressiveNetworkImage(
                           thumbnailUrl: item.displayThumbnail,
                           originalUrl: item.imagePath,
                           fit: BoxFit.cover,
+                          memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                  MediaQuery.devicePixelRatioOf(context))
+                              .round(),
+                          memCacheHeight:
+                              (340 * MediaQuery.devicePixelRatioOf(context)).round(),
                         ),
 
                       // Before (Original photo) small floating container

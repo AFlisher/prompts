@@ -351,6 +351,16 @@ class _HeroStyleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
 
+    // This card is a fixed 220px-tall box, never zoomable (tapping it opens
+    // a *separate* FullScreenImageViewer, which decodes its own full-res
+    // copy independently) - so the original layer only ever needs to be
+    // decoded at this box's actual on-screen size, not native resolution.
+    // Width matches StyleDetailsScreen's own horizontal Padding (26px each
+    // side) around this card.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = ((MediaQuery.sizeOf(context).width - 52) * dpr).round();
+    const cacheHeight = 220;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -383,6 +393,8 @@ class _HeroStyleCard extends StatelessWidget {
                       thumbnailUrl: style.displayThumbnail,
                       originalUrl: style.displayImage,
                       fit: BoxFit.cover,
+                      memCacheWidth: cacheWidth,
+                      memCacheHeight: (cacheHeight * dpr).round(),
                     ),
                   ),
                 ),

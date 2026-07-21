@@ -602,13 +602,26 @@ class _UploadScreenState extends State<UploadScreen> {
                                 // The actual generated creation - progressive:
                                 // its thumbnail (if the backend produced one)
                                 // shows immediately while the full-resolution
-                                // original loads in behind it.
+                                // original loads in behind it. This card is a
+                                // fixed 380px-tall box, never zoomable itself
+                                // (tapping it opens a separate
+                                // ImagePreviewScreen, which decodes its own
+                                // full-res copy independently) - so the
+                                // original only needs decoding at this box's
+                                // actual on-screen size. Width matches this
+                                // Column's own horizontal Padding (24px each
+                                // side, set above).
                                 ProgressiveNetworkImage(
                                   thumbnailUrl: _generatedThumbnailUrl ??
                                       _generatedImageUrl ??
                                       widget.style.displayImage,
                                   originalUrl: _generatedImageUrl ?? widget.style.displayImage,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                          MediaQuery.devicePixelRatioOf(context))
+                                      .round(),
+                                  memCacheHeight:
+                                      (380 * MediaQuery.devicePixelRatioOf(context)).round(),
                                 ),
                                 Positioned(
                                   bottom: 16,

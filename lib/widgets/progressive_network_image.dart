@@ -20,11 +20,24 @@ class ProgressiveNetworkImage extends StatelessWidget {
   final String originalUrl;
   final BoxFit fit;
 
+  /// Bounds the decoded size (device pixels) of both layers, instead of the
+  /// original decoding at its native resolution. Leave both null (the
+  /// default) for a pinch-zoomable viewer, where the user can scale well
+  /// past this widget's own on-screen size and native resolution is exactly
+  /// what's wanted. Pass them when this renders inside a fixed-size,
+  /// non-zoomable box (a hero card, a result preview, a detail sheet) - the
+  /// original can never be displayed larger than that box, so decoding it
+  /// at native resolution there only wastes memory and decode time.
+  final int? memCacheWidth;
+  final int? memCacheHeight;
+
   const ProgressiveNetworkImage({
     super.key,
     required this.thumbnailUrl,
     required this.originalUrl,
     this.fit = BoxFit.cover,
+    this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   @override
@@ -32,7 +45,12 @@ class ProgressiveNetworkImage extends StatelessWidget {
     final hasDistinctThumbnail = thumbnailUrl.isNotEmpty && thumbnailUrl != originalUrl;
 
     if (!hasDistinctThumbnail) {
-      return buildStyleImage(originalUrl, fit: fit);
+      return buildStyleImage(
+        originalUrl,
+        fit: fit,
+        memCacheWidth: memCacheWidth,
+        memCacheHeight: memCacheHeight,
+      );
     }
 
     final isNetworkOriginal =
@@ -42,7 +60,12 @@ class ProgressiveNetworkImage extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Base layer: the thumbnail, visible instantly.
-        buildStyleImage(thumbnailUrl, fit: fit),
+        buildStyleImage(
+          thumbnailUrl,
+          fit: fit,
+          memCacheWidth: memCacheWidth,
+          memCacheHeight: memCacheHeight,
+        ),
 
         // Top layer: the original. While it loads, this stays fully
         // transparent (no placeholder/error widget of its own) so the
@@ -52,12 +75,19 @@ class ProgressiveNetworkImage extends StatelessWidget {
           CachedNetworkImage(
             imageUrl: originalUrl,
             fit: fit,
+            memCacheWidth: memCacheWidth,
+            memCacheHeight: memCacheHeight,
             fadeInDuration: const Duration(milliseconds: 250),
             placeholder: (context, url) => const SizedBox.shrink(),
             errorWidget: (context, url, error) => const SizedBox.shrink(),
           )
         else
-          buildStyleImage(originalUrl, fit: fit),
+          buildStyleImage(
+            originalUrl,
+            fit: fit,
+            memCacheWidth: memCacheWidth,
+            memCacheHeight: memCacheHeight,
+          ),
       ],
     );
   }
