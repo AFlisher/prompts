@@ -28,14 +28,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  String _searchQuery = '';
+  // A ValueNotifier, not a setState-driving String field: writing to it
+  // never rebuilds this State's own build() (Scaffold/AppHeader/filter
+  // button/RefreshIndicator), so those stay completely stable while typing.
+  // Only the narrow subtrees that explicitly listen via
+  // ValueListenableBuilder below - each section's own filtered row, and the
+  // whole-list-vs-empty-state decision - react to it.
+  final ValueNotifier<String> _searchQuery = ValueNotifier<String>('');
   late final AnimationController _headerAnimController;
   late final Animation<double> _headerFadeAnim;
 
-  List<StyleModel> _filterStyles(List<StyleModel> list) {
-    if (_searchQuery.isEmpty) return list;
+  List<StyleModel> _filterStyles(List<StyleModel> list, String query) {
+    if (query.isEmpty) return list;
     return list
-        .where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where((s) => s.name.toLowerCase().contains(query.toLowerCase()))
         .toList();
   }
 
@@ -66,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _headerAnimController.dispose();
+    _searchQuery.dispose();
     super.dispose();
   }
 
@@ -91,19 +98,156 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // to specific categories rather than showing off-scope styles.
     final showTrendingAndRecommended = !isCategoryFiltered;
 
-    final isSearchingOrFiltering = _searchQuery.isNotEmpty || isCategoryFiltered;
-    final stillLoadingRelevantSections = visibleCategories.any(
-          (c) => !c.hasLoadedStyles || styleManager.isCategoryLoading(c.id),
-        ) ||
-        (showTrendingAndRecommended && !styleManager.hasLoadedTrending) ||
-        (showTrendingAndRecommended && !styleManager.hasLoadedRecommended);
-    final hasAnyMatch = visibleCategories.any((c) => _filterStyles(c.styles).isNotEmpty) ||
-        (showTrendingAndRecommended && _filterStyles(styleManager.trendingStyles).isNotEmpty) ||
-        (showTrendingAndRecommended && _filterStyles(styleManager.recommendedStyles).isNotEmpty);
-    final showEmptySearchState = isSearchingOrFiltering &&
-        categories.isNotEmpty &&
-        !stillLoadingRelevantSections &&
-        !hasAnyMatch;
+    // The "normal" content - Recommended + Trending + (loading/error/empty-
+    // categories/category list) - built here from search-independent state
+    // only (categories/loading/error/filters). Passed as the `child:` of the
+    // ValueListenableBuilder below, so as long as the aggregate search result
+    // stays non-empty (the common case), this exact widget instance is
+    // reused untouched across every keystroke - only each section's own
+    // nested ValueListenableBuilder (see _buildHorizontalSection) reacts to
+    // repaint its own filtered row.
+    Widget mainContent;
+    if (isLoading && categories.isEmpty) {
+      mainContent = const SliverToBoxAdapter(
+        child: Column(
+          children: [
+            StyleRowSkeleton(),
+            StyleRowSkeleton(),
+            StyleRowSkeleton(),
+          ],
+        ),
+      );
+    } else if (error != null && categories.isEmpty) {
+      mainContent = SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  error,
+                  style: const TextStyle(color: Colors.red, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => styleManager.fetchFromApi(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    } else if (categories.isEmpty) {
+      mainContent = const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(40.0),
+            child: Text(
+              'No categories found.',
+              style: TextStyle(color: AppTheme.mediumGray, fontSize: 15),
+            ),
+          ),
+        ),
+      );
+    } else {
+      mainContent = SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final category = visibleCategories[index];
+            return _CategorySectionWidget(
+              category: category,
+              styleManager: styleManager,
+              textColor: textColor,
+              isDark: isDark,
+              sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+                return _buildHorizontalSection(
+                  title: title,
+                  styles: styles,
+                  textColor: txtColor,
+                  isDark: dark,
+                  isLoading: loading,
+                );
+              },
+            );
+          },
+          childCount: visibleCategories.length,
+        ),
+      );
+    }
+
+    // Recommended and Trending, built once from search-independent state.
+    // Each is handed to its own ValueListenableBuilder below as an
+    // identity-stable `child:`, so as long as the aggregate search result
+    // stays non-empty (the common case) these exact widget instances are
+    // reused untouched across every keystroke - only each section's own
+    // nested ValueListenableBuilder (see _buildHorizontalSection) reacts to
+    // repaint its own filtered row.
+    final recommendedContent = SliverToBoxAdapter(
+      child: _RecommendedSectionWidget(
+        textColor: textColor,
+        isDark: isDark,
+        sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+          return _buildHorizontalSection(
+            title: title,
+            styles: styles,
+            textColor: txtColor,
+            isDark: dark,
+            isLoading: loading,
+          );
+        },
+      ),
+    );
+    final trendingContent = SliverToBoxAdapter(
+      child: _TrendingSectionWidget(
+        textColor: textColor,
+        isDark: isDark,
+        sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+          return _buildHorizontalSection(
+            title: title,
+            styles: styles,
+            textColor: txtColor,
+            isDark: dark,
+            isLoading: loading,
+          );
+        },
+      ),
+    );
+
+    // Shared by all three reactive slivers below - the aggregate decision of
+    // whether the *entire* Recommended/Trending/category-list region should
+    // be replaced by the unified _EmptySearchState. Pure list-filtering over
+    // already-in-memory data (no widget rebuilding), so recomputing it on
+    // every keystroke is cheap.
+    bool showEmptySearchStateFor(String query) {
+      final isSearchingOrFiltering = query.isNotEmpty || isCategoryFiltered;
+      final stillLoadingRelevantSections = visibleCategories.any(
+            (c) => !c.hasLoadedStyles || styleManager.isCategoryLoading(c.id),
+          ) ||
+          (showTrendingAndRecommended && !styleManager.hasLoadedTrending) ||
+          (showTrendingAndRecommended && !styleManager.hasLoadedRecommended);
+      final hasAnyMatch = visibleCategories.any(
+            (c) => _filterStyles(c.styles, query).isNotEmpty,
+          ) ||
+          (showTrendingAndRecommended &&
+              _filterStyles(styleManager.trendingStyles, query).isNotEmpty) ||
+          (showTrendingAndRecommended &&
+              _filterStyles(styleManager.recommendedStyles, query).isNotEmpty);
+      return isSearchingOrFiltering &&
+          categories.isNotEmpty &&
+          !stillLoadingRelevantSections &&
+          !hasAnyMatch;
+    }
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -150,7 +294,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         Expanded(
                           child: custom.SearchBar(
                             isDark: isDark,
-                            onChanged: (q) => setState(() => _searchQuery = q),
+                            // Writes straight to the notifier - no setState,
+                            // so HomeScreen itself never rebuilds from typing.
+                            onChanged: (q) => _searchQuery.value = q,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -174,135 +320,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
 
-                // Recommended For You renders above Trending whenever it has
-                // something to show - a personalized view over the user's
-                // own favorite/creation history, not a category itself, so
-                // it isn't part of `categories` and doesn't participate in
-                // category ordering either. Hidden while a category filter
-                // is active (showTrendingAndRecommended) - see its
-                // definition above for why.
+                // Recommended and Trending each independently hide themselves
+                // (not just their own per-section empty check) once the
+                // *aggregate* search result across every section is empty -
+                // _EmptySearchState below is then the only thing shown. As
+                // long as showEmptySearchStateFor(query) doesn't flip,
+                // ValueListenableBuilder hands back the exact same
+                // `recommendedContent`/`trendingContent` instance on every
+                // keystroke, so typing never touches these widgets.
                 if (showTrendingAndRecommended)
-                  SliverToBoxAdapter(
-                    child: _RecommendedSectionWidget(
-                      textColor: textColor,
-                      isDark: isDark,
-                      sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
-                        return _buildHorizontalSection(
-                          title: title,
-                          styles: styles,
-                          textColor: txtColor,
-                          isDark: dark,
-                          isLoading: loading,
-                        );
-                      },
-                    ),
+                  ValueListenableBuilder<String>(
+                    valueListenable: _searchQuery,
+                    builder: (context, query, child) {
+                      if (showEmptySearchStateFor(query)) {
+                        return const SliverToBoxAdapter(child: SizedBox.shrink());
+                      }
+                      return child!;
+                    },
+                    child: recommendedContent,
+                  ),
+                if (showTrendingAndRecommended)
+                  ValueListenableBuilder<String>(
+                    valueListenable: _searchQuery,
+                    builder: (context, query, child) {
+                      if (showEmptySearchStateFor(query)) {
+                        return const SliverToBoxAdapter(child: SizedBox.shrink());
+                      }
+                      return child!;
+                    },
+                    child: trendingContent,
                   ),
 
-                // Trending always renders first among the remaining
-                // sections, ahead of every category section below - it's a
-                // dynamic view over isTrending styles, not a category
-                // itself, so it isn't part of `categories` and doesn't
-                // participate in category ordering.
-                if (showTrendingAndRecommended)
-                  SliverToBoxAdapter(
-                    child: _TrendingSectionWidget(
-                      textColor: textColor,
-                      isDark: isDark,
-                      sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
-                        return _buildHorizontalSection(
-                          title: title,
-                          styles: styles,
-                          textColor: txtColor,
-                          isDark: dark,
-                          isLoading: loading,
-                        );
-                      },
-                    ),
-                  ),
-
-                // Conditional UI based on API State
-                if (isLoading && categories.isEmpty)
-                  const SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        StyleRowSkeleton(),
-                        StyleRowSkeleton(),
-                        StyleRowSkeleton(),
-                      ],
-                    ),
-                  )
-                else if (error != null && categories.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              error,
-                              style: const TextStyle(color: Colors.red, fontSize: 14),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => styleManager.fetchFromApi(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentPurple,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              child: const Text('Retry', style: TextStyle(color: Colors.white)),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else if (categories.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40.0),
-                        child: Text(
-                          'No categories found.',
-                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 15),
-                        ),
-                      ),
-                    ),
-                  )
-                else if (showEmptySearchState)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptySearchState(isDark: isDark),
-                  )
-                else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final category = visibleCategories[index];
-                        return _CategorySectionWidget(
-                          category: category,
-                          styleManager: styleManager,
-                          textColor: textColor,
-                          isDark: isDark,
-                          sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
-                            return _buildHorizontalSection(
-                              title: title,
-                              styles: styles,
-                              textColor: txtColor,
-                              isDark: dark,
-                              isLoading: loading,
-                            );
-                          },
-                        );
-                      },
-                      childCount: visibleCategories.length,
-                    ),
-                  ),
+                // The category list (or loading/error/empty-categories
+                // fallback) vs. the unified _EmptySearchState - same
+                // identity-stable `child:` pattern as above.
+                ValueListenableBuilder<String>(
+                  valueListenable: _searchQuery,
+                  builder: (context, query, child) {
+                    if (showEmptySearchStateFor(query)) {
+                      return SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptySearchState(isDark: isDark),
+                      );
+                    }
+                    return child!;
+                  },
+                  child: mainContent,
+                ),
                 const SliverToBoxAdapter(
                   child: SizedBox(
                     height: FloatingNavBarMetrics.scrollClearance,
@@ -323,71 +387,85 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required bool isDark,
     required bool isLoading,
   }) {
-    final filtered = _filterStyles(styles);
-    // Only collapse when a search query excludes every loaded style — a
-    // category with no styles loaded yet (LRU eviction, in-flight lazy
-    // load) must still render its header.
-    if (styles.isNotEmpty && filtered.isEmpty) return const SizedBox.shrink();
-    // Isolates each section (a Category row, Trending, or Recommended For
-    // You) as its own compositing layer. Each is backed by its own
-    // independent StatefulWidget/lazy fetch (_CategorySectionWidget,
-    // _TrendingSectionWidgetState, _RecommendedSectionWidgetState), so
-    // without this, one section finishing its own load could force nearby
-    // sections' already-settled layers to repaint too.
-    return RepaintBoundary(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
-            child: _SectionHeader(
-              title: title,
-              textColor: textColor,
-              onSeeAll: () => _openAllStyles(title, styles),
-            ),
-          ),
-          if (isLoading && filtered.isEmpty)
-            const StyleRowSkeleton()
-          else if (filtered.isNotEmpty)
-            SizedBox(
-              height: 250,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 26),
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                // The row's height (250) is only ~2px taller than a card's own
-                // content (200 image + 8 gap + 40 title = 248), leaving no
-                // room for StyleCard's shadow to paint before ListView's
-                // default hard-edge viewport clip cuts it off. The shadow
-                // itself never affects layout/scroll extent either way, so
-                // disabling the clip here just lets it bleed a few px past
-                // the row's nominal bounds instead of being invisibly clipped.
-                clipBehavior: Clip.none,
-                itemBuilder: (context, index) {
-                  final style = filtered[index];
-                  // Namespaced by section title (not just style id): a
-                  // trending style renders in both this row and its own
-                  // category row at once, and Hero requires unique tags
-                  // among simultaneously-mounted widgets in the same route.
-                  final heroTag = 'home_${title}_${style.id}';
-                  return SizedBox(
-                    width: 135,
-                    child: StyleCard(
-                      style: style,
-                      isDarkMode: isDark,
-                      onTap: () => _onStyleTapped(style, heroTag),
-                      cardWidth: 135,
-                      heroTag: heroTag,
-                    ),
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(width: 20),
-                itemCount: filtered.length,
-                cacheExtent: 1000,
+    // Reacts to search on its own, directly - the section widget that calls
+    // this (_CategorySectionWidget/_TrendingSectionWidgetState/
+    // _RecommendedSectionWidgetState) never needs to know the search query
+    // exists, so typing never re-runs *their* build() (and therefore never
+    // re-touches their own styleManager lookups / lazy-load triggers) - only
+    // this innermost callback (header visibility + the filtered row itself,
+    // i.e. exactly the "search results") re-renders per keystroke.
+    return ValueListenableBuilder<String>(
+      valueListenable: _searchQuery,
+      builder: (context, query, _) {
+        final filtered = _filterStyles(styles, query);
+        // Only collapse when a search query excludes every loaded style — a
+        // category with no styles loaded yet (LRU eviction, in-flight lazy
+        // load) must still render its header.
+        if (styles.isNotEmpty && filtered.isEmpty) return const SizedBox.shrink();
+        // Isolates each section (a Category row, Trending, or Recommended
+        // For You) as its own compositing layer. Each is backed by its own
+        // independent StatefulWidget/lazy fetch (_CategorySectionWidget,
+        // _TrendingSectionWidgetState, _RecommendedSectionWidgetState), so
+        // without this, one section finishing its own load could force
+        // nearby sections' already-settled layers to repaint too.
+        return RepaintBoundary(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
+                child: _SectionHeader(
+                  title: title,
+                  textColor: textColor,
+                  onSeeAll: () => _openAllStyles(title, styles),
+                ),
               ),
-            ),
-        ],
-      ),
+              if (isLoading && filtered.isEmpty)
+                const StyleRowSkeleton()
+              else if (filtered.isNotEmpty)
+                SizedBox(
+                  height: 250,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 26),
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    // The row's height (250) is only ~2px taller than a card's
+                    // own content (200 image + 8 gap + 40 title = 248),
+                    // leaving no room for StyleCard's shadow to paint before
+                    // ListView's default hard-edge viewport clip cuts it off.
+                    // The shadow itself never affects layout/scroll extent
+                    // either way, so disabling the clip here just lets it
+                    // bleed a few px past the row's nominal bounds instead of
+                    // being invisibly clipped.
+                    clipBehavior: Clip.none,
+                    itemBuilder: (context, index) {
+                      final style = filtered[index];
+                      // Namespaced by section title (not just style id): a
+                      // trending style renders in both this row and its own
+                      // category row at once, and Hero requires unique tags
+                      // among simultaneously-mounted widgets in the same
+                      // route.
+                      final heroTag = 'home_${title}_${style.id}';
+                      return SizedBox(
+                        width: 135,
+                        child: StyleCard(
+                          style: style,
+                          isDarkMode: isDark,
+                          onTap: () => _onStyleTapped(style, heroTag),
+                          cardWidth: 135,
+                          heroTag: heroTag,
+                        ),
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: 20),
+                    itemCount: filtered.length,
+                    cacheExtent: 1000,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

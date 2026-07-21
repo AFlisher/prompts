@@ -6,9 +6,11 @@
 //   - PaywallScreen (Buy Credits)
 //   - NotificationsScreen
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prombt_app/screens/home_screen.dart';
 import 'package:prombt_app/screens/all_styles_screen.dart';
 import 'package:prombt_app/screens/paywall_screen.dart';
@@ -28,13 +30,13 @@ Future<List<CreditPack>> _fakeCreditPacks() async => [
       CreditPack(id: 'max', name: 'Max Pack', credits: 100, priceDisplay: '\$8.99', badge: 'Save 25%'),
     ];
 
-Widget wrapWithProviders(Widget widget) {
+Widget wrapWithProviders(Widget widget, {DynamicStyleManager? styleManager}) {
   final favManager    = FavoritesManager();
-  final styleManager  = DynamicStyleManager();
+  final resolvedStyleManager = styleManager ?? DynamicStyleManager();
   final creditManager = CreditManager()..shouldSaveToFile = false;
   final creationsManager = CreationsManager()..shouldSaveToFile = false;
   return StyleProvider(
-    notifier: styleManager,
+    notifier: resolvedStyleManager,
     child: CreditProvider(
       notifier: creditManager,
       child: FavoritesProvider(
@@ -49,6 +51,30 @@ Widget wrapWithProviders(Widget widget) {
       ),
     ),
   );
+}
+
+// Seeds a DynamicStyleManager with one category's worth of styles entirely
+// from the on-device cache (same technique as
+// test/data/dynamic_style_manager_test.dart) - no network mocking exists for
+// ApiService in this codebase, so this is the only way to get real,
+// search-filterable StyleCards onto HomeScreen in a widget test.
+Future<DynamicStyleManager> _seededStyleManager() async {
+  const categoryId = 'search-test-cat';
+  SharedPreferences.setMockInitialValues({
+    'categories_cache': json.encode([
+      {'id': categoryId, 'name': 'Portraits'}
+    ]),
+    'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+    'styles_cache_v3_$categoryId': json.encode([
+      {'id': 's1', 'name': 'Sunset Glow', 'imagePath': ''},
+      {'id': 's2', 'name': 'Rainy Mood', 'imagePath': ''},
+    ]),
+    'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+  });
+  final manager = DynamicStyleManager();
+  await manager.init();
+  await manager.loadStylesForCategory(categoryId);
+  return manager;
 }
 
 void main() {
@@ -77,6 +103,79 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
+
+    // find.text(..., skipOffstage: false) throughout: even the pre-existing,
+    // unmodified HomeScreen marks its CustomScrollView content as "offstage"
+    // in this test harness's default (unsized) viewport (verified by running
+    // the same finder against HomeScreen before this change) - a test-only
+    // artifact of Element.debugVisitOnstageChildren's viewport/route
+    // bookkeeping, unrelated to real device rendering and unrelated to this
+    // change, so skipOffstage is turned off rather than worked around.
+    testWidgets(
+      'typing in search filters style cards, and clearing restores them',
+      (tester) async {
+        final styleManager = await _seededStyleManager();
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        // Several short pumps (not pumpAndSettle - the Shimmer loading
+        // placeholder animates forever, so pumpAndSettle never returns) to
+        // let the cache-backed async category/style loads resolve.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        // Both styles visible before any search input.
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'Sunset');
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsNothing);
+
+        // Let the clear button's AnimatedSwitcher fade-in finish before
+        // tapping it, or the tap can land before it's hit-testable.
+        await tester.pump(const Duration(milliseconds: 250));
+
+        // Clearing (via the SearchBar's own clear button) restores both.
+        await tester.tap(find.byKey(const ValueKey('clear-search-button')));
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a search matching nothing shows the empty-search state, not the categories',
+      (tester) async {
+        final styleManager = await _seededStyleManager();
+        // Filters down to the one seeded category, so the aggregate empty-
+        // search decision doesn't also have to wait on Trending/Recommended's
+        // own real (unmocked, so slow-to-fail) network fetch settling.
+        styleManager.setCategoryFilters({'search-test-cat'});
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        // Several short pumps (not pumpAndSettle - the Shimmer loading
+        // placeholder animates forever, so pumpAndSettle never returns) to
+        // let the cache-backed async category/style loads resolve.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        await tester.enterText(find.byType(TextField), 'zzz-no-match');
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsNothing);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsNothing);
+        expect(find.text('No styles found', skipOffstage: false), findsOneWidget);
+      },
+    );
   });
 
   // ── ALL STYLES SCREEN ─────────────────────────────────────────────────────
