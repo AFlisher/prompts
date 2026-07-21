@@ -5,7 +5,7 @@ import '../theme/app_button_styles.dart';
 import '../widgets/app_icon_dialog.dart';
 import '../widgets/press_scale.dart';
 import 'edit_profile_screen.dart';
-import 'login_screen.dart';
+import 'guest_home_screen.dart';
 import 'notifications_screen.dart';
 import '../services/haptic_service.dart';
 import 'privacy_screen.dart';
@@ -391,14 +391,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     primaryColor: Colors.redAccent,
                     onPrimaryPressed: () async {
                       HapticService.heavy();
-                      profileManager.clear();
-                      NotificationsProvider.read(context).clear();
+                      // AuthService.signOut() itself clears every
+                      // account-scoped manager (see AuthService.onSignedOut,
+                      // registered once in main.dart) - not just Profile/
+                      // Notifications here, so every sign-out path (this
+                      // button, auto-signout on expiry, etc.) behaves
+                      // identically instead of only this call site
+                      // remembering to clear things manually.
                       await _authService.signOut();
                       if (mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
+                            builder: (_) => const GuestHomeScreen(),
                           ),
                           (route) => false,
                         );

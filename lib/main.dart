@@ -17,6 +17,7 @@ import 'data/profile_manager.dart';
 import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
+import 'services/auth_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
 
@@ -214,15 +215,40 @@ class _PrombtAppState extends State<PrombtApp> {
   @override
   void initState() {
     super.initState();
+
+    // Single choke point for every sign-out path (explicit Sign Out button,
+    // auto-signout on refresh failure, unverified-email rejection - see
+    // AuthService.onSignedOut) to wipe every account-scoped manager. Without
+    // this, a manager only got cleared if whichever screen triggered
+    // sign-out happened to remember to do it manually, and the next account
+    // to log in would see the previous account's credits/gallery/favorites
+    // until the app was fully restarted (the underlying cause of a
+    // cross-account state leak - see clear()/clearPersonalizedState() on
+    // each manager below for what's actually being wiped and why).
+    AuthService.onSignedOut = _clearAllUserState;
+
+    // Deliberately does NOT init any account-scoped manager here (favorites,
+    // styles/categories, credits, creations, profile, notifications) - this
+    // runs on every cold start, before LandingScreen has even determined
+    // whether a session exists, so an unconditional init here would fetch
+    // Categories/Styles for a guest who never logged in. MainShell.init()
+    // is the actual gate: it only mounts once currentUser is confirmed
+    // non-null, so that's the one place these managers get initialized.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _favoritesManager.init();
-      _styleManager.init();
-      _creditManager.init();
-      _creationsManager.init();
-      _profileManager.loadProfile();
-      _notificationsManager.init();
       _setHighRefreshRate();
     });
+  }
+
+  void _clearAllUserState() {
+    _profileManager.clear();
+    _notificationsManager.clear();
+    _creditManager.clear();
+    _creationsManager.clear();
+    _favoritesManager.clear();
+    // Full clear (not just clearPersonalizedState) - a signed-out user lands
+    // on the Guest Home screen, which must never show or silently retain any
+    // previously-fetched category/style data.
+    _styleManager.clear();
   }
 
   // Android defaults every app's window to 60Hz regardless of the display's
@@ -243,6 +269,9 @@ class _PrombtAppState extends State<PrombtApp> {
 
   @override
   void dispose() {
+    if (identical(AuthService.onSignedOut, _clearAllUserState)) {
+      AuthService.onSignedOut = null;
+    }
     _favoritesManager.dispose();
     _styleManager.dispose();
     _creditManager.dispose();

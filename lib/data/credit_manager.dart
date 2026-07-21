@@ -106,4 +106,22 @@ class CreditManager extends ChangeNotifier {
     }
     return false;
   }
+
+  /// Wipes this account's wallet state on sign-out. Resets [isInitialized]
+  /// to false (not just the numbers) so the *next* signed-in account's
+  /// [init] actually re-fetches instead of short-circuiting on the previous
+  /// account's already-initialized flag - without this, the next account
+  /// would keep seeing this account's balance/generatedImages until the app
+  /// was fully restarted.
+  void clear() {
+    _balance = 0;
+    _generatedImages = 0;
+    _adsProgress = 0;
+    _dailyLimitReached = false;
+    _isInitialized = false;
+    _isLoading = false;
+    _isWatchingAd = false;
+    _error = null;
+    notifyListeners();
+  }
 }

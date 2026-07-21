@@ -115,4 +115,18 @@ class FavoritesManager extends ChangeNotifier {
       unawaited(_saveToCache());
     }
   }
+
+  /// Wipes this account's favorites on sign-out - both in memory and the
+  /// on-device cache. Clearing the cache (not just resetting
+  /// [isInitialized]) matters just as much as resetting the flag: [init]
+  /// reads that cache straight into memory *before* it syncs with the
+  /// backend, so leaving Account A's favorites cached would let them flash
+  /// on screen for the next account the moment [init] runs again, even
+  /// though the in-memory set was already cleared here.
+  Future<void> clear() async {
+    _favoriteIds.clear();
+    _isInitialized = false;
+    notifyListeners();
+    await _cacheService.clearCache(_cacheKey);
+  }
 }

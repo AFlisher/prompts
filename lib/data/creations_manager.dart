@@ -197,4 +197,27 @@ class CreationsManager extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Wipes this account's creations on sign-out - both in memory and the
+  /// on-device cache file. Deleting the file (not just resetting
+  /// [isInitialized]) matters just as much as resetting the flag: [init]
+  /// reads that file straight into memory *before* it syncs with the
+  /// backend, so leaving Account A's file on disk would let it flash on
+  /// screen for the next account the moment [init] runs again, even though
+  /// the in-memory list was already cleared here.
+  Future<void> clear() async {
+    _creations = [];
+    _currentTab = 0;
+    _isInitialized = false;
+    notifyListeners();
+
+    try {
+      final file = await _localFile;
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint("[CreationsManager] Error deleting local creations cache: $e");
+    }
+  }
 }

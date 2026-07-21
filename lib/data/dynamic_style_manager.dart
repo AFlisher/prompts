@@ -559,6 +559,53 @@ class DynamicStyleManager extends ChangeNotifier {
     }
   }
 
+  /// Wipes only the personalized "Recommended For You" state on sign-out.
+  /// Deliberately does NOT touch [categories]/[trendingStyles]/style caches -
+  /// those are the shared platform catalog, identical for every account, so
+  /// keeping them cached across a logout/login is not a privacy leak and
+  /// avoids an unnecessary refetch. [recommendedStyles] is different: it's
+  /// ranked server-side from *this* account's own favorite/creation history,
+  /// so leaving it populated would let the next account's Home screen render
+  /// Account A's personalized picks for a frame before the next fetch (which
+  /// only [_RecommendedSectionWidgetState.initState] triggers, not this
+  /// clear) overwrites it.
+  void clearPersonalizedState() {
+    _recommendedStyles = [];
+    _isRecommendedLoading = false;
+    _hasLoadedRecommended = false;
+    _activeRecommendedFetch = null;
+    notifyListeners();
+  }
+
+  /// Full wipe on sign-out: every category/style/trending cache (in-memory
+  /// and on-disk) plus everything [clearPersonalizedState] already covers.
+  /// A signed-out user lands on the Guest Home screen, which never reads
+  /// this manager - but the backend now also rejects categories/styles
+  /// requests without a valid JWT, so nothing here should survive a logout
+  /// to be shown (or silently reused) before the next account's own fetch.
+  Future<void> clear() async {
+    for (final cat in _categories) {
+      await _cacheService.clearCache('styles_cache_v3_${cat.id}');
+    }
+    await _cacheService.clearCache('categories_cache');
+
+    _categories = [];
+    _isInitialized = false;
+    _isLoading = false;
+    _error = null;
+    _loadingCategoryIds.clear();
+    _activeStyleFetches.clear();
+    _selectedCategoryFilterIds = {};
+
+    _trendingStyles = [];
+    _isTrendingLoading = false;
+    _hasLoadedTrending = false;
+    _activeTrendingFetch = null;
+
+    // Also notifies listeners.
+    clearPersonalizedState();
+  }
+
   // Preserve signatures to prevent compilation issues elsewhere
   Future<void> save() async {}
   Future<void> addCategory(String name) async {}

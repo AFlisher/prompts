@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import 'login_screen.dart';
+import 'guest_home_screen.dart';
 import 'main_shell.dart';
 
 class LandingScreen extends StatefulWidget {
@@ -46,13 +46,13 @@ class _LandingScreenState extends State<LandingScreen> {
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } else {
-      debugPrint("[LandingScreen] Auto-login failed or no session. Navigating to Login.");
+      debugPrint("[LandingScreen] Auto-login failed or no session. Navigating to Guest Home.");
       // Ensure we clear any stale tokens or cached session on failure
       await authService.signOut();
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
       );
     }
   }

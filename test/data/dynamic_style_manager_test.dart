@@ -61,4 +61,42 @@ void main() {
       expect(afterSecondLoad.hasLoadedStyles, isTrue);
     });
   });
+
+  group('DynamicStyleManager - full clear on sign-out', () {
+    test('clear() wipes categories/trending/recommended plus their on-disk caches', () async {
+      const categoryId = 'test-clear-cat';
+
+      SharedPreferences.setMockInitialValues({
+        'categories_cache': json.encode([
+          {'id': categoryId, 'name': 'Test Category'}
+        ]),
+        'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+        'styles_cache_v3_$categoryId': json.encode(<dynamic>[]),
+        'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      final manager = DynamicStyleManager();
+      await manager.init();
+      await manager.loadStylesForCategory(categoryId);
+      expect(manager.categories, isNotEmpty);
+
+      await manager.clear();
+
+      expect(manager.categories, isEmpty);
+      expect(manager.isInitialized, isFalse,
+          reason: 'must be false, not just categories empty, so the next '
+              "account's MainShell.init() actually re-fetches instead of "
+              'short-circuiting');
+      expect(manager.trendingStyles, isEmpty);
+      expect(manager.hasLoadedTrending, isFalse);
+      expect(manager.recommendedStyles, isEmpty);
+      expect(manager.hasLoadedRecommended, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('categories_cache'), isNull,
+          reason: 'a guest signed out to the Guest Home screen must never be '
+              'able to recover a stale cached catalog');
+      expect(prefs.getString('styles_cache_v3_$categoryId'), isNull);
+    });
+  });
 }

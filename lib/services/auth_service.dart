@@ -21,6 +21,20 @@ class AuthService {
 
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
+  /// Invoked at the end of every [signOut] - explicit (Profile screen's Sign
+  /// Out button), or an internal auto-signout after a failed token refresh
+  /// (see [_ensureValidSessionInternal]) or an unverified-email rejection
+  /// (LoginScreen). This class has no access to the ChangeNotifier managers
+  /// (CreditManager, CreationsManager, etc.) that hold the signed-in
+  /// account's credits/gallery/favorites/profile - they live above it in the
+  /// widget tree - so main.dart registers a single callback here once, at
+  /// startup, that clears all of them. Without this, only whichever call
+  /// site happened to remember to clear providers manually would do so,
+  /// and every other sign-out path (auto-signout on expiry in particular)
+  /// would leave the previous account's data in memory for the next login -
+  /// a cross-account privacy leak, not just a UI bug.
+  static VoidCallback? onSignedOut;
+
   String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
 
   User? get currentUser => Supabase.instance.client.auth.currentUser;
@@ -341,6 +355,15 @@ class AuthService {
       await Supabase.instance.client.auth.signOut();
       debugPrint("[AuthService] Supabase client signed out.");
     } catch (_) {}
+
+    // Runs even if the Supabase call above threw - the account-scoped
+    // providers must be cleared regardless of whether the remote session
+    // teardown itself succeeded.
+    try {
+      onSignedOut?.call();
+    } catch (e) {
+      debugPrint("[AuthService] onSignedOut callback failed: $e");
+    }
   }
 
   /// Polls verification status from custom backend

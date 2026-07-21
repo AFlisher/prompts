@@ -8,10 +8,11 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 class AdService {
   static String get _rewardedAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-6702560936975523/1997493396';
+      return kDebugMode
+          ? 'ca-app-pub-3940256099942544/5224354917' // Test
+          : 'ca-app-pub-6702560936975523/1997493396'; // Production
     }
 
-    // Replace with your own iOS rewarded ad unit ID before publishing on iOS.
     if (Platform.isIOS) {
       return 'ca-app-pub-3940256099942544/1712485313';
     }

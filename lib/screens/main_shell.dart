@@ -8,7 +8,7 @@ import 'home_screen.dart';
 import 'creations_screen.dart';
 import 'favorites_screen.dart';
 import 'profile_screen.dart';
-import 'login_screen.dart';
+import 'guest_home_screen.dart';
 import '../services/auth_service.dart';
 import '../services/theme_preference_service.dart';
 import '../services/haptic_service.dart';
@@ -89,8 +89,22 @@ class _MainShellState extends State<MainShell> {
       if (mounted) {
         try {
           CreationsProvider.read(context).setTab(0);
+          // Every one of these is idempotent/guarded (see each manager's
+          // own isInitialized-style check), so calling them unconditionally
+          // on every MainShell mount is cheap when a session was merely
+          // restored, and is exactly what's needed to repopulate a
+          // just-logged-in account's own data after AuthService.onSignedOut
+          // cleared everything on the way out of the previous session -
+          // MainShell is reached on every successful login/session-restore,
+          // making it the natural counterpart to that clear.
+          FavoritesProvider.read(context).init();
+          StyleProvider.read(context).init();
+          CreditProvider.read(context).init();
+          CreationsProvider.read(context).init();
+          ProfileProvider.read(context).loadProfile();
+          NotificationsProvider.read(context).init();
         } catch (e) {
-          debugPrint("Error resetting creations tab on MainShell init: $e");
+          debugPrint("Error initializing managers on MainShell mount: $e");
         }
       }
     });
@@ -134,7 +148,7 @@ class _MainShellState extends State<MainShell> {
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
             (route) => false,
           );
         }
