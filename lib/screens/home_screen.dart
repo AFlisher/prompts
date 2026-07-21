@@ -112,9 +112,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           color: AppTheme.accentPurple,
           backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.white,
           onRefresh: () async {
+            // .read(), not .of(): this is the only place HomeScreen touches
+            // CreditManager at all (AppHeader renders the balance via its
+            // own, separately-scoped subscription) - .of() here would
+            // subscribe this whole screen (search, filters, every category/
+            // trending/recommended section) to rebuild on every credit
+            // change anywhere in the app (every generation, every ad
+            // reward), for a value this screen never actually renders.
             await Future.wait([
               styleManager.fetchFromApi(),
-              CreditProvider.of(context).fetchWallet(),
+              CreditProvider.read(context).fetchWallet(),
             ]);
             HapticService.medium();
           },
@@ -321,58 +328,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // category with no styles loaded yet (LRU eviction, in-flight lazy
     // load) must still render its header.
     if (styles.isNotEmpty && filtered.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
-          child: _SectionHeader(
-            title: title,
-            textColor: textColor,
-            onSeeAll: () => _openAllStyles(title, styles),
-          ),
-        ),
-        if (isLoading && filtered.isEmpty)
-          const StyleRowSkeleton()
-        else if (filtered.isNotEmpty)
-          SizedBox(
-            height: 250,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 26),
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              // The row's height (250) is only ~2px taller than a card's own
-              // content (200 image + 8 gap + 40 title = 248), leaving no
-              // room for StyleCard's shadow to paint before ListView's
-              // default hard-edge viewport clip cuts it off. The shadow
-              // itself never affects layout/scroll extent either way, so
-              // disabling the clip here just lets it bleed a few px past
-              // the row's nominal bounds instead of being invisibly clipped.
-              clipBehavior: Clip.none,
-              itemBuilder: (context, index) {
-                final style = filtered[index];
-                // Namespaced by section title (not just style id): a
-                // trending style renders in both this row and its own
-                // category row at once, and Hero requires unique tags
-                // among simultaneously-mounted widgets in the same route.
-                final heroTag = 'home_${title}_${style.id}';
-                return SizedBox(
-                  width: 135,
-                  child: StyleCard(
-                    style: style,
-                    isDarkMode: isDark,
-                    onTap: () => _onStyleTapped(style, heroTag),
-                    cardWidth: 135,
-                    heroTag: heroTag,
-                  ),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(width: 20),
-              itemCount: filtered.length,
-              cacheExtent: 1000,
+    // Isolates each section (a Category row, Trending, or Recommended For
+    // You) as its own compositing layer. Each is backed by its own
+    // independent StatefulWidget/lazy fetch (_CategorySectionWidget,
+    // _TrendingSectionWidgetState, _RecommendedSectionWidgetState), so
+    // without this, one section finishing its own load could force nearby
+    // sections' already-settled layers to repaint too.
+    return RepaintBoundary(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 24, 26, 12),
+            child: _SectionHeader(
+              title: title,
+              textColor: textColor,
+              onSeeAll: () => _openAllStyles(title, styles),
             ),
           ),
-      ],
+          if (isLoading && filtered.isEmpty)
+            const StyleRowSkeleton()
+          else if (filtered.isNotEmpty)
+            SizedBox(
+              height: 250,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 26),
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                // The row's height (250) is only ~2px taller than a card's own
+                // content (200 image + 8 gap + 40 title = 248), leaving no
+                // room for StyleCard's shadow to paint before ListView's
+                // default hard-edge viewport clip cuts it off. The shadow
+                // itself never affects layout/scroll extent either way, so
+                // disabling the clip here just lets it bleed a few px past
+                // the row's nominal bounds instead of being invisibly clipped.
+                clipBehavior: Clip.none,
+                itemBuilder: (context, index) {
+                  final style = filtered[index];
+                  // Namespaced by section title (not just style id): a
+                  // trending style renders in both this row and its own
+                  // category row at once, and Hero requires unique tags
+                  // among simultaneously-mounted widgets in the same route.
+                  final heroTag = 'home_${title}_${style.id}';
+                  return SizedBox(
+                    width: 135,
+                    child: StyleCard(
+                      style: style,
+                      isDarkMode: isDark,
+                      onTap: () => _onStyleTapped(style, heroTag),
+                      cardWidth: 135,
+                      heroTag: heroTag,
+                    ),
+                  );
+                },
+                separatorBuilder: (_, __) => const SizedBox(width: 20),
+                itemCount: filtered.length,
+                cacheExtent: 1000,
+              ),
+            ),
+        ],
+      ),
     );
   }
 

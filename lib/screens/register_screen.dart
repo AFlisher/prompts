@@ -121,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Sign up to start generating AI styled photos',
                   style: TextStyle(color: AppTheme.mediumGray, fontSize: 14, height: 1.4),
                 ),
@@ -137,8 +137,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'Your Name',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.person_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -161,8 +161,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'you@example.com',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -186,8 +186,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: '••••••••',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: AppTheme.mediumGray, size: 20),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -219,13 +219,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     Expanded(
                       child: RichText(
-                        text: TextSpan(
+                        text: const TextSpan(
                           style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
                           children: [
-                            const TextSpan(text: 'I agree to the '),
-                            TextSpan(text: 'Terms & Conditions', style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
-                            const TextSpan(text: ' and '),
-                            TextSpan(text: 'Privacy Policy', style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
+                            TextSpan(text: 'I agree to the '),
+                            TextSpan(text: 'Terms & Conditions', style: TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
+                            TextSpan(text: ' and '),
+                            TextSpan(text: 'Privacy Policy', style: TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -268,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Already have an account? ', style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
+                    const Text('Already have an account? ', style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Text('Sign In', style: TextStyle(color: AppTheme.accentPurple, fontSize: 14, fontWeight: FontWeight.bold)),

@@ -134,7 +134,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Text(
               'Added $creditsToAdded credits to your balance successfully.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppTheme.mediumGray,
                 fontSize: 14,
               ),
@@ -560,7 +560,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   const SizedBox(height: 4),
                   Text(
                     desc,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppTheme.mediumGray,
                       fontSize: 12,
                     ),

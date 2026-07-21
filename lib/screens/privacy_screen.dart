@@ -132,8 +132,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     'DATA PREFERENCES',
                     style: TextStyle(
@@ -236,7 +236,7 @@ class _LinkTile extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.mediumGray,
               size: 18,

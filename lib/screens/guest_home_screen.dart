@@ -43,19 +43,19 @@ class GuestHomeScreen extends StatelessWidget {
               const SizedBox(
                 width: 120,
                 height: 104,
-                child: CustomPaint(painter: const _LogoPainter(color: Colors.white)),
+                child: CustomPaint(painter: _LogoPainter(color: Colors.white)),
               ),
               const SizedBox(height: 24),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.auto_awesome_rounded,
                     color: AppTheme.accentPink,
                     size: 30,
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     'StyliAI',
                     style: TextStyle(
                       color: Colors.white,

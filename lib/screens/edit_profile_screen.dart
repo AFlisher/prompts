@@ -312,7 +312,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Center(
+                const Center(
                   child: Text(
                     'Tap to change photo',
                     style: TextStyle(color: AppTheme.mediumGray, fontSize: 12),

@@ -168,8 +168,14 @@ class _UploadScreenState extends State<UploadScreen> {
       }
     }
 
-    final creditManager = CreditProvider.of(context);
-    
+    // .read(), not .of() - this whole method only ever needs the manager
+    // reference to call fetchWallet()/read its current balance once; this
+    // screen never renders CreditManager data, so .of() here would only
+    // subscribe the whole form (image picker, dynamic fields) to rebuild -
+    // and lose in-progress input focus - every time credits change
+    // elsewhere (e.g. an ad reward finishing) while this screen is open.
+    final creditManager = CreditProvider.read(context);
+
     setState(() {
       _isCheckingBalance = true;
     });
@@ -257,8 +263,9 @@ class _UploadScreenState extends State<UploadScreen> {
         });
         HapticService.heavy();
 
-        // Add to creations
-        final creationsManager = CreationsProvider.of(context);
+        // Add to creations. .read() - same reasoning as creditManager above:
+        // this screen never renders CreationsManager data, only writes to it.
+        final creationsManager = CreationsProvider.read(context);
         creationsManager.addCreation(
           CreationItem(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -704,7 +711,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: ElevatedButton(
                               onPressed: () {
                                 HapticService.medium();
-                                CreationsProvider.of(context).setTab(1); // Set active tab to creations
+                                CreationsProvider.read(context).setTab(1); // Set active tab to creations
                                 Navigator.popUntil(context, (route) => route.isFirst);
                               },
                               style: ElevatedButton.styleFrom(
@@ -1163,7 +1170,7 @@ class _CropPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = AppTheme.radiusLarge;
+    const radius = AppTheme.radiusLarge;
     final emptyFill = isDark
         ? AppTheme.darkCard
         : AppTheme.accentPurple.withValues(alpha: 0.045);
@@ -1235,7 +1242,7 @@ class _CropPreview extends StatelessWidget {
                     ),
                     if (!compact) ...[
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'Tap to choose from your gallery',
                         style: TextStyle(
                           color: AppTheme.mediumGray,
@@ -1491,7 +1498,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
-    final secondaryTextColor = AppTheme.mediumGray;
+    const secondaryTextColor = AppTheme.mediumGray;
 
     return Column(
           mainAxisSize: MainAxisSize.min,
@@ -1527,7 +1534,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
             Text(
               'You need $requiredCredits ${requiredCredits == 1 ? 'credit' : 'credits'} to generate this image.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: secondaryTextColor,
                 fontSize: 14,
                 height: 1.4,
@@ -1576,7 +1583,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
                 HapticService.light();
                 Navigator.pop(context);
               },
-              child: Text(
+              child: const Text(
                 'Cancel',
                 style: TextStyle(
                   color: secondaryTextColor,

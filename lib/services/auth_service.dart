@@ -311,7 +311,7 @@ class AuthService {
     final accessToken = await _readToken(_accessTokenKey);
 
     if (accessToken == null) {
-      throw AuthException("User is not authenticated.");
+      throw const AuthException("User is not authenticated.");
     }
 
     final response = await http.post(

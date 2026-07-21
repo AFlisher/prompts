@@ -110,7 +110,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Styles you heart will show up here',
                         style: TextStyle(
                           color: AppTheme.mediumGray,
@@ -124,7 +124,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             else
               Expanded(
                 child: GridView.builder(
-                  padding: EdgeInsets.fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                     20,
                     16,
                     20,

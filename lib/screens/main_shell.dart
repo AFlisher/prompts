@@ -272,7 +272,7 @@ class _GlassNavBarState extends State<_GlassNavBar> {
   @override
   Widget build(BuildContext context) {
     final indices = [0, 1, 2, 3];
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(

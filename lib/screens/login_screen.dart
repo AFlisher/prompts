@@ -156,14 +156,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
-        throw AuthException('Google sign-in failed: could not obtain ID token.');
+        throw const AuthException('Google sign-in failed: could not obtain ID token.');
       }
 
       final response = await _authService.signInWithGoogle(idToken);
       final user = response.user;
 
       if (user == null) {
-        throw AuthException('Google sign-in failed: no user returned.');
+        throw const AuthException('Google sign-in failed: no user returned.');
       }
 
       if (!mounted) return;
@@ -221,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    const Text(
                       'Sign in to continue your creative journey',
                       style: TextStyle(color: AppTheme.mediumGray, fontSize: 14),
                     ),
@@ -238,8 +238,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         filled: true,
                         fillColor: boxBg,
                         hintText: 'you@example.com',
-                        hintStyle: TextStyle(color: AppTheme.mediumGray),
-                        prefixIcon: Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                        hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                        prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -263,8 +263,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         filled: true,
                         fillColor: boxBg,
                         hintText: '••••••••',
-                        hintStyle: TextStyle(color: AppTheme.mediumGray),
-                        prefixIcon: Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                        hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
                         suffixIcon: IconButton(
                           icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: AppTheme.mediumGray, size: 20),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -340,8 +340,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     Row(
                       children: [
                         Expanded(child: Divider(color: isDark ? Colors.white12 : Colors.black12)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
                           child: Text('or', style: TextStyle(color: AppTheme.mediumGray, fontSize: 13)),
                         ),
                         Expanded(child: Divider(color: isDark ? Colors.white12 : Colors.black12)),
@@ -374,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Don't have an account? ", style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
+                        const Text("Don't have an account? ", style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
                         GestureDetector(
                           onTap: _navigateToRegister,
                           child: const Text(

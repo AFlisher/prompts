@@ -110,7 +110,7 @@ void main() {
   group('PaywallScreen (Buy Credits)', () {
     testWidgets('renders without crashing', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -119,7 +119,7 @@ void main() {
 
     testWidgets('renders Starter credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -128,7 +128,7 @@ void main() {
 
     testWidgets('renders Pro credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -137,7 +137,7 @@ void main() {
 
     testWidgets('renders Max credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -146,7 +146,7 @@ void main() {
 
     testWidgets('renders in light mode without overflow', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: false, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: false, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -165,7 +165,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+          const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
         await tester.pump(); // let the fake pack fetch resolve
@@ -215,7 +215,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+          const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
         await tester.pump(); // let the fake pack fetch resolve

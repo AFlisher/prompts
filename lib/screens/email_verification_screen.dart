@@ -171,7 +171,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         Text(
                           'We\'ve sent a verification link to:\n${widget.email}',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppTheme.mediumGray,
                             fontSize: 15,
                             height: 1.4,
@@ -187,7 +187,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                         
                         const SizedBox(height: 30),
                         
-                        Text(
+                        const Text(
                           'Waiting for verification link detection...',
                           textAlign: TextAlign.center,
                           style: TextStyle(

@@ -214,8 +214,8 @@ void main() {
 
   // ── EMAIL VERIFICATION SCREEN ─────────────────────────────────────────────
   group('EmailVerificationScreen', () {
-    Widget buildVerification() => MaterialApp(
-          home: const EmailVerificationScreen(email: 'ahmed@test.com'),
+    Widget buildVerification() => const MaterialApp(
+          home: EmailVerificationScreen(email: 'ahmed@test.com'),
         );
 
     testWidgets('renders Verify Email title', (tester) async {

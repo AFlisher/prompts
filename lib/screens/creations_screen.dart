@@ -70,7 +70,7 @@ class MyCreationsScreen extends StatelessWidget {
               color: isDarkMode ? AppTheme.darkCard : AppTheme.lightGray,
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.auto_awesome_mosaic_outlined,
               color: AppTheme.mediumGray,
               size: 36,
@@ -86,7 +86,7 @@ class MyCreationsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Your styled photos will appear here',
             style: TextStyle(
               color: AppTheme.mediumGray,
@@ -138,7 +138,7 @@ class MyCreationsScreen extends StatelessWidget {
     Color textColor,
   ) {
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         24,
         8,
         24,
@@ -498,7 +498,7 @@ class MyCreationsScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.ios_share_rounded),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),

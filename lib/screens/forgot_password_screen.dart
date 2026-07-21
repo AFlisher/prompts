@@ -122,7 +122,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     const isDark = true;
     const bgColor = AppTheme.black;
     const textColor = AppTheme.white;
-    final boxBg = AppTheme.darkCard;
+    const boxBg = AppTheme.darkCard;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -173,8 +173,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'you@example.com',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

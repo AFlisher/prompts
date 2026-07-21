@@ -103,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (profileManager.isLoading) {
       return Scaffold(
         backgroundColor: bgColor,
-        body: Center(
+        body: const Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
           ),
@@ -160,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             20,
             24,
             20,
@@ -223,15 +223,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    // Isolated into its own widget (see _CreditsBioLine below)
+                    // so a credits change - every generation, every ad reward -
+                    // only rebuilds this one line, not the whole Profile screen.
+                    _CreditsBioLine(
                       // The saved Bio (editable in Edit Profile), falling
                       // back to the previous static tagline when unset.
-                      'Credits: ${CreditProvider.of(context).credits} · ✨ ${(profile?.bio ?? '').trim().isNotEmpty ? profile!.bio!.trim() : 'AI Style Explorer'}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.mediumGray,
-                        fontSize: 13,
-                      ),
+                      bio: (profile?.bio ?? '').trim().isNotEmpty
+                          ? profile!.bio!.trim()
+                          : 'AI Style Explorer',
                     ),
                   ],
                 ),
@@ -313,16 +313,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: _openWalletHistory,
               ),
               const SizedBox(height: 10),
-              _SettingsTile(
-                icon: Icons.notifications_none_rounded,
-                label: 'Notifications',
+              // Isolated into its own widget (see _NotificationsSettingsTile
+              // below) so an unread-count change only rebuilds this one tile,
+              // not the whole Profile screen.
+              _NotificationsSettingsTile(
                 isDark: _isDark,
                 textColor: textColor,
                 surface: surfaceColor,
                 onTap: _openNotifications,
-                // .of subscribes this screen to the manager, so the badge
-                // clears itself the moment notifications are read.
-                badgeCount: NotificationsProvider.of(context).unreadCount,
               ),
               const SizedBox(height: 10),
               _SettingsTile(
@@ -362,7 +360,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     children: [
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Contact us at support@styliai.app',
                         style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
                       ),
@@ -470,6 +468,59 @@ class _StatTile extends StatelessWidget {
   }
 }
 
+/// Reads CreditManager only here - not at the top of ProfileScreen.build() -
+/// so a credits change (every generation, every ad reward) rebuilds just this
+/// Text, not the avatar/stats row/every settings tile above and below it.
+class _CreditsBioLine extends StatelessWidget {
+  final String bio;
+
+  const _CreditsBioLine({required this.bio});
+
+  @override
+  Widget build(BuildContext context) {
+    final credits = CreditProvider.of(context).credits;
+    return Text(
+      'Credits: $credits · ✨ $bio',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: AppTheme.mediumGray,
+        fontSize: 13,
+      ),
+    );
+  }
+}
+
+/// Reads NotificationsManager only here - not at the top of
+/// ProfileScreen.build() - so an unread-count change (a new notification
+/// arriving, or the badge clearing after the user opens Notifications)
+/// rebuilds just this tile, not the rest of the Profile screen.
+class _NotificationsSettingsTile extends StatelessWidget {
+  final bool isDark;
+  final Color textColor;
+  final Color surface;
+  final VoidCallback? onTap;
+
+  const _NotificationsSettingsTile({
+    required this.isDark,
+    required this.textColor,
+    required this.surface,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsTile(
+      icon: Icons.notifications_none_rounded,
+      label: 'Notifications',
+      isDark: isDark,
+      textColor: textColor,
+      surface: surface,
+      onTap: onTap,
+      badgeCount: NotificationsProvider.of(context).unreadCount,
+    );
+  }
+}
+
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -532,7 +583,7 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.mediumGray,
               size: 18,
