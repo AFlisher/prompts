@@ -770,12 +770,4 @@ class DynamicStyleManager extends ChangeNotifier {
     recommended.dispose();
     super.dispose();
   }
-
-  // Preserve signatures to prevent compilation issues elsewhere
-  Future<void> save() async {}
-  Future<void> addCategory(String name) async {}
-  Future<void> deleteCategory(String categoryId) async {}
-  Future<void> addStyle(String categoryId, StyleModel style) async {}
-  Future<void> deleteStyle(String categoryId, String styleId) async {}
-  Future<void> toggleTrending(String categoryId, String styleId) async {}
 }

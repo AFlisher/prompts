@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'main_shell.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 

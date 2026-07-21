@@ -4,7 +4,6 @@ import '../theme/app_theme.dart';
 import 'main_shell.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 

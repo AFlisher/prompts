@@ -119,7 +119,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const isDark = true;
     const bgColor = AppTheme.black;
     const textColor = AppTheme.white;
     const boxBg = AppTheme.darkCard;
