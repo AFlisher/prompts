@@ -136,6 +136,8 @@ class CategoryCatalogNotifier extends ChangeNotifier {
     }
   }
 
+  Future<void>? _activeCategoriesFetch;
+
   /// Fetches Categories from backend (does not fetch styles).
   ///
   /// [forceRefresh] bypasses the 24h cache TTL entirely - used for explicit
@@ -143,7 +145,34 @@ class CategoryCatalogNotifier extends ChangeNotifier {
   /// can never mask categories added/removed on the backend when the user
   /// has explicitly asked for fresh data. Normal app-startup calls leave
   /// this false and keep the existing cache behavior unchanged.
-  Future<void> fetchCategories({bool forceRefresh = false}) async {
+  ///
+  /// Plain (non-forced) calls are deduplicated: [init] and Home's own
+  /// mount-time check can both trigger this within the same cold-start
+  /// window, and without this they'd fire two concurrent network requests
+  /// for the same data. A forceRefresh call always runs fresh instead of
+  /// reusing whatever plain fetch happens to already be in flight -
+  /// pull-to-refresh must never silently resolve to a cached/in-flight
+  /// result.
+  Future<void> fetchCategories({bool forceRefresh = false}) {
+    if (!forceRefresh) {
+      final active = _activeCategoriesFetch;
+      if (active != null) {
+        debugPrint("[CategoryCatalogNotifier] Deduplicating fetchCategories(): awaiting active future.");
+        return active;
+      }
+    }
+
+    final fetch = _fetchCategoriesInternal(forceRefresh: forceRefresh);
+    if (forceRefresh) return fetch;
+
+    final tracked = fetch.whenComplete(() {
+      _activeCategoriesFetch = null;
+    });
+    _activeCategoriesFetch = tracked;
+    return tracked;
+  }
+
+  Future<void> _fetchCategoriesInternal({bool forceRefresh = false}) async {
     final hasCachedCategories = _categories.isNotEmpty;
     if (!hasCachedCategories) {
       _isLoading = true;

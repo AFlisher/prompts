@@ -24,8 +24,12 @@ import 'services/haptic_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await ThemePreferenceService.load();
-  await HapticService.load();
+  // Two independent SharedPreferences-backed reads - neither depends on the
+  // other's result, so load them concurrently instead of one after another.
+  await Future.wait([
+    ThemePreferenceService.load(),
+    HapticService.load(),
+  ]);
 
   try {
     // تحميل ملف .env

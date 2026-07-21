@@ -258,8 +258,14 @@ class AuthService {
 
   Future<bool> _ensureValidSessionInternal() async {
     debugPrint("[AuthService] Calling ensureValidSession()...");
-    final accessToken = await _readToken(_accessTokenKey);
-    final refreshToken = await _readToken(_refreshTokenKey);
+    // Two independent keys in secure storage - no shared state between them,
+    // so read both concurrently instead of one after another.
+    final tokens = await Future.wait([
+      _readToken(_accessTokenKey),
+      _readToken(_refreshTokenKey),
+    ]);
+    final accessToken = tokens[0];
+    final refreshToken = tokens[1];
 
     debugPrint("[AuthService] Token Load Complete. Loaded custom_access_token exists: ${accessToken != null}, custom_refresh_token exists: ${refreshToken != null}");
 

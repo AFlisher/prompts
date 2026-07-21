@@ -13,7 +13,13 @@ class ProfileManager extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   Future<void> loadProfile({bool force = false}) async {
-    if (_profile != null && !force) return;
+    // Guards against both "already loaded" and "already in flight" - without
+    // the latter, two near-simultaneous callers (e.g. MainShell's startup
+    // init and ProfileScreen's own mount-time call) could each see _profile
+    // still null and both fire a network request. `force` (the profile
+    // error state's explicit Retry button) always bypasses this and runs
+    // fresh regardless.
+    if (!force && (_profile != null || _isLoading)) return;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
