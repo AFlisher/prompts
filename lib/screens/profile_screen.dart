@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_button_styles.dart';
 import '../widgets/app_icon_dialog.dart';
@@ -30,6 +32,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late bool _isDark;
   final AuthService _authService = AuthService();
 
+  // Fetched once up front (well before the user could reach the About
+  // dialog) so showAboutDialog's applicationVersion always reflects the
+  // real installed build instead of a hardcoded string that drifts from
+  // pubspec.yaml on every version bump.
+  String? _appVersion;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +48,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // load ran while signed out, so the badge is correct on first open.
       NotificationsProvider.read(context).init();
     });
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = info.version);
+    });
+  }
+
+  Future<void> _emailSupport() async {
+    HapticService.light();
+    final uri = Uri(scheme: 'mailto', path: 'support@styliai.app');
+    await launchUrl(uri);
   }
 
   void _openEditProfile() {
@@ -343,7 +360,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   showAboutDialog(
                     context: context,
                     applicationName: 'StyliAI',
-                    applicationVersion: '1.0.0',
+                    applicationVersion: _appVersion ?? '',
                     applicationIcon: Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
@@ -360,9 +377,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     children: [
                       const SizedBox(height: 8),
-                      const Text(
-                        'Contact us at support@styliai.app',
-                        style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                      GestureDetector(
+                        onTap: _emailSupport,
+                        child: const Text(
+                          'Contact us at support@styliai.app',
+                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                        ),
                       ),
                     ],
                   );

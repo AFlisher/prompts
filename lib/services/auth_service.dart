@@ -100,7 +100,7 @@ class AuthService {
     required String password,
     required String fullName,
   }) async {
-    debugPrint("[AuthService] Attempting registration to backend for email: $email");
+    debugPrint("[AuthService] Attempting registration to backend...");
     final response = await http.post(
       Uri.parse('$_backendUrl/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
@@ -129,7 +129,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    debugPrint("[AuthService] Attempting login to backend for email: $email");
+    debugPrint("[AuthService] Attempting login to backend...");
     final response = await http.post(
       Uri.parse('$_backendUrl/api/auth/login'),
       headers: {'Content-Type': 'application/json'},
@@ -423,7 +423,7 @@ class AuthService {
 
   /// Requests a password reset link
   Future<void> forgotPassword(String email) async {
-    debugPrint("[AuthService] Requesting forgot password reset link for: $email");
+    debugPrint("[AuthService] Requesting forgot password reset link...");
     final response = await http.post(
       Uri.parse('$_backendUrl/api/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
@@ -444,7 +444,7 @@ class AuthService {
 
   /// Resends the email verification link
   Future<void> resendVerification(String email) async {
-    debugPrint("[AuthService] Requesting email verification link resend for: $email");
+    debugPrint("[AuthService] Requesting email verification link resend...");
     final response = await http.post(
       Uri.parse('$_backendUrl/api/auth/resend-verification'),
       headers: {'Content-Type': 'application/json'},
@@ -516,7 +516,7 @@ class AuthService {
       });
 
       final authRes = await Supabase.instance.client.auth.recoverSession(sessionJson);
-      debugPrint("[AuthService] Session successfully injected locally. Current user: ${authRes.user?.email}");
+      debugPrint("[AuthService] Session successfully injected locally.");
       return authRes;
     } catch (e) {
       debugPrint("[AuthService] Error in _injectSession: $e");

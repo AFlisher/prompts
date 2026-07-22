@@ -1,6 +1,8 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'email_verification_screen.dart';
+import 'legal_document_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
@@ -23,12 +25,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   final AuthService _authService = AuthService();
 
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
   @override
   void initState() {
     super.initState();
     if (widget.prefilledEmail != null) {
       _emailController.text = widget.prefilledEmail!;
     }
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalDocument(
+            title: 'Terms of Service',
+            sections: LegalDocuments.termsOfService,
+          );
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalDocument(
+            title: 'Privacy Policy',
+            sections: LegalDocuments.privacyPolicy,
+          );
   }
 
   @override
@@ -36,7 +51,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
+  }
+
+  void _openLegalDocument({
+    required String title,
+    required List<LegalSection> sections,
+  }) {
+    HapticService.light();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LegalDocumentScreen(
+          isDarkMode: isDark,
+          title: title,
+          lastUpdated: LegalDocuments.lastUpdated,
+          sections: sections,
+        ),
+      ),
+    );
   }
 
   Future<void> _handleRegister() async {
@@ -221,13 +257,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     Expanded(
                       child: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                        text: TextSpan(
+                          style: const TextStyle(color: AppTheme.mediumGray, fontSize: 13),
                           children: [
-                            TextSpan(text: 'I agree to the '),
-                            TextSpan(text: 'Terms & Conditions', style: TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
-                            TextSpan(text: ' and '),
-                            TextSpan(text: 'Privacy Policy', style: TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
+                            const TextSpan(text: 'I agree to the '),
+                            TextSpan(
+                              text: 'Terms & Conditions',
+                              style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold),
+                              recognizer: _termsRecognizer,
+                            ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold),
+                              recognizer: _privacyRecognizer,
+                            ),
                           ],
                         ),
                       ),

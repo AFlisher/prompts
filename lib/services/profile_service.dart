@@ -25,12 +25,18 @@ class ProfileService {
     await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
-      // Fallback profile for widget testing when Supabase is not initialized
-      return Profile(
-        id: 'test-id',
-        fullName: 'Ahmed',
-        email: 'ahmed@example.com',
-      );
+      // Only ever used under `flutter test`, where no real Supabase instance
+      // exists to talk to - a production build must never silently show a
+      // fake account instead of a real error when the backend is
+      // unreachable.
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return Profile(
+          id: 'test-id',
+          fullName: 'Ahmed',
+          email: 'ahmed@example.com',
+        );
+      }
+      throw Exception('Profile service is unavailable.');
     }
 
     final user = currentUser;
@@ -49,7 +55,7 @@ class ProfileService {
         );
 
     final profile = Profile.fromJson(response);
-    debugPrint("[ProfileService] Loaded profile: email=${profile.email}, provider=${profile.provider}");
+    debugPrint("[ProfileService] Loaded profile: provider=${profile.provider}");
     return profile;
   }
 
@@ -57,13 +63,16 @@ class ProfileService {
     await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
-      // Mock upload for tests
-      return Profile(
-        id: 'test-id',
-        fullName: 'Ahmed',
-        email: 'ahmed@example.com',
-        avatarUrl: 'https://example.com/mock-avatar.jpg',
-      );
+      // Only ever used under `flutter test` - see getProfile().
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return Profile(
+          id: 'test-id',
+          fullName: 'Ahmed',
+          email: 'ahmed@example.com',
+          avatarUrl: 'https://example.com/mock-avatar.jpg',
+        );
+      }
+      throw Exception('Profile service is unavailable.');
     }
 
     final user = currentUser;
@@ -86,12 +95,12 @@ class ProfileService {
         final tempFile = File('${tempDir.path}/${user.id}.jpg');
         await tempFile.writeAsBytes(jpegBytes);
         finalUploadFile = tempFile;
-        print("Success: Image explicitly converted to JPEG format. Path: ${tempFile.path}");
+        debugPrint("[ProfileService] Image explicitly converted to JPEG format.");
       } else {
-        print("Warning: Could not decode picked image. Proceeding with original file.");
+        debugPrint("[ProfileService] Could not decode picked image. Proceeding with original file.");
       }
     } catch (e) {
-      print("Warning: Image conversion failed with error: $e. Proceeding with original file.");
+      debugPrint("[ProfileService] Image conversion failed with error: $e. Proceeding with original file.");
     }
 
     // Upload with upsert (overwrite enabled) and content type explicitly set to image/jpeg
@@ -144,14 +153,18 @@ class ProfileService {
     await AuthService().ensureValidSession();
     final client = _client;
     if (client == null) {
-      return Profile(
-        id: 'test-id',
-        fullName: fullName ?? 'Ahmed',
-        email: 'ahmed@example.com',
-        avatarUrl: avatarUrl,
-        bio: bio,
-        personalizationEnabled: personalizationEnabled ?? true,
-      );
+      // Only ever used under `flutter test` - see getProfile().
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return Profile(
+          id: 'test-id',
+          fullName: fullName ?? 'Ahmed',
+          email: 'ahmed@example.com',
+          avatarUrl: avatarUrl,
+          bio: bio,
+          personalizationEnabled: personalizationEnabled ?? true,
+        );
+      }
+      throw Exception('Profile service is unavailable.');
     }
 
     final user = currentUser;

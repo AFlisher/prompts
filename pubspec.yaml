@@ -27,6 +27,8 @@ dependencies:
   google_mobile_ads: ^9.0.0
   flutter_displaymode: ^0.7.0
   share_plus: ^13.2.1
+  url_launcher: ^6.3.2
+  package_info_plus: ^10.2.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
