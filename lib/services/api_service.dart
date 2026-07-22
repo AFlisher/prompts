@@ -301,8 +301,17 @@ class ApiService {
   /// as an array (a single file is just an array of one).
   ///
   /// Returns both the full-resolution original and its server-generated
-  /// browsing thumbnail (null if thumbnail generation failed server-side).
-  Future<({String imageUrl, String? thumbnailUrl})> generateStyleImage(
+  /// browsing thumbnail (null if thumbnail generation failed server-side),
+  /// plus generationId/categoryId/generationTimeMs - additive fields the
+  /// caller round-trips back on the post-generation feedback submission
+  /// (POST /api/feedback).
+  Future<({
+    String imageUrl,
+    String? thumbnailUrl,
+    String? generationId,
+    String? categoryId,
+    int? generationTimeMs,
+  })> generateStyleImage(
     List<String> imagePaths,
     String styleId, {
     Map<String, dynamic>? fieldValues,
@@ -347,6 +356,9 @@ class ApiService {
     return (
       imageUrl: jsonMap['generatedImageUrl'] as String,
       thumbnailUrl: jsonMap['thumbnailUrl'] as String?,
+      generationId: jsonMap['generationId'] as String?,
+      categoryId: jsonMap['categoryId'] as String?,
+      generationTimeMs: jsonMap['generationTimeMs'] as int?,
     );
   }
 

@@ -4,6 +4,7 @@ import '../widgets/press_scale.dart';
 import '../main.dart';
 import '../services/profile_service.dart';
 import '../services/haptic_service.dart';
+import '../services/feedback_prompt_service.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/status_bar_style.dart';
 import 'legal_document_screen.dart';
@@ -21,6 +22,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   late bool _isDark;
   bool _personalizationEnabled = true;
   bool _hapticFeedbackEnabled = HapticService.enabled;
+  bool _askForRatingEnabled = FeedbackPromptService.askEnabled;
   final _profileService = ProfileService();
 
   @override
@@ -37,6 +39,12 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     // Fires only if the toggle just turned ON (setEnabled updates the flag
     // synchronously first), giving immediate confirmation without needing a
     // special case for the off-state.
+    HapticService.selection();
+  }
+
+  void _onAskForRatingChanged(bool value) {
+    setState(() => _askForRatingEnabled = value);
+    FeedbackPromptService.setAskEnabled(value);
     HapticService.selection();
   }
 
@@ -165,6 +173,30 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   surfaceColor: surfaceColor,
                   textColor: textColor,
                   onChanged: _onHapticFeedbackChanged,
+                ),
+                const SizedBox(height: 24),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'FEEDBACK',
+                    style: TextStyle(
+                      color: AppTheme.mediumGray,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ToggleTile(
+                  icon: Icons.star_rounded,
+                  label: 'Ask me to rate generated images',
+                  subtitle: 'Occasionally prompt for feedback after a generation',
+                  value: _askForRatingEnabled,
+                  isDarkMode: _isDark,
+                  surfaceColor: surfaceColor,
+                  textColor: textColor,
+                  onChanged: _onAskForRatingChanged,
                 ),
               ],
             ),

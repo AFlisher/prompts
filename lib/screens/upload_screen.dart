@@ -26,6 +26,9 @@ import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
 import '../widgets/status_bar_style.dart';
+import '../widgets/generation_feedback_sheet.dart';
+import '../services/feedback_prompt_service.dart';
+import '../services/feedback_service.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -279,6 +282,15 @@ class _UploadScreenState extends State<UploadScreen> {
             createdAt: DateTime.now(),
           ),
         );
+
+        // Fire-and-forget: never block the "Generation Complete!" panel on
+        // the feedback prompt. Decides on its own (smart-trigger cadence +
+        // the Settings toggle) whether to actually show anything.
+        _maybeShowFeedbackSheet(
+          generationId: result.generationId,
+          categoryId: result.categoryId,
+          generationTimeMs: result.generationTimeMs,
+        );
       }
     } catch (e) {
       debugPrint("[Generation] API Error: $e");
@@ -356,6 +368,45 @@ class _UploadScreenState extends State<UploadScreen> {
             );
           }
         }
+      }
+    }
+  }
+
+  /// Smart-trigger feedback prompt: never after generation #1 or #2, on #3,
+  /// then every 10th generation after that - see FeedbackPromptService. Waits
+  /// briefly so the user sees the generated image before anything interrupts
+  /// them, and is entirely best-effort - a submission failure only logs, it
+  /// never surfaces an error to the user over an optional rating prompt.
+  Future<void> _maybeShowFeedbackSheet({
+    String? generationId,
+    String? categoryId,
+    int? generationTimeMs,
+  }) async {
+    final shouldPrompt = await FeedbackPromptService.recordGenerationAndShouldPrompt();
+    if (!shouldPrompt || !mounted) return;
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final result = await showGenerationFeedbackSheet(context, isDarkMode: _isDark);
+    if (result == null) return;
+
+    if (result.dontAskAgain) {
+      await FeedbackPromptService.setAskEnabled(false);
+    }
+
+    if (result.submitted && result.rating != null) {
+      try {
+        await FeedbackService().submitFeedback(
+          rating: result.rating!,
+          comment: result.comment,
+          generationId: generationId,
+          styleId: widget.style.id,
+          categoryId: categoryId,
+          generationTimeMs: generationTimeMs,
+        );
+      } catch (e) {
+        debugPrint('[UploadScreen] Failed to submit generation feedback: $e');
       }
     }
   }

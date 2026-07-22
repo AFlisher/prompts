@@ -30,6 +30,9 @@ class NanoBananaProvider implements ImageGenerationProvider {
       imageUrl: result.imageUrl,
       thumbnailUrl: result.thumbnailUrl,
       provider: ImageGenerationProviderType.nano,
+      generationId: result.generationId,
+      categoryId: result.categoryId,
+      generationTimeMs: result.generationTimeMs,
     );
   }
 }

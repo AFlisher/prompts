@@ -20,15 +20,17 @@ import 'screens/landing_screen.dart';
 import 'services/auth_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
+import 'services/feedback_prompt_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Two independent SharedPreferences-backed reads - neither depends on the
-  // other's result, so load them concurrently instead of one after another.
+  // Three independent SharedPreferences-backed reads - none depends on
+  // another's result, so load them concurrently instead of one after another.
   await Future.wait([
     ThemePreferenceService.load(),
     HapticService.load(),
+    FeedbackPromptService.load(),
   ]);
 
   try {
