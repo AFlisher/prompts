@@ -28,6 +28,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  /// Cap on how many cards a Home row (category, Trending, or Recommended)
+  /// renders by default - the "Preview" half of "Preview + View All". The
+  /// underlying data itself is untouched (still the full lazy-loaded,
+  /// cached list backing search - see [_buildHorizontalSection]), so this is
+  /// purely a rendering cap: a category with fewer styles than this never
+  /// shows "See All" at all, and an active search always shows every match
+  /// regardless of this cap.
+  static const int _previewCount = 10;
   // A ValueNotifier, not a setState-driving String field: writing to it
   // never rebuilds this State's own build() (Scaffold/AppHeader/filter
   // button/RefreshIndicator), so those stay completely stable while typing.
@@ -183,13 +191,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               styleManager: styleManager,
               textColor: textColor,
               isDark: isDark,
-              sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+              sectionBuilder: (ctx, title, styles, txtColor, dark, loading, categoryId) {
                 return _buildHorizontalSection(
                   title: title,
                   styles: styles,
                   textColor: txtColor,
                   isDark: dark,
                   isLoading: loading,
+                  categoryId: categoryId,
                 );
               },
             );
@@ -210,13 +219,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: _RecommendedSectionWidget(
         textColor: textColor,
         isDark: isDark,
-        sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+        sectionBuilder: (ctx, title, styles, txtColor, dark, loading, categoryId) {
           return _buildHorizontalSection(
             title: title,
             styles: styles,
             textColor: txtColor,
             isDark: dark,
             isLoading: loading,
+            categoryId: categoryId,
           );
         },
       ),
@@ -225,13 +235,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: _TrendingSectionWidget(
         textColor: textColor,
         isDark: isDark,
-        sectionBuilder: (ctx, title, styles, txtColor, dark, loading) {
+        sectionBuilder: (ctx, title, styles, txtColor, dark, loading, categoryId) {
           return _buildHorizontalSection(
             title: title,
             styles: styles,
             textColor: txtColor,
             isDark: dark,
             isLoading: loading,
+            categoryId: categoryId,
           );
         },
       ),
@@ -399,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required Color textColor,
     required bool isDark,
     required bool isLoading,
+    String? categoryId,
   }) {
     // Reacts to search on its own, directly - the section widget that calls
     // this (_CategorySectionWidget/_TrendingSectionWidgetState/
@@ -410,17 +422,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return ValueListenableBuilder<String>(
       valueListenable: _searchQuery,
       builder: (context, query, _) {
+        final isSearching = query.isNotEmpty;
         final filtered = _filterStyles(styles, query);
         // Only collapse when a search query excludes every loaded style — a
         // category with no styles loaded yet (LRU eviction, in-flight lazy
         // load) must still render its header.
         if (styles.isNotEmpty && filtered.isEmpty) return const SizedBox.shrink();
-        // Isolates each section (a Category row, Trending, or Recommended
-        // For You) as its own compositing layer. Each is backed by its own
-        // independent StatefulWidget/lazy fetch (_CategorySectionWidget,
-        // _TrendingSectionWidgetState, _RecommendedSectionWidgetState), so
-        // without this, one section finishing its own load could force
-        // nearby sections' already-settled layers to repaint too.
+
+        // The "Preview" half of Preview + View All: an active search always
+        // shows every match (search results must never be truncated), but
+        // the resting row caps at _previewCount so a category with dozens of
+        // styles doesn't turn into a sprawling horizontal scroll. The
+        // underlying `styles`/`filtered` lists are untouched by this cap -
+        // only what's rendered here is capped.
+        final displayStyles =
+            isSearching ? filtered : filtered.take(_previewCount).toList();
+        final hasMore = !isSearching && filtered.length > _previewCount;
+
         return RepaintBoundary(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,12 +448,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _SectionHeader(
                   title: title,
                   textColor: textColor,
-                  onSeeAll: () => _openAllStyles(title, styles),
+                  onSeeAll: hasMore
+                      ? () => _openAllStyles(title, styles, categoryId: categoryId)
+                      : null,
                 ),
               ),
-              if (isLoading && filtered.isEmpty)
+              if (isLoading && displayStyles.isEmpty)
                 const StyleRowSkeleton()
-              else if (filtered.isNotEmpty)
+              else if (displayStyles.isNotEmpty)
                 SizedBox(
                   height: 250,
                   child: ListView.separated(
@@ -452,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     // being invisibly clipped.
                     clipBehavior: Clip.none,
                     itemBuilder: (context, index) {
-                      final style = filtered[index];
+                      final style = displayStyles[index];
                       // Namespaced by section title (not just style id): a
                       // trending style renders in both this row and its own
                       // category row at once, and Hero requires unique tags
@@ -471,7 +491,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       );
                     },
                     separatorBuilder: (_, __) => const SizedBox(width: 20),
-                    itemCount: filtered.length,
+                    itemCount: displayStyles.length,
                     cacheExtent: 1000,
                   ),
                 ),
@@ -482,7 +502,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openAllStyles(String title, List<StyleModel> styles) {
+  void _openAllStyles(String title, List<StyleModel> styles, {String? categoryId}) {
     HapticService.selection();
     Navigator.push(
       context,
@@ -491,7 +511,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
           title: title,
-          styles: styles,
+          // Category rows hand off to AllStylesScreen's live categoryId mode
+          // (see its class doc) - it reads straight from the same
+          // DynamicStyleManager category data this snapshot came from, so
+          // `styles` itself is only used for Trending/Recommended (no
+          // categoryId, no single live source to subscribe to).
+          styles: categoryId == null ? styles : null,
+          categoryId: categoryId,
         ),
       ),
     );
@@ -535,7 +561,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Color textColor;
-  final VoidCallback onSeeAll;
+  /// Null hides the "See All" affordance entirely - used when a row has no
+  /// more than the preview cap worth of styles, so "View All" would just
+  /// show the exact same cards already on screen.
+  final VoidCallback? onSeeAll;
 
   const _SectionHeader({
     required this.title,
@@ -576,25 +605,27 @@ class _SectionHeader extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: onSeeAll,
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    compact ? 'See' : 'See All',
-                    style: TextStyle(
-                      color: textColor.withValues(alpha: 0.78),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+            if (onSeeAll != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onSeeAll,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      compact ? 'See' : 'See All',
+                      style: TextStyle(
+                        color: textColor.withValues(alpha: 0.78),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  Icon(Icons.chevron_right_rounded, color: textColor, size: 17),
-                ],
+                    Icon(Icons.chevron_right_rounded, color: textColor, size: 17),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -612,7 +643,7 @@ class _SectionHeader extends StatelessWidget {
 class _TrendingSectionWidget extends StatefulWidget {
   final Color textColor;
   final bool isDark;
-  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool, String?) sectionBuilder;
 
   const _TrendingSectionWidget({
     required this.textColor,
@@ -636,7 +667,7 @@ class _TrendingSectionWidget extends StatefulWidget {
 class _RecommendedSectionWidget extends StatefulWidget {
   final Color textColor;
   final bool isDark;
-  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool, String?) sectionBuilder;
 
   const _RecommendedSectionWidget({
     required this.textColor,
@@ -689,6 +720,7 @@ class _RecommendedSectionWidgetState extends State<_RecommendedSectionWidget> {
           widget.textColor,
           widget.isDark,
           isLoading,
+          null,
         );
       },
     );
@@ -726,6 +758,7 @@ class _TrendingSectionWidgetState extends State<_TrendingSectionWidget> {
           widget.textColor,
           widget.isDark,
           isLoading,
+          null,
         );
       },
     );
@@ -737,7 +770,7 @@ class _CategorySectionWidget extends StatefulWidget {
   final DynamicStyleManager styleManager;
   final Color textColor;
   final bool isDark;
-  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool) sectionBuilder;
+  final Widget Function(BuildContext, String, List<StyleModel>, Color, bool, bool, String?) sectionBuilder;
 
   const _CategorySectionWidget({
     required this.category,
@@ -809,6 +842,7 @@ class _CategorySectionWidgetState extends State<_CategorySectionWidget> {
           widget.textColor,
           widget.isDark,
           isLoading,
+          category.id,
         );
       },
     );

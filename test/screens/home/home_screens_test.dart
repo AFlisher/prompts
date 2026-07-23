@@ -77,6 +77,30 @@ Future<DynamicStyleManager> _seededStyleManager() async {
   return manager;
 }
 
+// Same technique as _seededStyleManager, but with a caller-chosen style
+// count - used to drive the Home preview row past its cap (see
+// HomeScreen._previewCount) and into "See All"/View All territory.
+Future<DynamicStyleManager> _seededStyleManagerWithCount(
+  int count, {
+  String categoryId = 'preview-test-cat',
+  String categoryName = 'Landscapes',
+}) async {
+  SharedPreferences.setMockInitialValues({
+    'categories_cache': json.encode([
+      {'id': categoryId, 'name': categoryName}
+    ]),
+    'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+    'styles_cache_v3_$categoryId': json.encode([
+      for (var i = 1; i <= count; i++) {'id': 'style-$i', 'name': 'Style $i', 'imagePath': ''},
+    ]),
+    'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+  });
+  final manager = DynamicStyleManager();
+  await manager.init();
+  await manager.loadStylesForCategory(categoryId);
+  return manager;
+}
+
 void main() {
   // ── HOME SCREEN ───────────────────────────────────────────────────────────
   group('HomeScreen', () {
@@ -178,6 +202,81 @@ void main() {
     );
   });
 
+  // ── HOME SCREEN: PREVIEW + VIEW ALL ──────────────────────────────────────
+  group('HomeScreen preview row cap', () {
+    testWidgets(
+      'a category at or under the preview cap never shows "See All"',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(10);
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 10', skipOffstage: false), findsOneWidget);
+        expect(find.text('See All', skipOffstage: false), findsNothing);
+        expect(find.text('See', skipOffstage: false), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a category past the preview cap shows only the first 10 styles, plus "See All"; '
+      'tapping it opens the live View All screen with every style',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(12);
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        // Preview row: capped at 10, styles 11/12 not rendered here.
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 10', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 11', skipOffstage: false), findsNothing);
+        expect(find.text('Style 12', skipOffstage: false), findsNothing);
+        expect(find.text('See All', skipOffstage: false), findsOneWidget);
+
+        await tester.tap(find.text('See All', skipOffstage: false));
+        // Not pumpAndSettle: Trending/Recommended's Shimmer loading
+        // placeholder animates forever while their (unmocked, real) network
+        // fetch is in flight, so pumpAndSettle never returns - same reason
+        // the search test above uses a manual pump loop instead.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pump(const Duration(milliseconds: 300)); // page transition
+
+        expect(find.byType(AllStylesScreen), findsOneWidget);
+        // The live View All screen reads the full (uncapped) category
+        // straight from DynamicStyleManager - all 12 styles, not the
+        // preview row's 10 - and shows the count in its header.
+        expect(find.text('Landscapes'), findsOneWidget);
+        expect(find.text('12'), findsOneWidget);
+      },
+    );
+  });
+
   // ── ALL STYLES SCREEN ─────────────────────────────────────────────────────
   group('AllStylesScreen', () {
     testWidgets('renders without crashing', (tester) async {
@@ -203,6 +302,60 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'categoryId mode reads live from DynamicStyleManager, independent of any snapshot',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(3, categoryId: 'live-cat', categoryName: 'Live Cat');
+        await tester.pumpWidget(wrapWithProviders(
+          AllStylesScreen(
+            isDarkMode: true,
+            onToggleDarkMode: () {},
+            title: 'Live Cat',
+            categoryId: 'live-cat',
+          ),
+          styleManager: styleManager,
+        ));
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 3', skipOffstage: false), findsOneWidget);
+        expect(find.text('3'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'categoryId mode shows the empty state for a category resolved to zero styles',
+      (tester) async {
+        const categoryId = 'empty-cat';
+        SharedPreferences.setMockInitialValues({
+          'categories_cache': json.encode([
+            {'id': categoryId, 'name': 'Empty Category'}
+          ]),
+          'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+          'styles_cache_v3_$categoryId': json.encode([]),
+          'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+        });
+        final styleManager = DynamicStyleManager();
+        await styleManager.init();
+        await styleManager.loadStylesForCategory(categoryId);
+
+        await tester.pumpWidget(wrapWithProviders(
+          AllStylesScreen(
+            isDarkMode: true,
+            onToggleDarkMode: () {},
+            title: 'Empty Category',
+            categoryId: categoryId,
+          ),
+          styleManager: styleManager,
+        ));
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('No styles here yet', skipOffstage: false), findsOneWidget);
+      },
+    );
   });
 
   // ── PAYWALL / BUY CREDITS SCREEN ─────────────────────────────────────────

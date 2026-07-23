@@ -262,17 +262,31 @@ class CategoryCatalogNotifier extends ChangeNotifier {
     }
   }
 
-  /// Lazy-loads styles for a specific category
-  Future<void> loadStylesForCategory(String categoryId) async {
-    // 1. Request Deduplication: reuse active future if currently fetching
-    if (_activeStyleFetches.containsKey(categoryId)) {
-      debugPrint("[CategoryCatalogNotifier] Deduplicating request: awaiting active future for category $categoryId");
-      return _activeStyleFetches[categoryId];
+  /// Lazy-loads styles for a specific category.
+  ///
+  /// [forceRefresh] bypasses the 6h styles cache TTL entirely - used by the
+  /// "View All" screen's pull-to-refresh, mirroring [fetchCategories]'s own
+  /// forceRefresh param. A forced call always runs fresh instead of joining
+  /// whatever plain fetch happens to already be in flight (same reasoning as
+  /// [fetchCategories]: pull-to-refresh must never silently resolve to a
+  /// cached/in-flight result), and is deliberately left out of
+  /// [_activeStyleFetches] so it never blocks or gets deduplicated away.
+  Future<void> loadStylesForCategory(String categoryId, {bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      // 1. Request Deduplication: reuse active future if currently fetching
+      final active = _activeStyleFetches[categoryId];
+      if (active != null) {
+        debugPrint("[CategoryCatalogNotifier] Deduplicating request: awaiting active future for category $categoryId");
+        return active;
+      }
     }
 
-    final fetchFuture = _loadStylesForCategoryInternal(categoryId);
-    _activeStyleFetches[categoryId] = fetchFuture;
+    final fetchFuture = _loadStylesForCategoryInternal(categoryId, forceRefresh: forceRefresh);
+    if (forceRefresh) {
+      return fetchFuture;
+    }
 
+    _activeStyleFetches[categoryId] = fetchFuture;
     try {
       await fetchFuture;
     } finally {
@@ -313,7 +327,7 @@ class CategoryCatalogNotifier extends ChangeNotifier {
     return favorites;
   }
 
-  Future<void> _loadStylesForCategoryInternal(String categoryId) async {
+  Future<void> _loadStylesForCategoryInternal(String categoryId, {bool forceRefresh = false}) async {
     var catIdx = _categories.indexWhere((c) => c.id == categoryId);
     if (catIdx == -1) return;
 
@@ -344,7 +358,8 @@ class CategoryCatalogNotifier extends ChangeNotifier {
 
     // Styles Cache TTL: 6 hours (21600000 ms)
     final int? timestamp = await _cacheService.getCacheTimestamp(cacheKey);
-    final bool isCacheValid = timestamp != null &&
+    final bool isCacheValid = !forceRefresh &&
+        timestamp != null &&
         (DateTime.now().millisecondsSinceEpoch - timestamp) < 21600000;
 
     // cachedStylesList != null (not loadedFromCache.isNotEmpty) so a
@@ -708,8 +723,8 @@ class DynamicStyleManager extends ChangeNotifier {
   Future<void> fetchCategories({bool forceRefresh = false}) =>
       categoryCatalog.fetchCategories(forceRefresh: forceRefresh);
 
-  Future<void> loadStylesForCategory(String categoryId) =>
-      categoryCatalog.loadStylesForCategory(categoryId);
+  Future<void> loadStylesForCategory(String categoryId, {bool forceRefresh = false}) =>
+      categoryCatalog.loadStylesForCategory(categoryId, forceRefresh: forceRefresh);
 
   Future<List<StyleModel>> loadFavoriteStyles(List<String> favoriteIds) =>
       categoryCatalog.loadFavoriteStyles(favoriteIds);
