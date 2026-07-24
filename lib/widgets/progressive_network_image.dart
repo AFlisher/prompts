@@ -15,7 +15,7 @@ import '../utils/image_helper.dart';
 /// If [thumbnailUrl] is empty or identical to [originalUrl] (a pre-backfill
 /// row, or a bundled local asset with no separate thumbnail), this renders
 /// [originalUrl] directly - there's nothing to progressively upgrade from.
-class ProgressiveNetworkImage extends StatelessWidget {
+class ProgressiveNetworkImage extends StatefulWidget {
   final String thumbnailUrl;
   final String originalUrl;
   final BoxFit fit;
@@ -31,6 +31,8 @@ class ProgressiveNetworkImage extends StatelessWidget {
   final int? memCacheWidth;
   final int? memCacheHeight;
 
+  static const Duration _fadeInDuration = Duration(milliseconds: 250);
+
   const ProgressiveNetworkImage({
     super.key,
     required this.thumbnailUrl,
@@ -41,7 +43,53 @@ class ProgressiveNetworkImage extends StatelessWidget {
   });
 
   @override
+  State<ProgressiveNetworkImage> createState() => _ProgressiveNetworkImageState();
+}
+
+class _ProgressiveNetworkImageState extends State<ProgressiveNetworkImage> {
+  // Whether the thumbnail layer should still be in the tree at all. Not
+  // just an opacity/paint-order question: BoxFit.contain/cover each
+  // independently letterbox to *their own* image's aspect ratio, so once
+  // thumbnailUrl (a fixed-ratio server-generated crop) and originalUrl (the
+  // source's real aspect ratio) differ, the original's content rect doesn't
+  // necessarily cover the thumbnail's - painting the original opaquely on
+  // top is not enough to hide it, it has to leave the tree.
+  bool _hideThumbnail = false;
+  bool _hideScheduled = false;
+
+  @override
+  void didUpdateWidget(covariant ProgressiveNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.originalUrl != widget.originalUrl) {
+      // A different original to load - show the thumbnail again underneath
+      // it until this one is ready, same as a fresh mount.
+      _hideThumbnail = false;
+      _hideScheduled = false;
+    }
+  }
+
+  /// Called once [ProgressiveNetworkImage.originalUrl] has a decoded frame
+  /// ready to paint. Waits exactly [ProgressiveNetworkImage._fadeInDuration]
+  /// - the same duration the original's own [CachedNetworkImage.fadeInDuration]
+  /// below animates its fade-in over - so the thumbnail stays in place for
+  /// that crossfade and is only removed once the original has fully settled
+  /// at opacity 1, instead of lingering underneath it forever.
+  void _scheduleHideThumbnail() {
+    if (_hideThumbnail || _hideScheduled) return;
+    _hideScheduled = true;
+    Future.delayed(ProgressiveNetworkImage._fadeInDuration, () {
+      if (mounted) setState(() => _hideThumbnail = true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final thumbnailUrl = widget.thumbnailUrl;
+    final originalUrl = widget.originalUrl;
+    final fit = widget.fit;
+    final memCacheWidth = widget.memCacheWidth;
+    final memCacheHeight = widget.memCacheHeight;
+
     final hasDistinctThumbnail = thumbnailUrl.isNotEmpty && thumbnailUrl != originalUrl;
 
     if (!hasDistinctThumbnail) {
@@ -59,29 +107,42 @@ class ProgressiveNetworkImage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Base layer: the thumbnail, visible instantly.
-        buildStyleImage(
-          thumbnailUrl,
-          fit: fit,
-          memCacheWidth: memCacheWidth,
-          memCacheHeight: memCacheHeight,
-        ),
+        // Base layer: the thumbnail, visible instantly - only while the
+        // original hasn't finished loading yet (see _scheduleHideThumbnail).
+        if (!_hideThumbnail)
+          buildStyleImage(
+            thumbnailUrl,
+            fit: fit,
+            memCacheWidth: memCacheWidth,
+            memCacheHeight: memCacheHeight,
+          ),
 
         // Top layer: the original. While it loads, this stays fully
         // transparent (no placeholder/error widget of its own) so the
         // thumbnail underneath keeps showing through - once it's ready it
-        // fades in and, being opaque, the thumbnail is no longer visible.
+        // fades in, and the thumbnail is dropped from the tree entirely
+        // shortly after (not just painted over - see _hideThumbnail above).
         if (isNetworkOriginal)
           CachedNetworkImage(
             imageUrl: originalUrl,
             fit: fit,
             memCacheWidth: memCacheWidth,
             memCacheHeight: memCacheHeight,
-            fadeInDuration: const Duration(milliseconds: 250),
+            fadeInDuration: ProgressiveNetworkImage._fadeInDuration,
             placeholder: (context, url) => const SizedBox.shrink(),
             errorWidget: (context, url, error) => const SizedBox.shrink(),
+            imageBuilder: (context, imageProvider) {
+              _scheduleHideThumbnail();
+              return Image(image: imageProvider, fit: fit);
+            },
           )
         else
+          // Local-asset original with a distinct thumbnail (e.g. a legacy
+          // style with no imageUrl, falling back to a bundled asset path).
+          // Rare enough in practice that this branch keeps the pre-fix
+          // behavior - the thumbnail isn't dropped from the tree here - but
+          // it's worth noting it carries the same theoretical exposure this
+          // fix addresses for the network case above.
           buildStyleImage(
             originalUrl,
             fit: fit,
