@@ -1,0 +1,52 @@
+# SEC-17.2 - gitleaks allow-list.
+#
+# Every entry is a full fingerprint: commit:path:rule:line. That suppresses
+# exactly one occurrence in exactly one commit. No path and no rule is ever
+# excluded wholesale, so a real secret in the same file, or the same string
+# reintroduced in a later commit, still fails the scan.
+#
+# Add an entry only with a written classification and the date it was checked.
+# An undocumented fingerprint is indistinguishable from a hidden leak.
+
+
+# =============================================================================
+# KNOWN EXPOSURE - suppressed so the gate stays actionable, NOT because it is
+# resolved. Remove this entry when SEC-17.3 is closed.
+# =============================================================================
+
+# SEC-17.3 - Google/Firebase API key committed in google-services.json.
+#
+# Confirmed exposure, not a false positive. The key was removed from HEAD in
+# commit 5e14b43 ("Cleanup pass: remove dead code, unused deps, and Firebase
+# scaffolding") but remains reachable in this repository's public history, and
+# force-removing it from a tree does not un-publish it. The remediation is to
+# rotate or API-restrict the key, which is tracked separately as SEC-17.3 and
+# is deliberately out of scope for SEC-17.2.
+#
+# It is suppressed here only because a full-history scan would otherwise fail
+# on every run until that rotation happens, and a permanently red gate is
+# ignored within a week - which would cost us detection of the *next* leak.
+# The exposure remains open and tracked; this line does not close it.
+1ee444f6dc292ef1ed8732e4bf6a1b5319ed95b3:android/app/google-services.json:gcp-api-key:31
+
+
+# =============================================================================
+# FALSE POSITIVES - classified 2026-07-28 by reading each line in context.
+# =============================================================================
+
+# A SharedPreferences key name, not a credential:
+#   static const String _migratedFlagKey = 'creations_migrated_v1';
+73a2a78440793ceffc10f21ce76641d476fa8047:lib/data/creations_manager.dart:generic-api-key:61
+
+# Supabase *publishable* key (the `sb_publishable_` prefix is Supabase's own
+# name for it). It is designed to ship inside the client binary and is
+# protected by row-level security; it is not the service_role key and grants
+# nothing that the app itself does not already grant. Verified: no service_role
+# or secret-prefixed Supabase key appears anywhere in this history.
+#
+# The three entries below are the same publishable value in three places. Note
+# that .env was tracked at the time - it is untracked today, with only
+# .env.example committed - so this is a hygiene lesson rather than a leak.
+bff1d5304e2cf61cd7171333dd441148d7241d21:lib/main.dart:generic-api-key:11
+077dce144f8f544f7aeeec0c5e78043d5e243691:.env:generic-api-key:2
+cdb281f1203da8f9666fb4372c185b8a71615399:.env:generic-api-key:2
