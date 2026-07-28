@@ -7,6 +7,11 @@
 #
 # Add an entry only with a written classification and the date it was checked.
 # An undocumented fingerprint is indistinguishable from a hidden leak.
+#
+# Describe what a suppressed line contains; never paste the line itself. This
+# file is scanned like any other, so quoting a credential-shaped string here
+# makes the allow-list fail the scan it exists to keep green. That is not
+# hypothetical - the first version of this file did exactly that.
 
 
 # =============================================================================
@@ -34,8 +39,17 @@
 # FALSE POSITIVES - classified 2026-07-28 by reading each line in context.
 # =============================================================================
 
-# A SharedPreferences key name, not a credential:
-#   static const String _migratedFlagKey = 'creations_migrated_v1';
+# This file, in the commit that introduced it. The first version documented the
+# entry below by pasting the source line verbatim, so the allow-list matched the
+# same rule it was suppressing and failed the very first CI run. The comment was
+# rewritten in the next commit; this entry covers the one commit in between,
+# because rewriting a shared public branch's history to remove it would cost far
+# more than one documented line.
+f9d6dafd0fa054aa748f7ac3814d6f860b4624d7:.gitleaksignore:generic-api-key:38
+
+# The `_migratedFlagKey` constant in CreationsManager. Its value is a
+# SharedPreferences key naming a one-off local-cache migration flag, not a
+# credential - it is passed to prefs.getBool/setBool and nowhere else.
 73a2a78440793ceffc10f21ce76641d476fa8047:lib/data/creations_manager.dart:generic-api-key:61
 
 # Supabase *publishable* key (the `sb_publishable_` prefix is Supabase's own
