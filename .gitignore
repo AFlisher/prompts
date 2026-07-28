@@ -51,3 +51,9 @@ app.*.map.json
 # If Firebase is genuinely adopted later, supply this file from the build
 # environment rather than committing it.
 android/app/google-services.json
+
+# Accidentally-committed adb logcat capture (~70MB), tracked at HEAD since
+# ac51e25. Contains device/app metadata including a personally-identifying
+# Wi-Fi SSID. Root-scoped so it doesn't hide a legitimately-named crash.txt
+# elsewhere in the tree.
+/crash.txt
