@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# SEC-17.3: Firebase config. It carries a Google API key, the project id/number,
+# OAuth client ids and app-signing SHA-1s, and this repository is public. The app
+# does not use Firebase - no google-services Gradle plugin is applied and Google
+# Sign-In reads serverClientId from source - so nothing here should ever need it.
+# If Firebase is genuinely adopted later, supply this file from the build
+# environment rather than committing it.
+android/app/google-services.json
