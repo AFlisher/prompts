@@ -32,6 +32,8 @@ dependencies:
   safe_device: ^1.4.1
   crypto: ^3.0.3
 dev_dependencies:
+  # SEC-12.2: parses the Android network security config in tests.
+  xml: ^7.0.1
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0

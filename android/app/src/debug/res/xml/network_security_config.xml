@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  SEC-12.2 - Android Network Security Config (DEBUG BUILDS ONLY).
+
+  Resource merging replaces the main copy with this one for the debug variant
+  and only the debug variant. It is never packaged into a release APK, which is
+  what makes the localhost exception below safe to have at all.
+
+  It exists because the app falls back to http://localhost:3000 when
+  BACKEND_URL is unset (ApiService, AuthService, FeedbackService), so a blanket
+  cleartext ban would break local development against a plain-HTTP backend.
+
+  Scoped by build variant rather than by a <debug-overrides> block, deliberately:
+  Flutter's engine does not parse debug-overrides at all, so that block would
+  silently fail to permit the very Dart cleartext it was added for. A separate
+  resource is the only mechanism that works for both stacks.
+
+  ============================================================================
+  STILL NO <pin-set>, AND NO USER-CA TRUST - NOT EVEN HERE.
+  ============================================================================
+
+  The temptation in a debug config is to add user CAs so Charles or mitmproxy
+  can read traffic. It is not here, for the same reason SEC-12.1 has no debug
+  bypass: an interception path that exists in any build is a path someone will
+  eventually ship, and a "debug only" exception is one merge away from not
+  being debug only. Debugging our own API is better served by reading the
+  backend's logs than by weakening the client.
+
+  The base rule is still deny. Only the three loopback aliases are exempt.
+-->
+<network-security-config>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+      The only cleartext exception in the project. 10.0.2.2 is the Android
+      emulator's alias for the host machine's loopback; without it, an emulator
+      cannot reach a backend running on the developer's own machine.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Production hosts stay ciphertext-only even in debug builds. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">up.railway.app</domain>
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">gstatic.com</domain>
+        <domain includeSubdomains="true">doubleclick.net</domain>
+        <domain includeSubdomains="true">google.com</domain>
+    </domain-config>
+
+</network-security-config>
