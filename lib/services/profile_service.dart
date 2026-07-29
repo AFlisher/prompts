@@ -8,6 +8,37 @@ import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
 import 'network_client.dart';
 
+/// The exact bytes to upload for an avatar: a re-encoded JPEG with no EXIF.
+///
+/// R-2. Throws rather than returning anything when the picked file cannot be
+/// decoded, and that is the whole point of the function existing. Avatar
+/// uploads go straight from the app to Supabase Storage, so nothing on the
+/// server inspects these bytes: the bucket's `image/jpeg` allow-list checks
+/// the Content-Type the client itself sends, the RLS policy checks the object
+/// NAME, and neither looks at content. The decode here is therefore the only
+/// thing standing between a picked file and a public object.
+///
+/// It used to be a best-effort step with a fallback that uploaded the original
+/// file when decoding failed - which meant the one case where validation
+/// mattered was the exact case that skipped it, and skipped SEC-8.3's metadata
+/// stripping with it. An avatar that cannot be normalised is now refused.
+///
+/// This is deliberately not a security boundary against a hostile client: a
+/// user can always call Storage directly with their own token. It closes the
+/// honest-client hole. The enforceable version is a backend-mediated upload,
+/// which R-2's analysis folds into SEC-8.1B-2 because that finding needs the
+/// same endpoint and the same RLS change.
+@visibleForTesting
+Uint8List avatarUploadBytes(Uint8List pickedBytes) {
+  final normalized = normalizeImageBytes(pickedBytes, quality: 85);
+  if (normalized == null) {
+    throw Exception(
+      "That photo couldn't be processed. Please choose a different one.",
+    );
+  }
+  return normalized;
+}
+
 class ProfileService {
   final SupabaseClient? _client = _safeGetClient();
 
@@ -83,8 +114,8 @@ class ProfileService {
     // Naming pattern: avatars/{userId}.jpg
     final path = '${user.id}.jpg';
 
-    // Programmatically guarantee conversion to standard JPEG format, with the
-    // EXIF metadata removed (SEC-8.3).
+    // Convert to a standard JPEG with the EXIF metadata removed (SEC-8.3),
+    // and fail closed if that cannot be done (R-2).
     //
     // This upload goes straight from the app to Supabase Storage, so the
     // backend never sees these bytes and cannot strip them the way it does for
@@ -92,24 +123,13 @@ class ProfileService {
     // removed before it becomes a publicly readable object named after the
     // user's own id - the re-encode alone never did it, since `encodeJpg`
     // writes any EXIF block it is given straight back out.
-    File finalUploadFile = file;
-    try {
-      final bytes = await file.readAsBytes();
-      // No maxDimension: the picker already caps this at 1024 on the way in,
-      // and downscaling here would be a behaviour change, not a fix.
-      final jpegBytes = normalizeImageBytes(bytes, quality: 85);
-      if (jpegBytes != null) {
-        final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/${user.id}.jpg');
-        await tempFile.writeAsBytes(jpegBytes);
-        finalUploadFile = tempFile;
-        debugPrint("[ProfileService] Image converted to JPEG and metadata stripped.");
-      } else {
-        debugPrint("[ProfileService] Could not decode picked image. Proceeding with original file.");
-      }
-    } catch (e) {
-      debugPrint("[ProfileService] Image conversion failed with error: $e. Proceeding with original file.");
-    }
+    //
+    // No maxDimension: the picker already caps this at 1024 on the way in, and
+    // downscaling here would be a behaviour change, not a fix.
+    final tempDir = await getTemporaryDirectory();
+    final finalUploadFile = File('${tempDir.path}/${user.id}.jpg');
+    await finalUploadFile.writeAsBytes(avatarUploadBytes(await file.readAsBytes()));
+    debugPrint("[ProfileService] Image converted to JPEG and metadata stripped.");
 
     // Upload with upsert (overwrite enabled) and content type explicitly set to image/jpeg
     await client.storage.from('avatars').upload(
@@ -124,9 +144,9 @@ class ProfileService {
           onTimeout: () => throw TimeoutException('Avatar upload timed out'),
         );
 
-    Directory? tempDir;
-    tempDir = await getTemporaryDirectory();
-
+    // The upload file is always our own temp copy now, but the path check is
+    // kept: deleting a file this method did not create would be a bug worth
+    // failing safe on.
     try {
       if (await finalUploadFile.exists() &&
           finalUploadFile.path.contains(tempDir.path)) {
