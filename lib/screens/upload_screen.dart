@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/style_model.dart';
@@ -13,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
+import '../utils/image_normalizer.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
@@ -46,33 +46,20 @@ class UploadScreen extends StatefulWidget {
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
-/// Decodes raw picked-photo bytes and re-encodes them as a standard JPEG,
-/// downscaling anything larger than [_maxUploadDimension] on its longest
-/// side first. Runs inside [compute] (a background isolate) since decoding
-/// a full-resolution photo is CPU-heavy and would otherwise jank the UI
-/// thread. Returns null if the bytes don't decode as an image at all -
-/// e.g. a corrupted/truncated file, or a format the local `image` package
-/// can't read (some HEIC variants) - so the caller can reject the photo
-/// instead of ever handing an undecodable file to Image.file/the crop
-/// preview.
-const int _maxUploadDimension = 2048;
-
-Uint8List? _normalizeImageBytes(Uint8List bytes) {
-  final decoded = img.decodeImage(bytes);
-  if (decoded == null) return null;
-
-  final longestSide =
-      decoded.width > decoded.height ? decoded.width : decoded.height;
-  final normalized = longestSide > _maxUploadDimension
-      ? img.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? _maxUploadDimension : null,
-          height: decoded.height > decoded.width ? _maxUploadDimension : null,
-        )
-      : decoded;
-
-  return Uint8List.fromList(img.encodeJpg(normalized, quality: 90));
-}
+/// Decodes raw picked-photo bytes and re-encodes them as a standard JPEG with
+/// no EXIF metadata (SEC-8.3), downscaling anything larger than
+/// [kMaxUploadDimension] on its longest side first. Runs inside [compute] (a
+/// background isolate) since decoding a full-resolution photo is CPU-heavy and
+/// would otherwise jank the UI thread. Returns null if the bytes don't decode
+/// as an image at all - e.g. a corrupted/truncated file, or a format the local
+/// `image` package can't read (some HEIC variants) - so the caller can reject
+/// the photo instead of ever handing an undecodable file to Image.file/the
+/// crop preview.
+///
+/// A thin top-level adapter over [normalizeImageBytes] because [compute] only
+/// accepts a single-argument top-level function.
+Uint8List? _normalizeImageBytes(Uint8List bytes) =>
+    normalizeImageBytes(bytes, maxDimension: kMaxUploadDimension, quality: 90);
 
 /// The requirement line shown under "Crop & adjust" for multi-image styles:
 /// tells the user exactly how many photos to upload and tracks progress.

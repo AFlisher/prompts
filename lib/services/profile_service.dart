@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import '../models/profile_model.dart';
+import '../utils/image_normalizer.dart';
 import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
 import 'network_client.dart';
@@ -83,19 +83,27 @@ class ProfileService {
     // Naming pattern: avatars/{userId}.jpg
     final path = '${user.id}.jpg';
 
-    // Programmatically guarantee conversion to standard JPEG format
+    // Programmatically guarantee conversion to standard JPEG format, with the
+    // EXIF metadata removed (SEC-8.3).
+    //
+    // This upload goes straight from the app to Supabase Storage, so the
+    // backend never sees these bytes and cannot strip them the way it does for
+    // every other image. That makes this the only place the metadata can be
+    // removed before it becomes a publicly readable object named after the
+    // user's own id - the re-encode alone never did it, since `encodeJpg`
+    // writes any EXIF block it is given straight back out.
     File finalUploadFile = file;
     try {
       final bytes = await file.readAsBytes();
-      final decodedImage = img.decodeImage(bytes);
-      if (decodedImage != null) {
-        // Encode decoded image to standard JPEG bytes at 85% quality
-        final jpegBytes = img.encodeJpg(decodedImage, quality: 85);
+      // No maxDimension: the picker already caps this at 1024 on the way in,
+      // and downscaling here would be a behaviour change, not a fix.
+      final jpegBytes = normalizeImageBytes(bytes, quality: 85);
+      if (jpegBytes != null) {
         final tempDir = await getTemporaryDirectory();
         final tempFile = File('${tempDir.path}/${user.id}.jpg');
         await tempFile.writeAsBytes(jpegBytes);
         finalUploadFile = tempFile;
-        debugPrint("[ProfileService] Image explicitly converted to JPEG format.");
+        debugPrint("[ProfileService] Image converted to JPEG and metadata stripped.");
       } else {
         debugPrint("[ProfileService] Could not decode picked image. Proceeding with original file.");
       }
