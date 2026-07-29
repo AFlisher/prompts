@@ -31,6 +31,16 @@ class ProgressiveNetworkImage extends StatefulWidget {
   final int? memCacheWidth;
   final int? memCacheHeight;
 
+  /// SEC-8.1B-2 — cache identities that survive the URL changing form.
+  /// Null (the default) keeps the library's URL-keyed behaviour, which is
+  /// correct for catalog images whose URLs are permanent.
+  final String? thumbnailCacheKey;
+  final String? originalCacheKey;
+
+  /// Credentials for the image fetch, for the day these URLs are ours. Empty
+  /// or null for public URLs — see [imageAuthHeaders].
+  final Map<String, String>? httpHeaders;
+
   static const Duration _fadeInDuration = Duration(milliseconds: 250);
 
   const ProgressiveNetworkImage({
@@ -40,6 +50,9 @@ class ProgressiveNetworkImage extends StatefulWidget {
     this.fit = BoxFit.cover,
     this.memCacheWidth,
     this.memCacheHeight,
+    this.thumbnailCacheKey,
+    this.originalCacheKey,
+    this.httpHeaders,
   });
 
   @override
@@ -98,6 +111,8 @@ class _ProgressiveNetworkImageState extends State<ProgressiveNetworkImage> {
         fit: fit,
         memCacheWidth: memCacheWidth,
         memCacheHeight: memCacheHeight,
+        cacheKey: widget.originalCacheKey,
+        httpHeaders: widget.httpHeaders,
       );
     }
 
@@ -115,6 +130,8 @@ class _ProgressiveNetworkImageState extends State<ProgressiveNetworkImage> {
             fit: fit,
             memCacheWidth: memCacheWidth,
             memCacheHeight: memCacheHeight,
+            cacheKey: widget.thumbnailCacheKey,
+            httpHeaders: widget.httpHeaders,
           ),
 
         // Top layer: the original. While it loads, this stays fully
@@ -125,6 +142,8 @@ class _ProgressiveNetworkImageState extends State<ProgressiveNetworkImage> {
         if (isNetworkOriginal)
           CachedNetworkImage(
             imageUrl: originalUrl,
+            cacheKey: widget.originalCacheKey,
+            httpHeaders: widget.httpHeaders,
             fit: fit,
             memCacheWidth: memCacheWidth,
             memCacheHeight: memCacheHeight,

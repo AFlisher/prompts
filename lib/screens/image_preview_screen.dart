@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/progressive_network_image.dart';
+import '../utils/image_delivery.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 
@@ -16,12 +17,19 @@ class ImagePreviewScreen extends StatefulWidget {
   final String? thumbnailPath;
   final String title;
 
+  /// SEC-8.1B-2 — when this preview is showing a creation, its id keys the
+  /// image cache instead of the URL, so cached bytes survive delivery moving
+  /// behind the backend. Null for anything that is not a creation (a local
+  /// file preview, a style asset), which keeps the library's URL keying.
+  final String? creationId;
+
   const ImagePreviewScreen({
     super.key,
     this.assetPath,
     this.filePath,
     this.thumbnailPath,
     required this.title,
+    this.creationId,
   });
 
   @override
@@ -82,6 +90,12 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     ? ProgressiveNetworkImage(
                         thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
                         originalUrl: widget.assetPath!,
+                        thumbnailCacheKey: widget.creationId == null
+                            ? null
+                            : creationCacheKey(widget.creationId!, thumbnail: true),
+                        originalCacheKey: widget.creationId == null
+                            ? null
+                            : creationCacheKey(widget.creationId!, thumbnail: false),
                         fit: BoxFit.contain,
                       )
                     : Image.file(
