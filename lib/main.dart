@@ -19,6 +19,7 @@ import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 import 'services/auth_service.dart';
 import 'services/device_integrity_service.dart';
+import 'services/device_integrity_token_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
 import 'services/feedback_prompt_service.dart';
@@ -248,6 +249,11 @@ class _PrombtAppState extends State<PrombtApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setHighRefreshRate();
       _checkDeviceIntegrity();
+      // SEC-0.1: warm up the Play Integrity provider off the critical path.
+      // Google reports warm-up taking a few seconds, most under 10s, so it must
+      // never sit in front of the first frame. Fire-and-forget by design - the
+      // app is fully usable whether or not it succeeds.
+      DeviceIntegrityTokenService.warmUp();
     });
   }
 

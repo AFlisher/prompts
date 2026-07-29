@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'device_integrity_token_service.dart';
 import 'network_client.dart';
 
 class AuthException implements Exception {
@@ -130,9 +131,29 @@ class AuthService {
     required String password,
   }) async {
     debugPrint("[AuthService] Attempting login to backend...");
+
+    // SEC-0.1. Login is attested here rather than through AuthorizedHttpClient
+    // because the pre-auth endpoints never go through that client - there is no
+    // Bearer token yet for it to build headers from.
+    //
+    // The hash binds the account being signed into, not the password: the
+    // backend has to recompute this string, and putting a credential inside a
+    // value that exists to be compared is gratuitous. Swapping the email is the
+    // tamper this actually needs to catch.
+    //
+    // As everywhere else, a missing token is not an error here. The header is
+    // simply absent and SEC-0.2 decides what that means.
+    final integrityToken = await DeviceIntegrityTokenService.tokenFor(
+      DeviceIntegrityTokenService.requestHashFor('POST /api/auth/login\n$email'),
+    );
+
     final response = await http.post(
       Uri.parse('$_backendUrl/api/auth/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        if (integrityToken != null && integrityToken.isNotEmpty)
+          AuthorizedHttpClient.integrityHeader: integrityToken,
+      },
       body: json.encode({
         'email': email,
         'password': password,

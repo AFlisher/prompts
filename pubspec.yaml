@@ -30,6 +30,7 @@ dependencies:
   url_launcher: ^6.3.2
   package_info_plus: ^10.2.1
   safe_device: ^1.4.1
+  crypto: ^3.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

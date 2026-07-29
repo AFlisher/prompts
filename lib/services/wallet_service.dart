@@ -28,7 +28,12 @@ class WalletService {
 
   /// POST /api/wallet/reward - reports that the user watched a rewarded ad.
   Future<AdRewardResult> rewardAd() async {
+    // SEC-0.1. This endpoint takes no body, so the hash binds only the action
+    // itself - there is nothing else to tamper with. Reuse of a token across
+    // two reward claims is handled by Google's automatic replay protection for
+    // standard requests, and by whatever dedup SEC-0.4 adds server-side.
     final response = await _client.send(
+      integrityPayload: 'POST /api/wallet/reward',
       (headers) => http.post(Uri.parse('$_backendUrl/api/wallet/reward'), headers: headers),
       timeout: NetworkTimeouts.api,
     );

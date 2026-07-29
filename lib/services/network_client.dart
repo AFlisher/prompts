@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
+import 'device_integrity_token_service.dart';
 
 /// Centralized network timeout defaults (Release Candidate QA - Task 1).
 /// Every direct HTTP call in the app applies one of these instead of
@@ -77,6 +78,10 @@ String friendlyNetworkErrorMessage(Object error) {
 ///  - a single, non-looping 401 recovery path (Release Candidate QA -
 ///    Task 2): one forced token refresh, one retry, then sign out.
 class AuthorizedHttpClient {
+  /// SEC-0.1. Shared with AuthService, which attests login outside this client
+  /// because the pre-auth endpoints have no Bearer token to build headers for.
+  static const String integrityHeader = 'X-Integrity-Token';
+
   final AuthService _authService;
 
   AuthorizedHttpClient(this._authService);
@@ -107,11 +112,34 @@ class AuthorizedHttpClient {
   /// token refresh followed by one retry; if it's still 401 after that, the
   /// user is signed out and [SessionExpiredException] is thrown instead of
   /// retrying again - never an infinite loop.
+  ///
+  /// SEC-0.1: pass [integrityPayload] to attach a Play Integrity token. It is
+  /// opt-in per call site, deliberately - attaching one to all 21 call sites
+  /// would burn the 10,000/day account quota on reads like `getCategories` and
+  /// leave nothing for the endpoints that actually move money. The protected
+  /// set is the three money paths here plus login in AuthService.
+  ///
+  /// The token is opaque and is never inspected. If it cannot be obtained the
+  /// request goes out without it: only the backend (SEC-0.2) can tell an
+  /// attacker stripping the header from a device whose Play Services is
+  /// broken, and it can only do that if this client stops guessing on its
+  /// behalf.
   Future<http.Response> send(
     Future<http.Response> Function(Map<String, String> headers) request, {
     required Duration timeout,
+    String? integrityPayload,
   }) async {
+    // Minted once per user action. Reused verbatim on the 401 retry below,
+    // because the request being attested has not changed - and because a
+    // second mint would burn a second unit of the daily quota for one tap.
+    final integrityToken = integrityPayload == null
+        ? null
+        : await DeviceIntegrityTokenService.tokenFor(
+            DeviceIntegrityTokenService.requestHashFor(integrityPayload),
+          );
+
     final initialHeaders = await headers();
+    _attachIntegrity(initialHeaders, integrityToken);
     var response = await _withTimeout(request(initialHeaders), timeout);
 
     if (response.statusCode == 401) {
@@ -119,6 +147,7 @@ class AuthorizedHttpClient {
           await _authService.ensureValidSession(forceRefresh: true);
       if (refreshed) {
         final retryHeaders = await headers();
+        _attachIntegrity(retryHeaders, integrityToken);
         response = await _withTimeout(request(retryHeaders), timeout);
       }
 
@@ -129,6 +158,15 @@ class AuthorizedHttpClient {
     }
 
     return response;
+  }
+
+  /// SEC-0.1. The header carries the opaque Google-signed token and nothing
+  /// else - no boolean, no parsed field, no client opinion. Absent header
+  /// means "no token available", which is a decision for SEC-0.2 to make.
+  static void _attachIntegrity(Map<String, String> headers, String? token) {
+    if (token != null && token.isNotEmpty) {
+      headers[integrityHeader] = token;
+    }
   }
 
   Future<http.Response> _withTimeout(

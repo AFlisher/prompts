@@ -52,6 +52,15 @@ android {
     }
 }
 
+dependencies {
+    // SEC-0.1: Play Integrity, Standard API. Google's official library - a
+    // security control should not sit behind a third-party Flutter wrapper
+    // (the best-adopted one on pub.dev has ~1.8k downloads/month and no
+    // public source repository). The Dart surface needed is two calls, so
+    // MainActivity binds this directly over a MethodChannel.
+    implementation("com.google.android.play:integrity:1.6.0")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

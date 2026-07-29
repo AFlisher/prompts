@@ -316,7 +316,20 @@ class ApiService {
     String styleId, {
     Map<String, dynamic>? fieldValues,
   }) async {
+    // SEC-0.1: the attested payload is the request's control fields, not the
+    // uploaded image bytes. Hashing multiple megabytes on the critical path
+    // would cost far more than it protects, and the fields below are what
+    // actually decide which style is applied and what the backend charges for.
+    // The backend must recompute this string byte-for-byte (SEC-0.2 contract).
+    final integrityPayload = [
+      'POST /api/generate',
+      styleId,
+      if (fieldValues != null && fieldValues.isNotEmpty) json.encode(fieldValues),
+      'files:${imagePaths.length}',
+    ].join('\n');
+
     final response = await _client.send(
+      integrityPayload: integrityPayload,
       (headers) async {
         // Rebuilt from scratch on every call (including a 401 retry) - a
         // MultipartRequest can only be sent once, but http.MultipartFile.
@@ -329,6 +342,12 @@ class ApiService {
 
         if (headers.containsKey('Authorization')) {
           request.headers['Authorization'] = headers['Authorization']!;
+        }
+        // This closure copies headers by hand rather than passing the map
+        // through, so the SEC-0.1 header has to be forwarded explicitly too.
+        final integrity = headers[AuthorizedHttpClient.integrityHeader];
+        if (integrity != null) {
+          request.headers[AuthorizedHttpClient.integrityHeader] = integrity;
         }
 
         request.fields['styleId'] = styleId;
@@ -383,17 +402,22 @@ class ApiService {
     String? aspectRatio,
     String? style,
   }) async {
+    // Encoded once and reused for both the body and the SEC-0.1 request hash,
+    // so the attested bytes and the sent bytes cannot drift apart.
+    final body = json.encode({
+      if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+      if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
+      if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
+      if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
+      if (style != null && style.isNotEmpty) 'style': style,
+    });
+
     final response = await _client.send(
+      integrityPayload: 'POST /api/ai/generate\n$body',
       (headers) => http.post(
         Uri.parse('$_backendUrl/api/ai/generate'),
         headers: headers,
-        body: json.encode({
-          if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
-          if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
-          if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
-          if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
-          if (style != null && style.isNotEmpty) 'style': style,
-        }),
+        body: body,
       ),
       timeout: NetworkTimeouts.upload,
     );
