@@ -45,7 +45,7 @@ class ApiService {
   /// GET /api/categories
   Future<List<Category>> getCategories() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/categories'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/categories'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -60,7 +60,7 @@ class ApiService {
   /// GET /api/styles
   Future<List<Style>> getStyles() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/styles'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/styles'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -75,7 +75,7 @@ class ApiService {
   /// GET /api/credit-packs
   Future<List<CreditPack>> getCreditPacks() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/credit-packs'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/credit-packs'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -90,7 +90,7 @@ class ApiService {
   /// GET /api/styles?categoryId=<categoryId>
   Future<List<Style>> getStylesByCategory(String categoryId) async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?categoryId=$categoryId'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/styles?categoryId=$categoryId'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -110,7 +110,7 @@ class ApiService {
   /// returned by [getStylesByCategory].
   Future<List<Style>> getTrendingStyles() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?trending=true'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/styles?trending=true'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -131,7 +131,7 @@ class ApiService {
   /// yet to personalize from.
   Future<List<Style>> getRecommendedStyles() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/styles?recommended=true'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/styles?recommended=true'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -151,7 +151,7 @@ class ApiService {
   /// similarity, not the caller's own history.
   Future<List<Style>> getSimilarStyles(String styleId, {int limit = 10}) async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/styles/$styleId/similar?limit=$limit'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/styles/$styleId/similar?limit=$limit'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -166,7 +166,7 @@ class ApiService {
   /// GET /api/favorites
   Future<List<String>> getFavorites() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/favorites'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/favorites'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -181,7 +181,7 @@ class ApiService {
   /// POST /api/favorites
   Future<void> addFavorite(String styleId) async {
     final response = await _client.send(
-      (headers) => http.post(
+      (headers) => backendClient.post(
         Uri.parse('$_backendUrl/api/favorites'),
         headers: headers,
         body: json.encode({'styleId': styleId}),
@@ -197,7 +197,7 @@ class ApiService {
   /// DELETE /api/favorites/:styleId
   Future<void> removeFavorite(String styleId) async {
     final response = await _client.send(
-      (headers) => http.delete(Uri.parse('$_backendUrl/api/favorites/$styleId'), headers: headers),
+      (headers) => backendClient.delete(Uri.parse('$_backendUrl/api/favorites/$styleId'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -210,7 +210,7 @@ class ApiService {
   Future<({List<AppNotification> notifications, int unreadCount})>
       getNotifications() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/notifications'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/notifications'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -231,7 +231,7 @@ class ApiService {
   /// POST /api/notifications/:id/read — returns the fresh unread count.
   Future<int> markNotificationRead(String id) async {
     final response = await _client.send(
-      (headers) => http.post(Uri.parse('$_backendUrl/api/notifications/$id/read'), headers: headers),
+      (headers) => backendClient.post(Uri.parse('$_backendUrl/api/notifications/$id/read'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -246,7 +246,7 @@ class ApiService {
   /// GET /api/creations
   Future<List<Map<String, dynamic>>> getCreations() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/creations'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/creations'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -261,7 +261,7 @@ class ApiService {
   /// DELETE /api/creations/:id
   Future<void> deleteCreation(String id) async {
     final response = await _client.send(
-      (headers) => http.delete(Uri.parse('$_backendUrl/api/creations/$id'), headers: headers),
+      (headers) => backendClient.delete(Uri.parse('$_backendUrl/api/creations/$id'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -277,7 +277,7 @@ class ApiService {
     if (creations.isEmpty) return 0;
 
     final response = await _client.send(
-      (headers) => http.post(
+      (headers) => backendClient.post(
         Uri.parse('$_backendUrl/api/creations/migrate'),
         headers: headers,
         body: json.encode({'creations': creations}),
@@ -316,7 +316,20 @@ class ApiService {
     String styleId, {
     Map<String, dynamic>? fieldValues,
   }) async {
+    // SEC-0.1: the attested payload is the request's control fields, not the
+    // uploaded image bytes. Hashing multiple megabytes on the critical path
+    // would cost far more than it protects, and the fields below are what
+    // actually decide which style is applied and what the backend charges for.
+    // The backend must recompute this string byte-for-byte (SEC-0.2 contract).
+    final integrityPayload = [
+      'POST /api/generate',
+      styleId,
+      if (fieldValues != null && fieldValues.isNotEmpty) json.encode(fieldValues),
+      'files:${imagePaths.length}',
+    ].join('\n');
+
     final response = await _client.send(
+      integrityPayload: integrityPayload,
       (headers) async {
         // Rebuilt from scratch on every call (including a 401 retry) - a
         // MultipartRequest can only be sent once, but http.MultipartFile.
@@ -330,6 +343,12 @@ class ApiService {
         if (headers.containsKey('Authorization')) {
           request.headers['Authorization'] = headers['Authorization']!;
         }
+        // This closure copies headers by hand rather than passing the map
+        // through, so the SEC-0.1 header has to be forwarded explicitly too.
+        final integrity = headers[AuthorizedHttpClient.integrityHeader];
+        if (integrity != null) {
+          request.headers[AuthorizedHttpClient.integrityHeader] = integrity;
+        }
 
         request.fields['styleId'] = styleId;
         // Dynamic prompt-template values (if any) travel as a JSON string
@@ -342,7 +361,7 @@ class ApiService {
           request.files.add(await http.MultipartFile.fromPath('file', imagePath));
         }
 
-        final streamedResponse = await request.send();
+        final streamedResponse = await backendClient.send(request);
         return http.Response.fromStream(streamedResponse);
       },
       timeout: NetworkTimeouts.upload,
@@ -383,17 +402,22 @@ class ApiService {
     String? aspectRatio,
     String? style,
   }) async {
+    // Encoded once and reused for both the body and the SEC-0.1 request hash,
+    // so the attested bytes and the sent bytes cannot drift apart.
+    final body = json.encode({
+      if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+      if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
+      if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
+      if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
+      if (style != null && style.isNotEmpty) 'style': style,
+    });
+
     final response = await _client.send(
-      (headers) => http.post(
+      integrityPayload: 'POST /api/ai/generate\n$body',
+      (headers) => backendClient.post(
         Uri.parse('$_backendUrl/api/ai/generate'),
         headers: headers,
-        body: json.encode({
-          if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
-          if (styleId != null && styleId.isNotEmpty) 'styleId': styleId,
-          if (negativePrompt != null && negativePrompt.isNotEmpty) 'negativePrompt': negativePrompt,
-          if (aspectRatio != null && aspectRatio.isNotEmpty) 'aspectRatio': aspectRatio,
-          if (style != null && style.isNotEmpty) 'style': style,
-        }),
+        body: body,
       ),
       timeout: NetworkTimeouts.upload,
     );

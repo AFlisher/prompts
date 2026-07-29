@@ -12,9 +12,17 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!--
+      SEC-12.2: declares the network posture explicitly rather than inheriting
+      it from target-SDK defaults. res/xml/network_security_config.xml is the
+      production copy; src/debug/res/xml/ overrides it for debug builds only.
+      Contains no pin-set by design - backend TLS pinning is SEC-12.1, in
+      lib/services/certificate_pinning.dart.
+    -->
     <application
         android:name="${applicationName}"
         android:label="StyliAI"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
 

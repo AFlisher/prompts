@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import '../models/wallet.dart';
 import 'auth_service.dart';
 import 'network_client.dart';
@@ -14,7 +13,7 @@ class WalletService {
   /// GET /api/wallet
   Future<Wallet> getWallet() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/wallet'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/wallet'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -28,8 +27,13 @@ class WalletService {
 
   /// POST /api/wallet/reward - reports that the user watched a rewarded ad.
   Future<AdRewardResult> rewardAd() async {
+    // SEC-0.1. This endpoint takes no body, so the hash binds only the action
+    // itself - there is nothing else to tamper with. Reuse of a token across
+    // two reward claims is handled by Google's automatic replay protection for
+    // standard requests, and by whatever dedup SEC-0.4 adds server-side.
     final response = await _client.send(
-      (headers) => http.post(Uri.parse('$_backendUrl/api/wallet/reward'), headers: headers),
+      integrityPayload: 'POST /api/wallet/reward',
+      (headers) => backendClient.post(Uri.parse('$_backendUrl/api/wallet/reward'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -44,7 +48,7 @@ class WalletService {
   /// GET /api/wallet/history - the authenticated user's transaction ledger, newest first.
   Future<List<WalletTransaction>> getWalletHistory() async {
     final response = await _client.send(
-      (headers) => http.get(Uri.parse('$_backendUrl/api/wallet/history'), headers: headers),
+      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/wallet/history'), headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
