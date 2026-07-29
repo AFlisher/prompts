@@ -29,6 +29,7 @@ dependencies:
   share_plus: ^13.2.1
   url_launcher: ^6.3.2
   package_info_plus: ^10.2.1
+  safe_device: ^1.4.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

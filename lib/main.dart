@@ -18,6 +18,7 @@ import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 import 'services/auth_service.dart';
+import 'services/device_integrity_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
 import 'services/feedback_prompt_service.dart';
@@ -218,6 +219,10 @@ class _PrombtAppState extends State<PrombtApp> {
   final _profileManager = ProfileManager();
   final _notificationsManager = NotificationsManager();
 
+  // SEC-13.4: lets the post-first-frame device-integrity notice reach a
+  // ScaffoldMessenger without any screen having to know this check exists.
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   @override
   void initState() {
     super.initState();
@@ -242,6 +247,7 @@ class _PrombtAppState extends State<PrombtApp> {
     // non-null, so that's the one place these managers get initialized.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setHighRefreshRate();
+      _checkDeviceIntegrity();
     });
   }
 
@@ -271,6 +277,34 @@ class _PrombtAppState extends State<PrombtApp> {
         debugPrint("⚠️ Failed to set high refresh rate: $e");
       }
     }
+  }
+
+  // SEC-13.4: one-time courtesy notice on a rooted device, and nothing more.
+  //
+  // The result is attacker-controlled - see DeviceIntegrityService's class doc
+  // - so it gates nothing. Login, generation, rewarded ads, the wallet and
+  // credits all behave identically whether this fires or not, no header is
+  // added, and nothing is reported to the backend. Server-trusted device
+  // integrity is Play Integrity's job (SEC-0.1/0.2), not this.
+  //
+  // Runs after the first frame, alongside _setHighRefreshRate above, so it can
+  // never extend cold start.
+  Future<void> _checkDeviceIntegrity() async {
+    await DeviceIntegrityService.check();
+    if (!mounted || !DeviceIntegrityService.shouldShowNotice) return;
+
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: const Text(
+          'This device appears to be rooted. Credentials stored on rooted '
+          'devices are easier for other apps to read.',
+        ),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(label: 'Got it', onPressed: () {}),
+      ),
+    );
+
+    await DeviceIntegrityService.markNoticeShown();
   }
 
   @override
@@ -308,6 +342,7 @@ class _PrombtAppState extends State<PrombtApp> {
                 child: AnnotatedRegion<SystemUiOverlayStyle>(
                   value: SystemUiOverlayStyle.light,
                   child: MaterialApp(
+                    scaffoldMessengerKey: _scaffoldMessengerKey,
                     title: 'StyliAI — AI Photo Styles',
                     debugShowCheckedModeBanner: false,
                     theme: AppTheme.lightTheme,
