@@ -18,6 +18,7 @@ import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 import 'services/auth_service.dart';
+import 'services/certificate_pinning.dart';
 import 'services/device_integrity_service.dart';
 import 'services/device_integrity_token_service.dart';
 import 'services/theme_preference_service.dart';
@@ -38,6 +39,14 @@ Future<void> main() async {
   try {
     // تحميل ملف .env
     await dotenv.load(fileName: ".env");
+
+    // SEC-12.1: build the pinned HTTP client before anything can reach the
+    // backend. Awaited deliberately - the trust anchors are a bundled asset, so
+    // this is a local read, and a backend call that raced ahead of it would
+    // fail closed rather than fall back to the platform trust store.
+    await CertificatePinning.initialize(
+      environment: dotenv.env[CertificatePinning.environmentKey],
+    );
 
     // تهيئة Supabase
     await Supabase.initialize(

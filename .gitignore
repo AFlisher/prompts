@@ -48,3 +48,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# SEC-12.1 - the throwaway PKI the pinning tests run against is generated at
+# test time by test/services/certificate_pinning_test.dart, never committed.
+# It contains real (worthless) private keys, and this is a public repository.
+test/fixtures/certs/

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
+import 'certificate_pinning.dart';
 import 'device_integrity_token_service.dart';
 
 /// Centralized network timeout defaults (Release Candidate QA - Task 1).
@@ -21,6 +22,32 @@ abstract class NetworkTimeouts {
   /// bytes and the backend does real work (AI generation), so they get
   /// meaningfully longer than a plain API call.
   static const upload = Duration(seconds: 60);
+}
+
+/// SEC-12.1. Thrown when the pinned client could not be built, so no backend
+/// request is attempted at all.
+///
+/// This exists so the failure is loud in code and silent to the user: there is
+/// deliberately no fallback to an unpinned client, because a pinning layer that
+/// quietly degrades to the platform trust store reports success while providing
+/// nothing. [friendlyNetworkErrorMessage] maps it to the same generic message a
+/// dropped connection produces - the user is told the server is unreachable,
+/// not that a security control failed.
+class SecureConnectionUnavailableException implements Exception {
+  const SecureConnectionUnavailableException();
+  @override
+  String toString() => 'Secure connection unavailable';
+}
+
+/// SEC-12.1. The pinned client every backend call must go through.
+///
+/// Throws rather than returning a plain client if pinning never initialised.
+/// That is the fail-closed guarantee: there is no code path from a backend
+/// service to an unpinned socket.
+http.Client get backendClient {
+  final client = CertificatePinning.maybeClient;
+  if (client == null) throw const SecureConnectionUnavailableException();
+  return client;
 }
 
 /// Thrown for any non-2xx response this layer doesn't have a more specific
@@ -65,6 +92,16 @@ String friendlyNetworkErrorMessage(Object error) {
     return 'The request timed out. Please try again.';
   }
   if (error is SocketException) {
+    return "Couldn't connect to the server.";
+  }
+  // SEC-12.1: a pin mismatch and an unavailable pinned client both surface as
+  // an ordinary connection failure. Naming the certificate would tell an
+  // attacker their interception was detected, and would tell a real user
+  // something they can neither understand nor act on.
+  if (error is HandshakeException || error is TlsException) {
+    return "Couldn't connect to the server.";
+  }
+  if (error is SecureConnectionUnavailableException) {
     return "Couldn't connect to the server.";
   }
   return 'Something unexpected happened.';

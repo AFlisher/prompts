@@ -53,4 +53,5 @@ flutter:
 
   assets:
     - .env
+    - assets/certs/
     - assets/images/

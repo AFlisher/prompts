@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'auth_service.dart';
@@ -35,7 +34,7 @@ class FeedbackService {
     final appVersion = await _currentAppVersion();
 
     final response = await _client.send(
-      (headers) => http.post(
+      (headers) => backendClient.post(
         Uri.parse('$_backendUrl/api/feedback'),
         headers: headers,
         body: json.encode({

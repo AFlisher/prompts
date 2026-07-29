@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'device_integrity_token_service.dart';
@@ -102,7 +101,7 @@ class AuthService {
     required String fullName,
   }) async {
     debugPrint("[AuthService] Attempting registration to backend...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -147,7 +146,7 @@ class AuthService {
       DeviceIntegrityTokenService.requestHashFor('POST /api/auth/login\n$email'),
     );
 
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/login'),
       headers: {
         'Content-Type': 'application/json',
@@ -197,7 +196,7 @@ class AuthService {
   /// Sign In with Google via custom backend — verifies idToken server-side and issues custom JWTs
   Future<AuthResponse> signInWithGoogle(String idToken) async {
     debugPrint("[AuthService] Sending Google idToken to backend for verification...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'idToken': idToken}),
@@ -240,7 +239,7 @@ class AuthService {
   /// Refreshes the access token using the refresh token
   Future<void> refreshSession(String refreshToken) async {
     debugPrint("[AuthService] Token Refresh Attempt. Sending refresh request to backend...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/refresh'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -367,7 +366,7 @@ class AuthService {
       throw const AuthException("User is not authenticated.");
     }
 
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/change-password'),
       headers: {
         'Content-Type': 'application/json',
@@ -425,7 +424,7 @@ class AuthService {
   /// Polls verification status from custom backend
   Future<bool> checkVerificationStatus(String email) async {
     try {
-      final response = await http.get(
+      final response = await backendClient.get(
         Uri.parse('$_backendUrl/api/auth/status?email=${Uri.encodeComponent(email)}'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(
@@ -445,7 +444,7 @@ class AuthService {
   /// Requests a password reset link
   Future<void> forgotPassword(String email) async {
     debugPrint("[AuthService] Requesting forgot password reset link...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -466,7 +465,7 @@ class AuthService {
   /// Resends the email verification link
   Future<void> resendVerification(String email) async {
     debugPrint("[AuthService] Requesting email verification link resend...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/resend-verification'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
