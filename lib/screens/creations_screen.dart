@@ -383,19 +383,26 @@ class MyCreationsScreen extends StatelessWidget {
                         // needs decoding at this box's actual on-screen size.
                         // Width matches showAppBottomSheet's default
                         // horizontal padding (24px each side).
-                        ProgressiveNetworkImage(
-                          thumbnailUrl: item.displayThumbnail,
-                          originalUrl: item.imagePath,
-                          thumbnailCacheKey:
-                              creationCacheKey(item.id, thumbnail: true),
-                          originalCacheKey:
-                              creationCacheKey(item.id, thumbnail: false),
-                          fit: BoxFit.cover,
-                          memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
-                                  MediaQuery.devicePixelRatioOf(context))
-                              .round(),
-                          memCacheHeight:
-                              (340 * MediaQuery.devicePixelRatioOf(context)).round(),
+                        // SEC-8.1B-2: same credential requirement as the grid
+                        // card above - without it the original layer 401s and
+                        // this card never upgrades past the thumbnail.
+                        AuthorizedImage(
+                          url: item.imagePath,
+                          builder: (headers) => ProgressiveNetworkImage(
+                            thumbnailUrl: item.displayThumbnail,
+                            originalUrl: item.imagePath,
+                            thumbnailCacheKey:
+                                creationCacheKey(item.id, thumbnail: true),
+                            originalCacheKey:
+                                creationCacheKey(item.id, thumbnail: false),
+                            fit: BoxFit.cover,
+                            memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                            memCacheHeight:
+                                (340 * MediaQuery.devicePixelRatioOf(context)).round(),
+                            httpHeaders: headers,
+                          ),
                         ),
 
                       // Before (Original photo) small floating container

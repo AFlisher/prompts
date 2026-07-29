@@ -12,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
+import '../utils/image_delivery.dart';
 import '../utils/image_normalizer.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
@@ -650,17 +651,27 @@ class _UploadScreenState extends State<UploadScreen> {
                                 // actual on-screen size. Width matches this
                                 // Column's own horizontal Padding (24px each
                                 // side, set above).
-                                ProgressiveNetworkImage(
-                                  thumbnailUrl: _generatedThumbnailUrl ??
-                                      _generatedImageUrl ??
-                                      widget.style.displayImage,
-                                  originalUrl: _generatedImageUrl ?? widget.style.displayImage,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
-                                          MediaQuery.devicePixelRatioOf(context))
-                                      .round(),
-                                  memCacheHeight:
-                                      (380 * MediaQuery.devicePixelRatioOf(context)).round(),
+                                // SEC-8.1B-2: the generated original is one of
+                                // our own delivery URLs, so it needs
+                                // credentials or it 401s and this card stays
+                                // on the thumbnail. Falls through to no
+                                // headers for the off-origin style asset this
+                                // renders before a generation exists.
+                                AuthorizedImage(
+                                  url: _generatedImageUrl ?? widget.style.displayImage,
+                                  builder: (headers) => ProgressiveNetworkImage(
+                                    thumbnailUrl: _generatedThumbnailUrl ??
+                                        _generatedImageUrl ??
+                                        widget.style.displayImage,
+                                    originalUrl: _generatedImageUrl ?? widget.style.displayImage,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                            MediaQuery.devicePixelRatioOf(context))
+                                        .round(),
+                                    memCacheHeight:
+                                        (380 * MediaQuery.devicePixelRatioOf(context)).round(),
+                                    httpHeaders: headers,
+                                  ),
                                 ),
                                 Positioned(
                                   bottom: 16,

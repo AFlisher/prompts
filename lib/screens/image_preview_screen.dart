@@ -87,16 +87,26 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                 // so this must dispatch on scheme like every other image in
                 // the app instead of assuming a bundled asset.
                 child: widget.assetPath != null
-                    ? ProgressiveNetworkImage(
-                        thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
-                        originalUrl: widget.assetPath!,
-                        thumbnailCacheKey: widget.creationId == null
-                            ? null
-                            : creationCacheKey(widget.creationId!, thumbnail: true),
-                        originalCacheKey: widget.creationId == null
-                            ? null
-                            : creationCacheKey(widget.creationId!, thumbnail: false),
-                        fit: BoxFit.contain,
+                    // SEC-8.1B-2: the original is fetched with credentials when
+                    // it is one of our own delivery URLs. Without this the
+                    // full-resolution layer 401s and never replaces the
+                    // thumbnail, leaving this viewer permanently showing the
+                    // 320x400 browsing thumbnail. Off-origin URLs (catalog
+                    // assets, public storage URLs) short-circuit to no headers.
+                    ? AuthorizedImage(
+                        url: widget.assetPath!,
+                        builder: (headers) => ProgressiveNetworkImage(
+                          thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
+                          originalUrl: widget.assetPath!,
+                          thumbnailCacheKey: widget.creationId == null
+                              ? null
+                              : creationCacheKey(widget.creationId!, thumbnail: true),
+                          originalCacheKey: widget.creationId == null
+                              ? null
+                              : creationCacheKey(widget.creationId!, thumbnail: false),
+                          fit: BoxFit.contain,
+                          httpHeaders: headers,
+                        ),
                       )
                     : Image.file(
                         File(widget.filePath!),
