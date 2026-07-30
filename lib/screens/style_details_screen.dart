@@ -390,12 +390,25 @@ class _HeroStyleCard extends StatelessWidget {
                       ),
                     );
                   },
+                  // Same Spotify/Apple-Music presentation StyleCard uses on
+                  // Home: this box's aspect ratio (~1.5:1) has nothing to do
+                  // with the source photo's actual (portrait) proportions,
+                  // so a single BoxFit.cover layer had to crop most of the
+                  // frame away to fill it - which read as the subject being
+                  // stretched. Blurred cover backdrop fills the box with no
+                  // gaps; the same image again on top, centered and
+                  // BoxFit.contain, shows the full, undistorted frame.
                   child: Hero(
                     tag: heroTag,
-                    child: ProgressiveNetworkImage(
+                    // Same composition FullScreenImageViewer's Hero child
+                    // uses, so the default Hero flight - which renders the
+                    // destination's child for the whole flight - shows this
+                    // exact blur/overlay/contain look throughout instead of
+                    // popping to a plain contain-only rendering the instant
+                    // the flight starts.
+                    child: _BlurBackdropStyleImage(
                       thumbnailUrl: style.displayThumbnail,
                       originalUrl: style.displayImage,
-                      fit: BoxFit.cover,
                       memCacheWidth: cacheWidth,
                       memCacheHeight: (cacheHeight * dpr).round(),
                     ),
@@ -453,6 +466,72 @@ class _HeroStyleCard extends StatelessWidget {
                 ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Blurred, full-bleed cover copy of the image behind an undistorted,
+/// centered BoxFit.contain copy of the same image - the Spotify/Apple-Music
+/// presentation used by both [_HeroStyleCard]'s Hero source and
+/// [FullScreenImageViewer]'s Hero destination. Sharing this single
+/// composition (rather than each screen building its own) is what keeps the
+/// default Hero flight - which renders the destination's child for the
+/// entire flight - visually seamless with whatever the user was looking at
+/// when they tapped.
+class _BlurBackdropStyleImage extends StatelessWidget {
+  final String thumbnailUrl;
+  final String originalUrl;
+  final int? memCacheWidth;
+  final int? memCacheHeight;
+
+  const _BlurBackdropStyleImage({
+    required this.thumbnailUrl,
+    required this.originalUrl,
+    this.memCacheWidth,
+    this.memCacheHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(
+            sigmaX: 24,
+            sigmaY: 24,
+            tileMode: TileMode.decal,
+          ),
+          child: ProgressiveNetworkImage(
+            thumbnailUrl: thumbnailUrl,
+            originalUrl: originalUrl,
+            fit: BoxFit.cover,
+            memCacheWidth: memCacheWidth,
+            memCacheHeight: memCacheHeight,
+          ),
+        ),
+        Container(color: Colors.black.withValues(alpha: 0.3)),
+        Center(
+          // Height only, not both dimensions: CachedNetworkImage's
+          // memCacheWidth/memCacheHeight decode via Flutter's ResizeImage,
+          // whose default policy (ResizeImagePolicy.exact) stretches the
+          // decoded bitmap to fill *both* given dimensions independently
+          // when they don't match the source photo's own aspect ratio -
+          // "similar to BoxFit.fill" per its own docs - which BoxFit.contain
+          // below can't undo, since by then the bitmap is already distorted.
+          // Bounding only height (this composition's fixed dimension) keeps
+          // decode resolution capped without ever squashing the photo to
+          // this box's shape; the blurred cover backdrop above is
+          // unaffected by the same distortion since it's an intentional
+          // full-bleed crop, invisible under a 24px blur either way.
+          child: ProgressiveNetworkImage(
+            thumbnailUrl: thumbnailUrl,
+            originalUrl: originalUrl,
+            fit: BoxFit.contain,
+            memCacheHeight: memCacheHeight,
+          ),
+        ),
       ],
     );
   }
@@ -675,13 +754,16 @@ class FullScreenImageViewer extends StatelessWidget {
           Center(
             child: Hero(
               tag: heroTag,
+              // Same blur/overlay/contain composition _HeroStyleCard's Hero
+              // child uses - see the comment there. memCacheWidth/Height are
+              // left unset (unlike the card) since this is the zoomable,
+              // full-resolution destination.
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: ProgressiveNetworkImage(
+                child: _BlurBackdropStyleImage(
                   thumbnailUrl: thumbnailPath ?? imagePath,
                   originalUrl: imagePath,
-                  fit: BoxFit.contain,
                 ),
               ),
             ),
