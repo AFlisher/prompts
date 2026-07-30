@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/haptic_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/status_bar_style.dart';
+import '../utils/secure_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -205,7 +206,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : 'Ahmed';
     final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return StatusBarStyle(
+    return SecureScreenGuard(
+      // Phase 6: account details on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: StatusBarStyle(
       isDark: _isDark,
       child: Scaffold(
         backgroundColor: bgColor,
@@ -395,6 +400,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

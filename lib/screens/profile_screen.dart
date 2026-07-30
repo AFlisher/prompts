@@ -19,6 +19,7 @@ import 'wallet_history_screen.dart';
 import '../services/auth_service.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../utils/page_transitions.dart';
+import '../utils/secure_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -119,14 +120,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         creations.map((c) => c.styleId).where((id) => id.isNotEmpty).toSet().length;
 
     if (profileManager.isLoading) {
-      return Scaffold(
+      return SecureScreenGuard(
+      // Phase 6: account details on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
         backgroundColor: bgColor,
         body: const Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
           ),
         ),
-      );
+      ),
+    );
     }
 
     if (profileManager.errorMessage != null) {

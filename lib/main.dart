@@ -24,9 +24,15 @@ import 'services/device_integrity_token_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
 import 'services/feedback_prompt_service.dart';
+import 'utils/release_logging.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Phase 6: first thing, before anything can log. `debugPrint` is not stripped
+  // in release builds despite its name, so without this the app narrates its
+  // session handling into logcat on every production device. No-op in debug.
+  configureReleaseLogging();
 
   // Three independent SharedPreferences-backed reads - none depends on
   // another's result, so load them concurrently instead of one after another.

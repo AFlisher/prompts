@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../widgets/status_bar_style.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -98,7 +99,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
     final surfaceColor = _isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return StatusBarStyle(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: StatusBarStyle(
       isDark: _isDark,
       child: Scaffold(
         backgroundColor: bgColor,
@@ -254,6 +259,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

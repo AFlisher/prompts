@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -124,7 +125,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     const textColor = AppTheme.white;
     const boxBg = AppTheme.darkCard;
 
-    return Scaffold(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -215,6 +220,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

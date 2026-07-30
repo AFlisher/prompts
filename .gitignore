@@ -53,3 +53,9 @@ app.*.map.json
 # test time by test/services/certificate_pinning_test.dart, never committed.
 # It contains real (worthless) private keys, and this is a public repository.
 test/fixtures/certs/
+
+# Phase 6 / SEC-17.3: Firebase config carries a live API key. It was removed
+# from the default branch once already; this stops it being re-added by
+# accident. Note that gitignore does NOT affect a file already staged or
+# tracked - `git rm --cached` is what un-stages one.
+android/app/google-services.json

@@ -1,6 +1,7 @@
 package com.prombt.prombt_app
 
 import android.util.Log
+import android.view.WindowManager
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityException
 import com.google.android.play.core.integrity.StandardIntegrityManager
@@ -29,6 +30,7 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val CHANNEL = "styliai/play_integrity"
+        const val SECURE_CHANNEL = "styliai/secure_screen"
         const val TAG = "PlayIntegrity"
 
         /**
@@ -54,6 +56,50 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SECURE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setSecure" -> setSecure(call.argument<Boolean>("enabled") == true, result)
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Phase 6 - FLAG_SECURE, applied per screen rather than app-wide.
+     *
+     * The flag does three things at once on Android: it blocks screenshots and
+     * screen recording, and it blanks the window in the recent-apps switcher.
+     * That last one is why it is worth setting on the auth and profile screens
+     * specifically - the task-switcher thumbnail is a screenshot the user never
+     * asked for and never sees being taken.
+     *
+     * Deliberately NOT set app-wide. Users legitimately screenshot their own
+     * generated images to save or share them, and that is the product working.
+     * The Dart side (utils/secure_screen.dart) reference-counts, so overlapping
+     * secure screens cannot leave the flag stuck either on or off.
+     *
+     * Window flags must be touched on the UI thread; `runOnUiThread` makes that
+     * true regardless of which thread the channel call arrives on. Failure is
+     * reported as false rather than as an exception, so the Dart side has one
+     * boring fail-open path - a device that refuses the flag must not crash the
+     * screen the user was opening.
+     */
+    private fun setSecure(enabled: Boolean, result: MethodChannel.Result) {
+        runOnUiThread {
+            try {
+                if (enabled) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                result.success(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "setSecure($enabled) failed")
+                result.success(false)
+            }
+        }
     }
 
     /**

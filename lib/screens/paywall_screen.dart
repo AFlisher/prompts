@@ -8,6 +8,7 @@ import '../widgets/simulated_store_pay.dart';
 import '../services/haptic_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/status_bar_style.dart';
+import '../utils/secure_screen.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -163,7 +164,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
     final creditManager = CreditProvider.of(context);
 
-    return StatusBarStyle(
+    return SecureScreenGuard(
+      // Phase 6: billing on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: StatusBarStyle(
       isDark: widget.isDarkMode,
       child: Scaffold(
         backgroundColor: bgColor,
@@ -472,6 +477,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

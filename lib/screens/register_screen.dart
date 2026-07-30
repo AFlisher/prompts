@@ -6,6 +6,7 @@ import 'legal_document_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 class RegisterScreen extends StatefulWidget {
   final String? prefilledEmail;
   const RegisterScreen({super.key, this.prefilledEmail});
@@ -135,7 +136,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final textColor = isDark ? AppTheme.white : AppTheme.black;
     final boxBg = isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -327,6 +332,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

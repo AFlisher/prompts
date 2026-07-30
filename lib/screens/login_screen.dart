@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/app_theme.dart';
 import 'main_shell.dart';
@@ -7,6 +8,7 @@ import 'forgot_password_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -175,11 +177,32 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         (route) => false,
       );
     } on AuthException catch (e) {
+      debugPrint('[GoogleSignIn] AuthException: ${e.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
-    } catch (e) {
+    } on PlatformException catch (e, stackTrace) {
+      // google_sign_in surfaces native failures (GoogleSignInServices /
+      // ApiException on Android) as a PlatformException. `code` carries the
+      // GMS status code (e.g. "sign_in_failed" wrapping "ApiException: 10:"
+      // for DEVELOPER_ERROR, usually a SHA-1/package mismatch for the
+      // signing cert used to build this binary). None of that reaches the
+      // user-facing message, so log it in full here.
+      debugPrint(
+        '[GoogleSignIn] PlatformException — code: ${e.code}, '
+        'message: ${e.message}, details: ${e.details}',
+      );
+      debugPrint('[GoogleSignIn] StackTrace:\n$stackTrace');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        '[GoogleSignIn] Unhandled ${e.runtimeType}: $e',
+      );
+      debugPrint('[GoogleSignIn] StackTrace:\n$stackTrace');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
@@ -196,7 +219,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final textColor = isDark ? AppTheme.white : AppTheme.black;
     final boxBg = isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
         child: FadeTransition(
@@ -392,6 +419,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
       ),
+    ),
     );
   }
 }
