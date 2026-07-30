@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../main.dart';
 import '../screens/paywall_screen.dart';
 import '../services/haptic_service.dart';
+import '../utils/image_delivery.dart';
 
 /// How long the capsule's theme-driven color/shadow/text/icon transitions
 /// take - shared by every animated piece here so they all move in lockstep.
@@ -121,7 +122,14 @@ class AppHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
+              // R-2 phase 4: a stored avatar object is private now and is
+              // fetched through our authenticated endpoint. AuthorizedImage
+              // resolves the token only when the URL is ours - a provider
+              // picture (most accounts today) short-circuits synchronously
+              // with no headers and renders exactly as before.
+              AuthorizedImage(
+                url: avatarDisplayUrl(profile?.avatarUrl) ?? '',
+                builder: (avatarHeaders) => Container(
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
@@ -135,7 +143,10 @@ class AppHeader extends StatelessWidget {
                         ),
                   image: profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
                       ? DecorationImage(
-                          image: CachedNetworkImageProvider(profile.avatarUrl!),
+                          image: CachedNetworkImageProvider(
+                            avatarDisplayUrl(profile.avatarUrl)!,
+                            headers: avatarHeaders,
+                          ),
                           fit: BoxFit.cover,
                         )
                       : null,
@@ -152,6 +163,7 @@ class AppHeader extends StatelessWidget {
                           ),
                         ),
                       ),
+                ),
               ),
             ],
           ),

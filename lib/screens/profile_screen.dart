@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import '../utils/image_delivery.dart';
 import '../theme/app_button_styles.dart';
 import '../widgets/app_icon_dialog.dart';
 import '../widgets/press_scale.dart';
@@ -197,14 +198,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
-                        ? Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(28),
-                              image: DecorationImage(
-                                image: CachedNetworkImageProvider(profile.avatarUrl!),
-                                fit: BoxFit.cover,
+                        // R-2 phase 4: private storage object -> our
+                        // authenticated endpoint; provider picture -> passed
+                        // through with no credentials. See avatarDisplayUrl.
+                        ? AuthorizedImage(
+                            url: avatarDisplayUrl(profile.avatarUrl)!,
+                            builder: (avatarHeaders) => Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(28),
+                                image: DecorationImage(
+                                  image: CachedNetworkImageProvider(
+                                    avatarDisplayUrl(profile.avatarUrl)!,
+                                    headers: avatarHeaders,
+                                  ),
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           )

@@ -82,6 +82,38 @@ Future<Map<String, String>> imageAuthHeaders(String url) async {
 String creationCacheKey(String creationId, {required bool thumbnail}) =>
     'creation:$creationId:${thumbnail ? 'thumb' : 'original'}';
 
+/// The address to actually render for a profile's stored `avatar_url`.
+///
+/// R-2 phase 4. The `avatars` bucket is private, so a stored Supabase object
+/// URL is no longer fetchable and must be replaced by our own authenticated
+/// endpoint, which authorizes the caller and redirects to a short-lived signed
+/// URL. There is no user id in that address: a caller can only ever request
+/// their own avatar, so there is nothing to enumerate.
+///
+/// Anything that is not one of our storage objects is returned unchanged. That
+/// is the majority of production data - most accounts carry a Google OAuth
+/// picture on a googleusercontent.com host, which is public, is not ours to
+/// sign, and must keep rendering exactly as it does today.
+///
+/// The `?v=<timestamp>` cache-buster is carried across rather than dropped.
+/// The endpoint's address is otherwise identical for every upload, so without
+/// it the image layer would keep serving the previous avatar from cache - the
+/// same reason the buster exists on the storage URL.
+String? avatarDisplayUrl(String? storedUrl) {
+  if (storedUrl == null || storedUrl.trim().isEmpty) return null;
+
+  final parsed = Uri.tryParse(storedUrl);
+  if (parsed == null || !parsed.hasScheme) return storedUrl;
+
+  final isOurAvatarObject =
+      parsed.path.contains('/storage/v1/object/') && parsed.path.contains('/avatars/');
+  if (!isOurAvatarObject) return storedUrl;
+
+  final version = parsed.queryParameters['v'];
+  final base = '${backendBaseUrl()}/api/profile/avatar';
+  return version == null || version.isEmpty ? base : '$base?v=$version';
+}
+
 /// Resolves [imageAuthHeaders] before handing off to [builder].
 ///
 /// The asynchronous step exists only for URLs that need credentials, so this

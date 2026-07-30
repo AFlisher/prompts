@@ -188,4 +188,72 @@ void main() {
       expect(isBackendImageUrl(item.imagePath), isFalse);
     });
   });
+
+  group('avatarDisplayUrl', () {
+    // R-2 phase 4. The avatars bucket is private, so a stored object URL is no
+    // longer fetchable and must be replaced by our authenticated endpoint.
+    const storedAvatar =
+        'https://proj.supabase.co/storage/v1/object/public/avatars/f60f71b5.jpg?v=1784034159601';
+    const googlePicture = 'https://lh3.googleusercontent.com/a/ACg8ocI7kTt=s96-c';
+
+    test('routes one of our avatar objects to the backend endpoint', () {
+      expect(
+        avatarDisplayUrl(storedAvatar),
+        'http://localhost:3000/api/profile/avatar?v=1784034159601',
+      );
+    });
+
+    test('carries the cache-buster across, so a new upload actually shows', () {
+      // The endpoint address is identical for every upload, so without this the
+      // image layer would keep serving the previous avatar from cache.
+      final first = avatarDisplayUrl(
+          'https://proj.supabase.co/storage/v1/object/public/avatars/u.jpg?v=1');
+      final second = avatarDisplayUrl(
+          'https://proj.supabase.co/storage/v1/object/public/avatars/u.jpg?v=2');
+
+      expect(first, isNot(equals(second)));
+      expect(first, contains('?v=1'));
+      expect(second, contains('?v=2'));
+    });
+
+    test('never leaks a storage URL to the image layer', () {
+      expect(avatarDisplayUrl(storedAvatar), isNot(contains('/object/public/')));
+      expect(avatarDisplayUrl(storedAvatar), isNot(contains('supabase')));
+    });
+
+    test('is on our own origin, so credentials are attached', () {
+      // The endpoint requires a Bearer token; isBackendImageUrl is what decides
+      // whether one is sent, so the rewritten URL has to satisfy it.
+      expect(isBackendImageUrl(avatarDisplayUrl(storedAvatar)!), isTrue);
+    });
+
+    test('handles a stored avatar with no cache-buster', () {
+      expect(
+        avatarDisplayUrl('https://proj.supabase.co/storage/v1/object/public/avatars/u.jpg'),
+        'http://localhost:3000/api/profile/avatar',
+      );
+    });
+
+    test('leaves a Google provider picture untouched', () {
+      // The majority of production accounts. Public, not ours to sign, and it
+      // must keep rendering exactly as before - with no token attached.
+      expect(avatarDisplayUrl(googlePicture), googlePicture);
+      expect(isBackendImageUrl(googlePicture), isFalse);
+    });
+
+    test('returns null for a missing or blank avatar', () {
+      expect(avatarDisplayUrl(null), isNull);
+      expect(avatarDisplayUrl(''), isNull);
+      expect(avatarDisplayUrl('   '), isNull);
+    });
+
+    test('leaves an unrelated storage object alone', () {
+      // Only avatars moved behind this endpoint; a creation URL is handled by
+      // its own delivery path and must not be rewritten here.
+      const creation =
+          'https://proj.supabase.co/storage/v1/object/public/creations/original/abc.webp';
+
+      expect(avatarDisplayUrl(creation), creation);
+    });
+  });
 }
