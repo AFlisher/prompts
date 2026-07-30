@@ -149,18 +149,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final profileService = widget.profileServiceOverride ?? ProfileService();
       final profileManager = ProfileProvider.of(context);
 
-      String? newAvatarUrl;
       if (_profileImage != null) {
-        // 1. Upload compressed avatar to storage and retrieve updated db profile
-        final updatedProfile = await profileService.uploadAvatar(_profileImage!);
-        newAvatarUrl = updatedProfile.avatarUrl;
+        // 1. Upload through the backend, which validates, sanitizes, stores
+        //    and records the avatar itself (R-2). Its URL is deliberately not
+        //    passed on to updateProfile below: the server has already written
+        //    profiles.avatar_url, and echoing it back would be the client
+        //    re-asserting a value it no longer decides.
+        await profileService.uploadAvatar(_profileImage!);
       }
 
-      // 2. Update remaining fields (Full Name, Bio) in database
+      // 2. Update remaining fields (Full Name, Bio) in database. The row it
+      //    returns already carries whatever avatar the upload just stored.
       final finalProfile = await profileService.updateProfile(
         fullName: _nameController.text.trim(),
         bio: _bioController.text.trim(),
-        avatarUrl: newAvatarUrl,
       );
 
       // 3. Immediately refresh every screen displaying the avatar (single source of truth)
