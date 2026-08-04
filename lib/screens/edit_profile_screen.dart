@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/haptic_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/status_bar_style.dart';
+import '../utils/secure_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -149,18 +150,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final profileService = widget.profileServiceOverride ?? ProfileService();
       final profileManager = ProfileProvider.of(context);
 
-      String? newAvatarUrl;
       if (_profileImage != null) {
-        // 1. Upload compressed avatar to storage and retrieve updated db profile
-        final updatedProfile = await profileService.uploadAvatar(_profileImage!);
-        newAvatarUrl = updatedProfile.avatarUrl;
+        // 1. Upload through the backend, which validates, sanitizes, stores
+        //    and records the avatar itself (R-2). Its URL is deliberately not
+        //    passed on to updateProfile below: the server has already written
+        //    profiles.avatar_url, and echoing it back would be the client
+        //    re-asserting a value it no longer decides.
+        await profileService.uploadAvatar(_profileImage!);
       }
 
-      // 2. Update remaining fields (Full Name, Bio) in database
+      // 2. Update remaining fields (Full Name, Bio) in database. The row it
+      //    returns already carries whatever avatar the upload just stored.
       final finalProfile = await profileService.updateProfile(
         fullName: _nameController.text.trim(),
         bio: _bioController.text.trim(),
-        avatarUrl: newAvatarUrl,
       );
 
       // 3. Immediately refresh every screen displaying the avatar (single source of truth)
@@ -203,7 +206,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : 'Ahmed';
     final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return StatusBarStyle(
+    return SecureScreenGuard(
+      // Phase 6: account details on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: StatusBarStyle(
       isDark: _isDark,
       child: Scaffold(
         backgroundColor: bgColor,
@@ -312,7 +319,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Center(
+                const Center(
                   child: Text(
                     'Tap to change photo',
                     style: TextStyle(color: AppTheme.mediumGray, fontSize: 12),
@@ -393,6 +400,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  SEC-12.2 - Android Network Security Config (production).
+
+  Purpose: state the network posture explicitly instead of inheriting it from
+  target-SDK defaults. Today those defaults are favourable - cleartext is off at
+  targetSdk >= 28 and user-installed CAs are untrusted at minSdk >= 24, and this
+  app is 36/24 - but nothing declares that, so a targetSdk bump or a merged
+  library manifest could loosen it silently and no review would catch it.
+
+  ============================================================================
+  THERE IS DELIBERATELY NO <pin-set> HERE. BACKEND PINNING IS SEC-12.1'S JOB.
+  ============================================================================
+
+  This is not an oversight and it should not be "fixed" later. Flutter's engine
+  (io.flutter.embedding.engine.loader.ApplicationInfoLoader) parses this file
+  itself and lifts out ONLY domain-config and cleartextTrafficPermitted. It does
+  not parse pin-set, trust-anchors, certificates, base-config or
+  debug-overrides. Dart's HTTP stack runs on the engine's own BoringSSL, so a
+  pin-set here would not protect a single backend request - every call from
+  ApiService, AuthService, WalletService and FeedbackService is Dart traffic.
+
+  It would, however, create a second set of pins to rotate, with an expiration
+  attribute that silently stops enforcing when it lapses. Backend TLS is pinned
+  once, in lib/services/certificate_pinning.dart, against ISRG Root X2 and Root
+  YE. One place, one rotation.
+
+  What this file does cover:
+
+    * cleartext denial - the only control here that reaches Dart traffic, and
+      the one thing nothing else in the app provides.
+    * the native surface - google_mobile_ads, google_sign_in, any future
+      WebView - which runs on the Android platform TLS stack and therefore does
+      honour trust-anchors.
+
+  The debug variant lives at android/app/src/debug/res/xml/ and overrides this
+  file for debuggable builds only. It cannot ship: resource merging picks the
+  variant copy for debug and this copy for release.
+-->
+<network-security-config>
+
+    <!--
+      Platform-level default. Applies to the native stack. Flutter does NOT
+      parse base-config, which is why the domain-config entries below repeat
+      the cleartext rule - without them, Dart traffic would be unpoliced.
+    -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!--
+              System CAs only. User-installed roots are excluded, which is what
+              defeats a Charles/mitmproxy setup on the native surface. This is
+              already the platform default at minSdk 24; declaring it means a
+              future change has to be deliberate.
+
+              Note this line does nothing for Dart traffic - the engine ignores
+              trust-anchors. Dart is covered far more tightly by SEC-12.1, which
+              trusts two anchors and no system store at all.
+            -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+      Every host the app's Dart layer actually talks to, restated so Flutter's
+      parser sees the cleartext rule. includeSubdomains covers the storage and
+      per-project subdomains without enumerating them.
+    -->
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- Our API. TLS for this host is pinned in SEC-12.1, not here. -->
+        <domain includeSubdomains="true">up.railway.app</domain>
+        <!-- Supabase: auth and Postgrest via the SDK, images via the CDN. -->
+        <domain includeSubdomains="true">supabase.co</domain>
+        <!-- Fonts and the ads/sign-in SDKs. -->
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">gstatic.com</domain>
+        <domain includeSubdomains="true">doubleclick.net</domain>
+        <domain includeSubdomains="true">google.com</domain>
+    </domain-config>
+
+</network-security-config>

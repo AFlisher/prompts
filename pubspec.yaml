@@ -2,7 +2,7 @@ name: prombt_app
 description: "Prombt - AI Photo Styles. Apply stunning AI-powered visual aesthetics to your photos."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -11,7 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   image_picker: ^1.0.0
   path_provider: ^2.1.6
@@ -20,8 +19,11 @@ dependencies:
   flutter_dotenv: ^6.0.1
   image: ^4.9.1
   http: ^1.2.0
+  # Already resolved transitively via http; declared directly because the
+  # avatar upload sets an explicit part Content-Type (MediaType), and multer's
+  # image filter rejects the application/octet-stream default.
+  http_parser: ^4.0.0
   shared_preferences: ^2.2.0
-  firebase_core: ^3.15.2
   google_sign_in: ^6.3.0
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
@@ -29,7 +31,16 @@ dependencies:
   google_mobile_ads: ^9.0.0
   flutter_displaymode: ^0.7.0
   share_plus: ^13.2.1
+  url_launcher: ^6.3.2
+  package_info_plus: ^10.2.1
+  safe_device: ^1.4.1
+  crypto: ^3.0.3
 dev_dependencies:
+  # SEC-12.2: parses the Android network security config in tests.
+  xml: ^7.0.1
+  # R-2 phase 2: the avatar save-flow tests fake the picker through
+  # ImagePickerPlatform.instance rather than adding a test hook to the screen.
+  image_picker_platform_interface: ^2.10.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
@@ -51,4 +62,5 @@ flutter:
 
   assets:
     - .env
+    - assets/certs/
     - assets/images/

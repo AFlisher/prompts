@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -106,7 +108,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) {
@@ -119,12 +121,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const isDark = true;
     const bgColor = AppTheme.black;
     const textColor = AppTheme.white;
-    final boxBg = AppTheme.darkCard;
+    const boxBg = AppTheme.darkCard;
 
-    return Scaffold(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -173,8 +178,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'you@example.com',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -215,6 +220,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

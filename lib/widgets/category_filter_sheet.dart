@@ -91,7 +91,7 @@ class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent
   Widget build(BuildContext context) {
     final textColor = widget.isDarkMode ? AppTheme.white : AppTheme.black;
     final fieldBg = widget.isDarkMode ? AppTheme.black : AppTheme.lightGray;
-    final maxListHeight = MediaQuery.of(context).size.height * 0.45;
+    final maxListHeight = MediaQuery.sizeOf(context).height * 0.45;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

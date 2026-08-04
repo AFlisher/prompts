@@ -134,16 +134,22 @@ abstract class LegalDocuments {
       'What We Collect',
       'When you create an account we store your email address and display '
           'name (from email sign-up or Google Sign-In). Using the app, we '
-          'also store the photos you upload for styling, the images '
-          'generated for you, your credit balance and transaction history, '
-          'and your app preferences such as dark mode and personalization.',
+          'process the photos you upload for styling in order to generate '
+          'your requested image, and we store the resulting generated '
+          'images, your credit balance and transaction history, and your '
+          'app preferences such as dark mode and personalization.',
     ),
     LegalSection(
       'How Your Photos Are Used',
-      'Photos you upload are sent to our servers solely to produce your '
-          'styled image with our AI generation providers. Generated results '
-          'are saved to your account so they appear in My Creations. We do '
-          'not use your photos for anything else.',
+      'Photos you upload are sent to our servers solely to process your '
+          'requested AI image generation. Your original uploaded photo is '
+          'not permanently stored in StyliAI\'s own database or storage. To '
+          'generate your styled image, it is securely transmitted to our AI '
+          'service provider (OpenAI); our AI service provider processes '
+          'uploaded images solely for the purpose of fulfilling your '
+          'request. Generated results are saved to your account so they '
+          'appear in My Creations. We do not use your photos for anything '
+          'else.',
     ),
     LegalSection(
       'Advertising',

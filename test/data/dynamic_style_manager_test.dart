@@ -61,4 +61,88 @@ void main() {
       expect(afterSecondLoad.hasLoadedStyles, isTrue);
     });
   });
+
+  group('DynamicStyleManager - full clear on sign-out', () {
+    test('clear() wipes categories/trending/recommended plus their on-disk caches', () async {
+      const categoryId = 'test-clear-cat';
+
+      SharedPreferences.setMockInitialValues({
+        'categories_cache': json.encode([
+          {'id': categoryId, 'name': 'Test Category'}
+        ]),
+        'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+        'styles_cache_v3_$categoryId': json.encode(<dynamic>[]),
+        'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      final manager = DynamicStyleManager();
+      await manager.init();
+      await manager.loadStylesForCategory(categoryId);
+      expect(manager.categories, isNotEmpty);
+
+      await manager.clear();
+
+      expect(manager.categories, isEmpty);
+      expect(manager.isInitialized, isFalse,
+          reason: 'must be false, not just categories empty, so the next '
+              "account's MainShell.init() actually re-fetches instead of "
+              'short-circuiting');
+      expect(manager.trendingStyles, isEmpty);
+      expect(manager.hasLoadedTrending, isFalse);
+      expect(manager.recommendedStyles, isEmpty);
+      expect(manager.hasLoadedRecommended, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('categories_cache'), isNull,
+          reason: 'a guest signed out to the Guest Home screen must never be '
+              'able to recover a stale cached catalog');
+      expect(prefs.getString('styles_cache_v3_$categoryId'), isNull);
+    });
+  });
+
+  group('DynamicStyleManager - fetchCategories() request deduplication', () {
+    // Startup performance fix: init() (via MainShell) and HomeScreen's own
+    // mount-time check can both call fetchCategories() within the same
+    // cold-start window. Without deduplication that fires two concurrent
+    // network requests for identical data.
+    test('two concurrent plain calls share the same in-flight future', () {
+      SharedPreferences.setMockInitialValues({});
+      final manager = DynamicStyleManager();
+
+      final first = manager.fetchCategories();
+      final second = manager.fetchCategories();
+
+      expect(identical(first, second), isTrue,
+          reason: 'a second plain call made while the first is still in '
+              'flight must reuse it, not start a redundant network request');
+    });
+
+    test('a forceRefresh call never reuses an in-flight plain fetch', () {
+      SharedPreferences.setMockInitialValues({});
+      final manager = DynamicStyleManager();
+
+      final plain = manager.fetchCategories();
+      final forced = manager.fetchCategories(forceRefresh: true);
+
+      expect(identical(plain, forced), isFalse,
+          reason: 'pull-to-refresh must always hit the network fresh, never '
+              'silently resolve to whatever plain fetch happens to already '
+              'be in flight');
+    });
+
+    test('a new plain call after the first completes fetches again (not stuck deduplicated forever)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final manager = DynamicStyleManager();
+
+      final first = manager.fetchCategories();
+      await first;
+
+      final second = manager.fetchCategories();
+      expect(identical(first, second), isFalse,
+          reason: 'once the first fetch has completed, the dedup slot must '
+              'be cleared so a later call (e.g. reopening Home) fetches '
+              'again rather than being permanently stuck reusing a finished '
+              'future');
+    });
+  });
 }

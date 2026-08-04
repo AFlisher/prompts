@@ -40,6 +40,23 @@ class AppTheme {
     ),
   ];
 
+  /// Same weight/blur/offset as [cardShadow], but theme-aware: a plain black
+  /// shadow reads fine sitting on the Light Theme's cream page, but is
+  /// invisible against the Dark Theme's near-black page - swap to a soft
+  /// white glow there instead (the same trick already used for style cards).
+  /// For controls that flip to a light/cream surface in Dark Mode (Home's
+  /// top capsule, search bar, filter button) so their shadow stays visible
+  /// against the dark page regardless of which theme is active.
+  static List<BoxShadow> themeAwareShadow(bool isDarkMode) => [
+        BoxShadow(
+          color: isDarkMode
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ];
+
   static TextTheme _buildTextTheme(TextTheme base, Color color) {
     return GoogleFonts.interTextTheme(base).copyWith(
       displayLarge: GoogleFonts.inter(

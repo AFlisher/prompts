@@ -1,14 +1,19 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
+import '../utils/image_delivery.dart';
+import '../utils/image_normalizer.dart';
 import '../widgets/success_hud.dart';
 import '../services/haptic_service.dart';
 import 'image_preview_screen.dart';
@@ -17,10 +22,14 @@ import '../widgets/progressive_network_image.dart';
 import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../services/generation/image_generation_service.dart';
+import '../services/network_client.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
 import '../widgets/status_bar_style.dart';
+import '../widgets/generation_feedback_sheet.dart';
+import '../services/feedback_prompt_service.dart';
+import '../services/feedback_service.dart';
 
 class UploadScreen extends StatefulWidget {
   final StyleModel style;
@@ -37,6 +46,21 @@ class UploadScreen extends StatefulWidget {
   @override
   State<UploadScreen> createState() => _UploadScreenState();
 }
+
+/// Decodes raw picked-photo bytes and re-encodes them as a standard JPEG with
+/// no EXIF metadata (SEC-8.3), downscaling anything larger than
+/// [kMaxUploadDimension] on its longest side first. Runs inside [compute] (a
+/// background isolate) since decoding a full-resolution photo is CPU-heavy and
+/// would otherwise jank the UI thread. Returns null if the bytes don't decode
+/// as an image at all - e.g. a corrupted/truncated file, or a format the local
+/// `image` package can't read (some HEIC variants) - so the caller can reject
+/// the photo instead of ever handing an undecodable file to Image.file/the
+/// crop preview.
+///
+/// A thin top-level adapter over [normalizeImageBytes] because [compute] only
+/// accepts a single-argument top-level function.
+Uint8List? _normalizeImageBytes(Uint8List bytes) =>
+    normalizeImageBytes(bytes, maxDimension: kMaxUploadDimension, quality: 90);
 
 /// The requirement line shown under "Crop & adjust" for multi-image styles:
 /// tells the user exactly how many photos to upload and tracks progress.
@@ -106,7 +130,20 @@ class _UploadScreenState extends State<UploadScreen> {
   int get _minImages => widget.style.minImages;
   int get _maxImages => widget.style.maxImages;
 
+  // Single source of truth for "a generation request is already in flight"
+  // (covers both the balance check and the generation call itself), so the
+  // button, the entry-point guard below, and any future callers all agree
+  // on the same state instead of drifting out of sync.
+  bool get _isBusy => _isCheckingBalance || _isGenerating;
+
   void _startGeneration() async {
+    // Reject concurrent calls at the method level - not just by disabling
+    // the button - so fast double-taps, multi-touch, or any other caller
+    // can never start a second generation (and a second credit deduction)
+    // while one is already running. This check plus the synchronous
+    // setState below (before the first await) closes the race window,
+    // since Dart runs this method body synchronously up to that point.
+    if (_isBusy) return;
     if (_selectedImagePaths.length < _minImages) return;
 
     // Gate on the dynamic form: surface validation messages and stop if any
@@ -123,8 +160,14 @@ class _UploadScreenState extends State<UploadScreen> {
       }
     }
 
-    final creditManager = CreditProvider.of(context);
-    
+    // .read(), not .of() - this whole method only ever needs the manager
+    // reference to call fetchWallet()/read its current balance once; this
+    // screen never renders CreditManager data, so .of() here would only
+    // subscribe the whole form (image picker, dynamic fields) to rebuild -
+    // and lose in-progress input focus - every time credits change
+    // elsewhere (e.g. an ad reward finishing) while this screen is open.
+    final creditManager = CreditProvider.read(context);
+
     setState(() {
       _isCheckingBalance = true;
     });
@@ -212,8 +255,9 @@ class _UploadScreenState extends State<UploadScreen> {
         });
         HapticService.heavy();
 
-        // Add to creations
-        final creationsManager = CreationsProvider.of(context);
+        // Add to creations. .read() - same reasoning as creditManager above:
+        // this screen never renders CreationsManager data, only writes to it.
+        final creationsManager = CreationsProvider.read(context);
         creationsManager.addCreation(
           CreationItem(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -225,6 +269,15 @@ class _UploadScreenState extends State<UploadScreen> {
                 _selectedImagePaths.isNotEmpty ? _selectedImagePaths.first : null,
             createdAt: DateTime.now(),
           ),
+        );
+
+        // Fire-and-forget: never block the "Generation Complete!" panel on
+        // the feedback prompt. Decides on its own (smart-trigger cadence +
+        // the Settings toggle) whether to actually show anything.
+        _maybeShowFeedbackSheet(
+          generationId: result.generationId,
+          categoryId: result.categoryId,
+          generationTimeMs: result.generationTimeMs,
         );
       }
     } catch (e) {
@@ -292,7 +345,7 @@ class _UploadScreenState extends State<UploadScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Generation failed: ${errorMsg.replaceAll('Exception: ', '')}'),
+                content: Text(friendlyNetworkErrorMessage(e)),
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
@@ -303,6 +356,45 @@ class _UploadScreenState extends State<UploadScreen> {
             );
           }
         }
+      }
+    }
+  }
+
+  /// Smart-trigger feedback prompt: never after generation #1 or #2, on #3,
+  /// then every 10th generation after that - see FeedbackPromptService. Waits
+  /// briefly so the user sees the generated image before anything interrupts
+  /// them, and is entirely best-effort - a submission failure only logs, it
+  /// never surfaces an error to the user over an optional rating prompt.
+  Future<void> _maybeShowFeedbackSheet({
+    String? generationId,
+    String? categoryId,
+    int? generationTimeMs,
+  }) async {
+    final shouldPrompt = await FeedbackPromptService.recordGenerationAndShouldPrompt();
+    if (!shouldPrompt || !mounted) return;
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final result = await showGenerationFeedbackSheet(context, isDarkMode: _isDark);
+    if (result == null) return;
+
+    if (result.dontAskAgain) {
+      await FeedbackPromptService.setAskEnabled(false);
+    }
+
+    if (result.submitted && result.rating != null) {
+      try {
+        await FeedbackService().submitFeedback(
+          rating: result.rating!,
+          comment: result.comment,
+          generationId: generationId,
+          styleId: widget.style.id,
+          categoryId: categoryId,
+          generationTimeMs: generationTimeMs,
+        );
+      } catch (e) {
+        debugPrint('[UploadScreen] Failed to submit generation feedback: $e');
       }
     }
   }
@@ -373,13 +465,15 @@ class _UploadScreenState extends State<UploadScreen> {
           children: [
             if (!_generationComplete)
               SafeArea(
-                bottom: false,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                       AppHeader(
                         isDarkMode: _isDark,
                         onToggleDarkMode: _toggleDark,
@@ -488,8 +582,26 @@ class _UploadScreenState extends State<UploadScreen> {
                           },
                         ),
                       ],
-                    ],
-                  ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Persistent footer: laid out below the scrollable
+                    // content (not floating over it), so it's always the
+                    // last thing on screen and can never overlap the photo
+                    // previews, prompts, or any other content above it,
+                    // regardless of screen size or how much content there is.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                      child: _GenerateStyleButton(
+                        enabled: !_isBusy &&
+                            _selectedImagePaths.length >= _minImages,
+                        isLoading: _isBusy,
+                        isDark: _isDark,
+                        onTap: _startGeneration,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -530,13 +642,36 @@ class _UploadScreenState extends State<UploadScreen> {
                                 // The actual generated creation - progressive:
                                 // its thumbnail (if the backend produced one)
                                 // shows immediately while the full-resolution
-                                // original loads in behind it.
-                                ProgressiveNetworkImage(
-                                  thumbnailUrl: _generatedThumbnailUrl ??
-                                      _generatedImageUrl ??
-                                      widget.style.displayImage,
-                                  originalUrl: _generatedImageUrl ?? widget.style.displayImage,
-                                  fit: BoxFit.cover,
+                                // original loads in behind it. This card is a
+                                // fixed 380px-tall box, never zoomable itself
+                                // (tapping it opens a separate
+                                // ImagePreviewScreen, which decodes its own
+                                // full-res copy independently) - so the
+                                // original only needs decoding at this box's
+                                // actual on-screen size. Width matches this
+                                // Column's own horizontal Padding (24px each
+                                // side, set above).
+                                // SEC-8.1B-2: the generated original is one of
+                                // our own delivery URLs, so it needs
+                                // credentials or it 401s and this card stays
+                                // on the thumbnail. Falls through to no
+                                // headers for the off-origin style asset this
+                                // renders before a generation exists.
+                                AuthorizedImage(
+                                  url: _generatedImageUrl ?? widget.style.displayImage,
+                                  builder: (headers) => ProgressiveNetworkImage(
+                                    thumbnailUrl: _generatedThumbnailUrl ??
+                                        _generatedImageUrl ??
+                                        widget.style.displayImage,
+                                    originalUrl: _generatedImageUrl ?? widget.style.displayImage,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                            MediaQuery.devicePixelRatioOf(context))
+                                        .round(),
+                                    memCacheHeight:
+                                        (380 * MediaQuery.devicePixelRatioOf(context)).round(),
+                                    httpHeaders: headers,
+                                  ),
                                 ),
                                 Positioned(
                                   bottom: 16,
@@ -639,7 +774,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: ElevatedButton(
                               onPressed: () {
                                 HapticService.medium();
-                                CreationsProvider.of(context).setTab(1); // Set active tab to creations
+                                CreationsProvider.read(context).setTab(1); // Set active tab to creations
                                 Navigator.popUntil(context, (route) => route.isFirst);
                               },
                               style: ElevatedButton.styleFrom(
@@ -662,24 +797,6 @@ class _UploadScreenState extends State<UploadScreen> {
                         ],
                       ),
                     ],
-                  ),
-                ),
-              ),
-
-            if (!_generationComplete && !_isGenerating)
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 0,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _GenerateStyleButton(
-                      enabled: _selectedImagePaths.length >= _minImages,
-                      isDark: _isDark,
-                      onTap: _startGeneration,
-                    ),
                   ),
                 ),
               ),
@@ -775,13 +892,66 @@ class _UploadScreenState extends State<UploadScreen> {
     });
   }
 
+  /// Validates and normalizes a freshly picked photo before it ever reaches
+  /// the crop preview or lets the Generate button think it has a usable
+  /// photo. Decoding happens off the main isolate (via [compute]) since a
+  /// full-resolution camera photo can be tens of megapixels; the same call
+  /// both proves the file actually decodes (catching corrupted/truncated
+  /// files and formats the local codec can't handle, e.g. some HEIC
+  /// variants) and re-encodes to a standard JPEG, downscaling anything
+  /// larger than the app will ever need for style generation. This mirrors
+  /// the normalize-to-JPEG guarantee profile_service.dart already makes for
+  /// avatar uploads. Returns null (and never touches _selectedImagePaths)
+  /// if the picked file can't be turned into a usable photo.
+  Future<void> _handlePickedFile(String rawPath, {int? slot}) async {
+    Uint8List rawBytes;
+    try {
+      rawBytes = await File(rawPath).readAsBytes();
+    } catch (e) {
+      debugPrint('[UploadScreen] Could not read picked file: $e');
+      _showImageErrorSnackBar();
+      return;
+    }
+
+    final normalizedBytes = await compute(_normalizeImageBytes, rawBytes);
+    if (!mounted) return;
+
+    if (normalizedBytes == null) {
+      debugPrint('[UploadScreen] Picked file failed to decode: $rawPath');
+      _showImageErrorSnackBar();
+      return;
+    }
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final outFile = File(
+        '${tempDir.path}/upload_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await outFile.writeAsBytes(normalizedBytes);
+      if (!mounted) return;
+      HapticService.light();
+      _setPickedImage(outFile.path, slot: slot);
+    } catch (e) {
+      debugPrint('[UploadScreen] Could not save normalized image: $e');
+      if (mounted) _showImageErrorSnackBar();
+    }
+  }
+
+  void _showImageErrorSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("This photo couldn't be loaded. Please choose a different one."),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _showCameraPicker({int? slot}) async {
     try {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.camera);
       if (xFile != null) {
-        HapticService.light();
-        _setPickedImage(xFile.path, slot: slot);
+        await _handlePickedFile(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'camera_access_denied') {
@@ -803,8 +973,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(source: ImageSource.gallery);
       if (xFile != null) {
-        HapticService.light();
-        _setPickedImage(xFile.path, slot: slot);
+        await _handlePickedFile(xFile.path, slot: slot);
       }
     } on PlatformException catch (e) {
       if (e.code == 'photo_access_denied') {
@@ -1064,7 +1233,7 @@ class _CropPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = AppTheme.radiusLarge;
+    const radius = AppTheme.radiusLarge;
     final emptyFill = isDark
         ? AppTheme.darkCard
         : AppTheme.accentPurple.withValues(alpha: 0.045);
@@ -1136,7 +1305,7 @@ class _CropPreview extends StatelessWidget {
                     ),
                     if (!compact) ...[
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'Tap to choose from your gallery',
                         style: TextStyle(
                           color: AppTheme.mediumGray,
@@ -1209,11 +1378,13 @@ class _CropPreview extends StatelessWidget {
 
 class _GenerateStyleButton extends StatefulWidget {
   final bool enabled;
+  final bool isLoading;
   final bool isDark;
   final VoidCallback onTap;
 
   const _GenerateStyleButton({
     required this.enabled,
+    required this.isLoading,
     required this.isDark,
     required this.onTap,
   });
@@ -1248,10 +1419,19 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
             child: Row(
               children: [
                 const SizedBox(width: 24),
-                const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                widget.isLoading
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
                 Expanded(
                   child: Text(
-                    'Generate Style',
+                    widget.isLoading ? 'Generating...' : 'Generate Style',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Colors.white,
@@ -1381,7 +1561,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = isDarkMode ? AppTheme.white : AppTheme.black;
-    final secondaryTextColor = AppTheme.mediumGray;
+    const secondaryTextColor = AppTheme.mediumGray;
 
     return Column(
           mainAxisSize: MainAxisSize.min,
@@ -1417,7 +1597,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
             Text(
               'You need $requiredCredits ${requiredCredits == 1 ? 'credit' : 'credits'} to generate this image.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: secondaryTextColor,
                 fontSize: 14,
                 height: 1.4,
@@ -1466,7 +1646,7 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
                 HapticService.light();
                 Navigator.pop(context);
               },
-              child: Text(
+              child: const Text(
                 'Cancel',
                 style: TextStyle(
                   color: secondaryTextColor,

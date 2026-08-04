@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
+import '../utils/image_delivery.dart';
 import '../theme/app_button_styles.dart';
 import '../widgets/app_icon_dialog.dart';
 import '../widgets/press_scale.dart';
 import 'edit_profile_screen.dart';
-import 'login_screen.dart';
+import 'guest_home_screen.dart';
 import 'notifications_screen.dart';
 import '../services/haptic_service.dart';
 import 'privacy_screen.dart';
@@ -16,6 +19,7 @@ import 'wallet_history_screen.dart';
 import '../services/auth_service.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../utils/page_transitions.dart';
+import '../utils/secure_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -30,6 +34,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late bool _isDark;
   final AuthService _authService = AuthService();
 
+  // Fetched once up front (well before the user could reach the About
+  // dialog) so showAboutDialog's applicationVersion always reflects the
+  // real installed build instead of a hardcoded string that drifts from
+  // pubspec.yaml on every version bump.
+  String? _appVersion;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +50,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // load ran while signed out, so the badge is correct on first open.
       NotificationsProvider.read(context).init();
     });
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = info.version);
+    });
+  }
+
+  Future<void> _emailSupport() async {
+    HapticService.light();
+    final uri = Uri(scheme: 'mailto', path: 'support@styliai.app');
+    await launchUrl(uri);
   }
 
   void _openEditProfile() {
@@ -101,14 +120,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         creations.map((c) => c.styleId).where((id) => id.isNotEmpty).toSet().length;
 
     if (profileManager.isLoading) {
-      return Scaffold(
+      return SecureScreenGuard(
+      // Phase 6: account details on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
         backgroundColor: bgColor,
-        body: Center(
+        body: const Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentPurple),
           ),
         ),
-      );
+      ),
+    );
     }
 
     if (profileManager.errorMessage != null) {
@@ -160,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             20,
             24,
             20,
@@ -180,14 +204,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     profile?.avatarUrl != null && profile!.avatarUrl!.trim().isNotEmpty
-                        ? Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(28),
-                              image: DecorationImage(
-                                image: CachedNetworkImageProvider(profile.avatarUrl!),
-                                fit: BoxFit.cover,
+                        // R-2 phase 4: private storage object -> our
+                        // authenticated endpoint; provider picture -> passed
+                        // through with no credentials. See avatarDisplayUrl.
+                        ? AuthorizedImage(
+                            url: avatarDisplayUrl(profile.avatarUrl)!,
+                            builder: (avatarHeaders) => Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(28),
+                                image: DecorationImage(
+                                  image: CachedNetworkImageProvider(
+                                    avatarDisplayUrl(profile.avatarUrl)!,
+                                    headers: avatarHeaders,
+                                  ),
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           )
@@ -223,15 +256,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    // Isolated into its own widget (see _CreditsBioLine below)
+                    // so a credits change - every generation, every ad reward -
+                    // only rebuilds this one line, not the whole Profile screen.
+                    _CreditsBioLine(
                       // The saved Bio (editable in Edit Profile), falling
                       // back to the previous static tagline when unset.
-                      'Credits: ${CreditProvider.of(context).credits} · ✨ ${(profile?.bio ?? '').trim().isNotEmpty ? profile!.bio!.trim() : 'AI Style Explorer'}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppTheme.mediumGray,
-                        fontSize: 13,
-                      ),
+                      bio: (profile?.bio ?? '').trim().isNotEmpty
+                          ? profile!.bio!.trim()
+                          : 'AI Style Explorer',
                     ),
                   ],
                 ),
@@ -313,16 +346,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: _openWalletHistory,
               ),
               const SizedBox(height: 10),
-              _SettingsTile(
-                icon: Icons.notifications_none_rounded,
-                label: 'Notifications',
+              // Isolated into its own widget (see _NotificationsSettingsTile
+              // below) so an unread-count change only rebuilds this one tile,
+              // not the whole Profile screen.
+              _NotificationsSettingsTile(
                 isDark: _isDark,
                 textColor: textColor,
                 surface: surfaceColor,
                 onTap: _openNotifications,
-                // .of subscribes this screen to the manager, so the badge
-                // clears itself the moment notifications are read.
-                badgeCount: NotificationsProvider.of(context).unreadCount,
               ),
               const SizedBox(height: 10),
               _SettingsTile(
@@ -345,7 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   showAboutDialog(
                     context: context,
                     applicationName: 'StyliAI',
-                    applicationVersion: '1.0.0',
+                    applicationVersion: _appVersion ?? '',
                     applicationIcon: Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
@@ -362,9 +393,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     children: [
                       const SizedBox(height: 8),
-                      Text(
-                        'Contact us at support@styliai.app',
-                        style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                      GestureDetector(
+                        onTap: _emailSupport,
+                        child: const Text(
+                          'Contact us at support@styliai.app',
+                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                        ),
                       ),
                     ],
                   );
@@ -391,14 +425,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     primaryColor: Colors.redAccent,
                     onPrimaryPressed: () async {
                       HapticService.heavy();
-                      profileManager.clear();
-                      NotificationsProvider.read(context).clear();
+                      // AuthService.signOut() itself clears every
+                      // account-scoped manager (see AuthService.onSignedOut,
+                      // registered once in main.dart) - not just Profile/
+                      // Notifications here, so every sign-out path (this
+                      // button, auto-signout on expiry, etc.) behaves
+                      // identically instead of only this call site
+                      // remembering to clear things manually.
                       await _authService.signOut();
                       if (mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
+                            builder: (_) => const GuestHomeScreen(),
                           ),
                           (route) => false,
                         );
@@ -465,6 +504,59 @@ class _StatTile extends StatelessWidget {
   }
 }
 
+/// Reads CreditManager only here - not at the top of ProfileScreen.build() -
+/// so a credits change (every generation, every ad reward) rebuilds just this
+/// Text, not the avatar/stats row/every settings tile above and below it.
+class _CreditsBioLine extends StatelessWidget {
+  final String bio;
+
+  const _CreditsBioLine({required this.bio});
+
+  @override
+  Widget build(BuildContext context) {
+    final credits = CreditProvider.of(context).credits;
+    return Text(
+      'Credits: $credits · ✨ $bio',
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: AppTheme.mediumGray,
+        fontSize: 13,
+      ),
+    );
+  }
+}
+
+/// Reads NotificationsManager only here - not at the top of
+/// ProfileScreen.build() - so an unread-count change (a new notification
+/// arriving, or the badge clearing after the user opens Notifications)
+/// rebuilds just this tile, not the rest of the Profile screen.
+class _NotificationsSettingsTile extends StatelessWidget {
+  final bool isDark;
+  final Color textColor;
+  final Color surface;
+  final VoidCallback? onTap;
+
+  const _NotificationsSettingsTile({
+    required this.isDark,
+    required this.textColor,
+    required this.surface,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsTile(
+      icon: Icons.notifications_none_rounded,
+      label: 'Notifications',
+      isDark: isDark,
+      textColor: textColor,
+      surface: surface,
+      onTap: onTap,
+      badgeCount: NotificationsProvider.of(context).unreadCount,
+    );
+  }
+}
+
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -527,7 +619,7 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.mediumGray,
               size: 18,

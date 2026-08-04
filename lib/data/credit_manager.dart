@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../services/ad_service.dart';
 import '../services/wallet_service.dart';
+import '../services/network_client.dart';
 
 class CreditManager extends ChangeNotifier {
   // Not a cached or real value - just the starting point before the first
@@ -56,7 +57,7 @@ class CreditManager extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("[CreditManager] Error fetching wallet info: $e");
-      _error = 'Failed to load wallet stats: $e';
+      _error = friendlyNetworkErrorMessage(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -105,5 +106,23 @@ class CreditManager extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  /// Wipes this account's wallet state on sign-out. Resets [isInitialized]
+  /// to false (not just the numbers) so the *next* signed-in account's
+  /// [init] actually re-fetches instead of short-circuiting on the previous
+  /// account's already-initialized flag - without this, the next account
+  /// would keep seeing this account's balance/generatedImages until the app
+  /// was fully restarted.
+  void clear() {
+    _balance = 0;
+    _generatedImages = 0;
+    _adsProgress = 0;
+    _dailyLimitReached = false;
+    _isInitialized = false;
+    _isLoading = false;
+    _isWatchingAd = false;
+    _error = null;
+    notifyListeners();
   }
 }

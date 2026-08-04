@@ -6,9 +6,11 @@
 //   - PaywallScreen (Buy Credits)
 //   - NotificationsScreen
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prombt_app/screens/home_screen.dart';
 import 'package:prombt_app/screens/all_styles_screen.dart';
 import 'package:prombt_app/screens/paywall_screen.dart';
@@ -28,13 +30,13 @@ Future<List<CreditPack>> _fakeCreditPacks() async => [
       CreditPack(id: 'max', name: 'Max Pack', credits: 100, priceDisplay: '\$8.99', badge: 'Save 25%'),
     ];
 
-Widget wrapWithProviders(Widget widget) {
+Widget wrapWithProviders(Widget widget, {DynamicStyleManager? styleManager}) {
   final favManager    = FavoritesManager();
-  final styleManager  = DynamicStyleManager();
+  final resolvedStyleManager = styleManager ?? DynamicStyleManager();
   final creditManager = CreditManager()..shouldSaveToFile = false;
   final creationsManager = CreationsManager()..shouldSaveToFile = false;
   return StyleProvider(
-    notifier: styleManager,
+    notifier: resolvedStyleManager,
     child: CreditProvider(
       notifier: creditManager,
       child: FavoritesProvider(
@@ -49,6 +51,54 @@ Widget wrapWithProviders(Widget widget) {
       ),
     ),
   );
+}
+
+// Seeds a DynamicStyleManager with one category's worth of styles entirely
+// from the on-device cache (same technique as
+// test/data/dynamic_style_manager_test.dart) - no network mocking exists for
+// ApiService in this codebase, so this is the only way to get real,
+// search-filterable StyleCards onto HomeScreen in a widget test.
+Future<DynamicStyleManager> _seededStyleManager() async {
+  const categoryId = 'search-test-cat';
+  SharedPreferences.setMockInitialValues({
+    'categories_cache': json.encode([
+      {'id': categoryId, 'name': 'Portraits'}
+    ]),
+    'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+    'styles_cache_v3_$categoryId': json.encode([
+      {'id': 's1', 'name': 'Sunset Glow', 'imagePath': ''},
+      {'id': 's2', 'name': 'Rainy Mood', 'imagePath': ''},
+    ]),
+    'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+  });
+  final manager = DynamicStyleManager();
+  await manager.init();
+  await manager.loadStylesForCategory(categoryId);
+  return manager;
+}
+
+// Same technique as _seededStyleManager, but with a caller-chosen style
+// count - used to drive the Home preview row past its cap (see
+// HomeScreen._previewCount) and into "See All"/View All territory.
+Future<DynamicStyleManager> _seededStyleManagerWithCount(
+  int count, {
+  String categoryId = 'preview-test-cat',
+  String categoryName = 'Landscapes',
+}) async {
+  SharedPreferences.setMockInitialValues({
+    'categories_cache': json.encode([
+      {'id': categoryId, 'name': categoryName}
+    ]),
+    'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+    'styles_cache_v3_$categoryId': json.encode([
+      for (var i = 1; i <= count; i++) {'id': 'style-$i', 'name': 'Style $i', 'imagePath': ''},
+    ]),
+    'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+  });
+  final manager = DynamicStyleManager();
+  await manager.init();
+  await manager.loadStylesForCategory(categoryId);
+  return manager;
 }
 
 void main() {
@@ -77,6 +127,154 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
+
+    // find.text(..., skipOffstage: false) throughout: even the pre-existing,
+    // unmodified HomeScreen marks its CustomScrollView content as "offstage"
+    // in this test harness's default (unsized) viewport (verified by running
+    // the same finder against HomeScreen before this change) - a test-only
+    // artifact of Element.debugVisitOnstageChildren's viewport/route
+    // bookkeeping, unrelated to real device rendering and unrelated to this
+    // change, so skipOffstage is turned off rather than worked around.
+    testWidgets(
+      'typing in search filters style cards, and clearing restores them',
+      (tester) async {
+        final styleManager = await _seededStyleManager();
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        // Several short pumps (not pumpAndSettle - the Shimmer loading
+        // placeholder animates forever, so pumpAndSettle never returns) to
+        // let the cache-backed async category/style loads resolve.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        // Both styles visible before any search input.
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'Sunset');
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsNothing);
+
+        // Let the clear button's AnimatedSwitcher fade-in finish before
+        // tapping it, or the tap can land before it's hit-testable.
+        await tester.pump(const Duration(milliseconds: 250));
+
+        // Clearing (via the SearchBar's own clear button) restores both.
+        await tester.tap(find.byKey(const ValueKey('clear-search-button')));
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsOneWidget);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a search matching nothing shows the empty-search state, not the categories',
+      (tester) async {
+        final styleManager = await _seededStyleManager();
+        // Filters down to the one seeded category, so the aggregate empty-
+        // search decision doesn't also have to wait on Trending/Recommended's
+        // own real (unmocked, so slow-to-fail) network fetch settling.
+        styleManager.setCategoryFilters({'search-test-cat'});
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        // Several short pumps (not pumpAndSettle - the Shimmer loading
+        // placeholder animates forever, so pumpAndSettle never returns) to
+        // let the cache-backed async category/style loads resolve.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        await tester.enterText(find.byType(TextField), 'zzz-no-match');
+        await tester.pump();
+
+        expect(find.text('Sunset Glow', skipOffstage: false), findsNothing);
+        expect(find.text('Rainy Mood', skipOffstage: false), findsNothing);
+        expect(find.text('No styles found', skipOffstage: false), findsOneWidget);
+      },
+    );
+  });
+
+  // ── HOME SCREEN: PREVIEW + VIEW ALL ──────────────────────────────────────
+  group('HomeScreen preview row cap', () {
+    testWidgets(
+      'a category at or under the preview cap never shows "See All"',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(10);
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 10', skipOffstage: false), findsOneWidget);
+        expect(find.text('See All', skipOffstage: false), findsNothing);
+        expect(find.text('See', skipOffstage: false), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a category past the preview cap shows only the first 10 styles, plus "See All"; '
+      'tapping it opens the live View All screen with every style',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(12);
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(wrapWithProviders(
+          HomeScreen(isDarkMode: true, onToggleDarkMode: () {}),
+          styleManager: styleManager,
+        ));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        // Preview row: capped at 10, styles 11/12 not rendered here.
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 10', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 11', skipOffstage: false), findsNothing);
+        expect(find.text('Style 12', skipOffstage: false), findsNothing);
+        expect(find.text('See All', skipOffstage: false), findsOneWidget);
+
+        await tester.tap(find.text('See All', skipOffstage: false));
+        // Not pumpAndSettle: Trending/Recommended's Shimmer loading
+        // placeholder animates forever while their (unmocked, real) network
+        // fetch is in flight, so pumpAndSettle never returns - same reason
+        // the search test above uses a manual pump loop instead.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pump(const Duration(milliseconds: 300)); // page transition
+
+        expect(find.byType(AllStylesScreen), findsOneWidget);
+        // The live View All screen reads the full (uncapped) category
+        // straight from DynamicStyleManager - all 12 styles, not the
+        // preview row's 10 - and shows the count in its header.
+        expect(find.text('Landscapes'), findsOneWidget);
+        expect(find.text('12'), findsOneWidget);
+      },
+    );
   });
 
   // ── ALL STYLES SCREEN ─────────────────────────────────────────────────────
@@ -104,13 +302,67 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'categoryId mode reads live from DynamicStyleManager, independent of any snapshot',
+      (tester) async {
+        final styleManager = await _seededStyleManagerWithCount(3, categoryId: 'live-cat', categoryName: 'Live Cat');
+        await tester.pumpWidget(wrapWithProviders(
+          AllStylesScreen(
+            isDarkMode: true,
+            onToggleDarkMode: () {},
+            title: 'Live Cat',
+            categoryId: 'live-cat',
+          ),
+          styleManager: styleManager,
+        ));
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Style 1', skipOffstage: false), findsOneWidget);
+        expect(find.text('Style 3', skipOffstage: false), findsOneWidget);
+        expect(find.text('3'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'categoryId mode shows the empty state for a category resolved to zero styles',
+      (tester) async {
+        const categoryId = 'empty-cat';
+        SharedPreferences.setMockInitialValues({
+          'categories_cache': json.encode([
+            {'id': categoryId, 'name': 'Empty Category'}
+          ]),
+          'categories_cache_timestamp': DateTime.now().millisecondsSinceEpoch,
+          'styles_cache_v3_$categoryId': json.encode([]),
+          'styles_timestamp_v3_$categoryId': DateTime.now().millisecondsSinceEpoch,
+        });
+        final styleManager = DynamicStyleManager();
+        await styleManager.init();
+        await styleManager.loadStylesForCategory(categoryId);
+
+        await tester.pumpWidget(wrapWithProviders(
+          AllStylesScreen(
+            isDarkMode: true,
+            onToggleDarkMode: () {},
+            title: 'Empty Category',
+            categoryId: categoryId,
+          ),
+          styleManager: styleManager,
+        ));
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('No styles here yet', skipOffstage: false), findsOneWidget);
+      },
+    );
   });
 
   // ── PAYWALL / BUY CREDITS SCREEN ─────────────────────────────────────────
   group('PaywallScreen (Buy Credits)', () {
     testWidgets('renders without crashing', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -119,7 +371,7 @@ void main() {
 
     testWidgets('renders Starter credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -128,7 +380,7 @@ void main() {
 
     testWidgets('renders Pro credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -137,7 +389,7 @@ void main() {
 
     testWidgets('renders Max credit pack', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -146,7 +398,7 @@ void main() {
 
     testWidgets('renders in light mode without overflow', (tester) async {
       await tester.pumpWidget(wrapWithProviders(
-        PaywallScreen(isDarkMode: false, fetchPacksOverride: _fakeCreditPacks),
+        const PaywallScreen(isDarkMode: false, fetchPacksOverride: _fakeCreditPacks),
       ));
       await tester.pump();
       await tester.pump(); // let the fake pack fetch resolve
@@ -165,7 +417,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+          const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
         await tester.pump(); // let the fake pack fetch resolve
@@ -215,7 +467,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
         await tester.pumpWidget(wrapWithProviders(
-          PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
+          const PaywallScreen(isDarkMode: true, fetchPacksOverride: _fakeCreditPacks),
         ));
         await tester.pump();
         await tester.pump(); // let the fake pack fetch resolve

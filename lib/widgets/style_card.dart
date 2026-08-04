@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
@@ -83,102 +84,144 @@ class _StyleCardState extends State<StyleCard> {
     // MediaQuery read - no LayoutBuilder (whose layout-phase rebuild cost
     // was the real, profiler-confirmed source of a residual scroll-jank
     // regression) is needed to find it.
-    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     final cacheWidth = (widget.cardWidth * dpr).round();
     final cacheHeight =
         (widget.cardWidth / StyleCard.imageAspectRatio * dpr).round();
 
-    final image = buildStyleImage(
-      style.displayThumbnail,
-      fit: BoxFit.cover,
-      memCacheWidth: cacheWidth,
-      memCacheHeight: cacheHeight,
+    // Spotify/Apple-Music-style artwork presentation: the card box itself is
+    // unchanged (still AspectRatio.imageAspectRatio, still cropped-cover for
+    // the *backdrop* layer only), but the real artwork is never cropped.
+    // - Background: the same image, BoxFit.cover, strongly blurred and
+    //   slightly darkened - an ambient color wash that fills the box with no
+    //   gaps regardless of the source's own aspect ratio.
+    // - Foreground: the same image again, centered, BoxFit.contain - the
+    //   full frame, letterboxed instead of cut off. Portrait sources no
+    //   longer lose their top/bottom to a cover crop.
+    // Both layers decode the exact same CachedNetworkImage/asset (same
+    // path + memCacheWidth/Height), so Flutter's ImageCache shares one
+    // decoded image between them - no extra fetch or decode over the
+    // previous single-layer version.
+    final image = Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(
+            sigmaX: 24,
+            sigmaY: 24,
+            tileMode: TileMode.decal,
+          ),
+          child: buildStyleImage(
+            style.displayThumbnail,
+            fit: BoxFit.cover,
+            memCacheWidth: cacheWidth,
+            memCacheHeight: cacheHeight,
+          ),
+        ),
+        Container(color: Colors.black.withValues(alpha: 0.3)),
+        Center(
+          child: buildStyleImage(
+            style.displayThumbnail,
+            fit: BoxFit.contain,
+            memCacheWidth: cacheWidth,
+            memCacheHeight: cacheHeight,
+          ),
+        ),
+      ],
     );
 
-    return PressScale(
-      onTap: widget.onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: StyleCard.imageAspectRatio,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                // A plain black drop shadow reads fine in light mode but
-                // is invisible against the dark theme's near-black page
-                // background - flip to a soft white glow there instead,
-                // the same theme-aware trick used elsewhere in the app.
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.isDarkMode
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: widget.heroTag != null
-                          ? Hero(tag: widget.heroTag!, child: image)
-                          : image,
-                    ),
-                    if (showPromoBadges && style.isTrending)
-                      const Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _CardBadge(
-                          label: 'Trending',
-                          color: Color(0xFFFF5E5E),
-                          textColor: Colors.white,
-                        ),
-                      ),
-                    if (showPromoBadges && style.isPro)
-                      const Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _CardBadge(
-                          label: 'Premium',
-                          color: Color(0xFFFFD700),
-                          textColor: Colors.black,
-                        ),
-                      ),
-                    if (widget.onUnfavorite != null)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
-                      ),
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: _CreditBadge(creditCost: style.creditCost),
+    // Isolates each card (image blur/composite + badges + title) as its own
+    // compositing layer. Dozens of these can be mounted at once across the
+    // Home screen's horizontal rows (cacheExtent: 1000), so without this a
+    // repaint triggered anywhere in a shared ancestor (e.g. another card
+    // loading, or the section header) would repaint every card's layer, not
+    // just the one that actually changed.
+    return RepaintBoundary(
+      child: PressScale(
+        onTap: widget.onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: StyleCard.imageAspectRatio,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  // A plain black drop shadow reads fine in light mode but
+                  // is invisible against the dark theme's near-black page
+                  // background - flip to a soft white glow there instead,
+                  // the same theme-aware trick used elsewhere in the app.
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.isDarkMode
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: widget.heroTag != null
+                            ? Hero(tag: widget.heroTag!, child: image)
+                            : image,
+                      ),
+                      if (showPromoBadges && style.isTrending)
+                        const Positioned(
+                          top: 8,
+                          left: 8,
+                          child: _CardBadge(
+                            label: 'Trending',
+                            color: Color(0xFFFF5E5E),
+                            textColor: Colors.white,
+                          ),
+                        ),
+                      if (showPromoBadges && style.isPro)
+                        const Positioned(
+                          top: 8,
+                          right: 8,
+                          child: _CardBadge(
+                            label: 'Premium',
+                            color: Color(0xFFFFD700),
+                            textColor: Colors.black,
+                          ),
+                        ),
+                      if (widget.onUnfavorite != null)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: _UnfavoriteButton(onTap: widget.onUnfavorite!),
+                        ),
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        child: _CreditBadge(creditCost: style.creditCost),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: StyleCard.titleHeight,
-            child: Text(
-              style.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                    height: StyleCard.titleLineHeight,
-                  ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: StyleCard.titleHeight,
+              child: Text(
+                style.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w800,
+                      height: StyleCard.titleLineHeight,
+                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

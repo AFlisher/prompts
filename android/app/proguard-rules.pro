@@ -18,10 +18,6 @@
 -keep class androidx.work.impl.** { *; }
 -dontwarn androidx.work.**
 
-# --- Firebase -------------------------------------------------------------
--keep class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
-
 # --- Google Mobile Ads / Play Services Ads --------------------------------
 -keep class com.google.android.gms.ads.** { *; }
 -keep class com.google.android.gms.internal.ads.** { *; }

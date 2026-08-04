@@ -33,7 +33,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Future<void> _loadFavorites() async {
     final favManager = FavoritesProvider.of(context);
-    final styleManager = StyleProvider.of(context);
+    // .read(), not .of(): this only ever calls loadFavoriteStyles() below,
+    // a one-shot cache/memory lookup, not something this screen renders
+    // reactively - the actual trigger for re-running this method is
+    // FavoritesProvider changing (favManager.of above), not the style
+    // catalog, so a Categories/Trending/Recommended/Filters change no
+    // longer re-triggers this screen at all.
+    final styleManager = StyleProvider.read(context);
     final ids = favManager.favoriteIds.toList();
 
     final favs = await styleManager.loadFavoriteStyles(ids);
@@ -110,7 +116,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Styles you heart will show up here',
                         style: TextStyle(
                           color: AppTheme.mediumGray,
@@ -124,7 +130,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             else
               Expanded(
                 child: GridView.builder(
-                  padding: EdgeInsets.fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                     20,
                     16,
                     20,

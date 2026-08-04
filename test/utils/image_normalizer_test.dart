@@ -1,0 +1,201 @@
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:prombt_app/utils/image_normalizer.dart';
+
+/// SEC-8.3 — the client must not put a user's location or device on the wire.
+///
+/// The regression these guard against is subtle: decoding and re-encoding an
+/// image *looks* like it drops metadata, and for years it was assumed to. It
+/// does not - `encodeJpg` writes the EXIF block back out - so every assertion
+/// here is made against the produced bytes rather than the intent.
+void main() {
+  // The JPEG APP1 EXIF header: "Exif" followed by two NUL bytes. Written as
+  // bytes rather than a string literal so this file stays plain ASCII - the
+  // embedded NULs made git treat the whole test as a binary blob.
+  final exifMarker = Uint8List.fromList([0x45, 0x78, 0x69, 0x66, 0x00, 0x00]);
+
+  bool containsBytes(Uint8List haystack, Uint8List needle) {
+    if (needle.length > haystack.length) return false;
+    for (var i = 0; i <= haystack.length - needle.length; i++) {
+      var match = true;
+      for (var j = 0; j < needle.length; j++) {
+        if (haystack[i + j] != needle[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return true;
+    }
+    return false;
+  }
+
+  /// A JPEG carrying the tags real photos leak, GPS included.
+  Uint8List jpegWithExif({int width = 64, int height = 32}) {
+    final image = img.Image(width: width, height: height);
+    img.fill(image, color: img.ColorRgb8(90, 120, 180));
+    image.exif.imageIfd['Software'] = 'StyliTestSoftware';
+    image.exif.imageIfd['Model'] = 'StyliTestHandset';
+    image.exif.gpsIfd['GPSLatitudeRef'] = 'N';
+    image.exif.gpsIfd['GPSLongitudeRef'] = 'W';
+    return Uint8List.fromList(img.encodeJpg(image, quality: 90));
+  }
+
+  /// A JPEG whose bytes carry an *unbaked* Orientation tag: the pixels are
+  /// stored unrotated and a viewer is expected to rotate them on display.
+  /// This is what a real phone photo looks like, and it cannot be produced
+  /// with `encodeJpg` - that encoder bakes the rotation in and drops the tag,
+  /// which is exactly how a test fixture here can end up asserting nothing.
+  /// So the EXIF APP1 segment is spliced in by hand.
+  Uint8List jpegWithUnbakedOrientation({
+    required int width,
+    required int height,
+    required int orientation,
+  }) {
+    final image = img.Image(width: width, height: height);
+    img.fill(image, color: img.ColorRgb8(200, 40, 40));
+    final plain = img.encodeJpg(image, quality: 90);
+
+    // TIFF header (big-endian) + a one-entry IFD0 holding Orientation.
+    final tiff = <int>[
+      0x4D, 0x4D, 0x00, 0x2A, // "MM", magic 42
+      0x00, 0x00, 0x00, 0x08, // IFD0 starts at byte 8
+      0x00, 0x01, // one entry
+      0x01, 0x12, // tag 0x0112 = Orientation
+      0x00, 0x03, // type SHORT
+      0x00, 0x00, 0x00, 0x01, // count 1
+      // A big-endian SHORT occupies the first two bytes of the 4-byte value
+      // field, so the value reads as 0x00 followed by the orientation.
+      0x00, orientation, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, // no next IFD
+    ];
+
+    // The APP1 payload is the "Exif" marker, two NUL bytes, then the TIFF.
+    final payload = <int>[0x45, 0x78, 0x69, 0x66, 0x00, 0x00, ...tiff];
+    final segmentLength = payload.length + 2;
+    final app1 = <int>[
+      0xFF, 0xE1,
+      (segmentLength >> 8) & 0xFF, segmentLength & 0xFF,
+      ...payload,
+    ];
+
+    // Splice the segment in immediately after the SOI marker.
+    return Uint8List.fromList([plain[0], plain[1], ...app1, ...plain.skip(2)]);
+  }
+
+  group('normalizeImageBytes', () {
+    test('the fixture really does carry EXIF (guards the test itself)', () {
+      final input = jpegWithExif();
+      expect(containsBytes(input, exifMarker), isTrue);
+      expect(img.decodeImage(input)!.exif.isEmpty, isFalse);
+    });
+
+    test('removes the EXIF block entirely', () {
+      final output = normalizeImageBytes(jpegWithExif())!;
+
+      expect(containsBytes(output, exifMarker), isFalse);
+      expect(img.decodeImage(output)!.exif.isEmpty, isTrue);
+    });
+
+    test('removes the device and GPS tag values from the bytes', () {
+      final output = normalizeImageBytes(jpegWithExif())!;
+
+      expect(
+        containsBytes(output, Uint8List.fromList('StyliTestHandset'.codeUnits)),
+        isFalse,
+      );
+      expect(
+        containsBytes(output, Uint8List.fromList('StyliTestSoftware'.codeUnits)),
+        isFalse,
+      );
+    });
+
+    test('the orientation fixture really carries EXIF (guards the test)', () {
+      // The bytes hold a 100x50 image plus an Orientation=6 tag. Note that
+      // decoding it yields a 50x100 image with no tag, because `decodeImage`
+      // applies the rotation itself - which is exactly why the assertion below
+      // is made on the produced bytes and not on an intermediate Image.
+      final input =
+          jpegWithUnbakedOrientation(width: 100, height: 50, orientation: 6);
+
+      expect(containsBytes(input, exifMarker), isTrue);
+    });
+
+    test('an unbaked orientation ends up applied, not discarded', () {
+      // Orientation 6 means "rotate 90 degrees on display". Clearing the EXIF
+      // without baking it first leaves every portrait photo sideways - the
+      // photo is not corrupted, just wrong, which is the kind of regression
+      // that ships.
+      final output = normalizeImageBytes(
+        jpegWithUnbakedOrientation(width: 100, height: 50, orientation: 6),
+      )!;
+
+      final decoded = img.decodeImage(output)!;
+      expect(decoded.width, 50);
+      expect(decoded.height, 100);
+      expect(decoded.exif.isEmpty, isTrue);
+    });
+
+    test('leaves a correctly-oriented photo the right way up', () {
+      final output = normalizeImageBytes(
+        jpegWithUnbakedOrientation(width: 100, height: 50, orientation: 1),
+      )!;
+
+      final decoded = img.decodeImage(output)!;
+      expect(decoded.width, 100);
+      expect(decoded.height, 50);
+    });
+
+    test('downscales past maxDimension and still strips', () {
+      final output = normalizeImageBytes(
+        jpegWithExif(width: 4000, height: 2000),
+        maxDimension: 2048,
+      )!;
+
+      final decoded = img.decodeImage(output)!;
+      expect(decoded.width, 2048);
+      expect(decoded.height, 1024);
+      expect(decoded.exif.isEmpty, isTrue);
+    });
+
+    test('keeps the picked resolution when no maxDimension is given', () {
+      // The avatar path relies on this: the picker already caps the size, and
+      // downscaling again there would be a behaviour change.
+      final output = normalizeImageBytes(jpegWithExif(width: 900, height: 600))!;
+
+      final decoded = img.decodeImage(output)!;
+      expect(decoded.width, 900);
+      expect(decoded.height, 600);
+    });
+
+    test('strips even when the image is small enough to skip the resize', () {
+      // A photo under the limit never reaches copyResize, so the strip must
+      // not depend on a resize having run.
+      final output = normalizeImageBytes(
+        jpegWithExif(width: 32, height: 32),
+        maxDimension: 2048,
+      )!;
+
+      expect(containsBytes(output, exifMarker), isFalse);
+    });
+
+    test('returns null for bytes that are not an image', () {
+      expect(normalizeImageBytes(Uint8List.fromList('not an image'.codeUnits)),
+          isNull);
+    });
+
+    test('returns null for empty bytes', () {
+      expect(normalizeImageBytes(Uint8List(0)), isNull);
+    });
+
+    test('produces a decodable JPEG', () {
+      final output = normalizeImageBytes(jpegWithExif())!;
+
+      final decoded = img.decodeImage(output);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, 64);
+      expect(decoded.height, 32);
+    });
+  });
+}

@@ -1,9 +1,12 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'main_shell.dart';
 import 'email_verification_screen.dart';
+import 'legal_document_screen.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
+import '../services/network_client.dart';
+import '../utils/secure_screen.dart';
 class RegisterScreen extends StatefulWidget {
   final String? prefilledEmail;
   const RegisterScreen({super.key, this.prefilledEmail});
@@ -23,12 +26,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   final AuthService _authService = AuthService();
 
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
   @override
   void initState() {
     super.initState();
     if (widget.prefilledEmail != null) {
       _emailController.text = widget.prefilledEmail!;
     }
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalDocument(
+            title: 'Terms of Service',
+            sections: LegalDocuments.termsOfService,
+          );
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalDocument(
+            title: 'Privacy Policy',
+            sections: LegalDocuments.privacyPolicy,
+          );
   }
 
   @override
@@ -36,7 +52,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     super.dispose();
+  }
+
+  void _openLegalDocument({
+    required String title,
+    required List<LegalSection> sections,
+  }) {
+    HapticService.light();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LegalDocumentScreen(
+          isDarkMode: isDark,
+          title: title,
+          lastUpdated: LegalDocuments.lastUpdated,
+          sections: sections,
+        ),
+      ),
+    );
   }
 
   Future<void> _handleRegister() async {
@@ -74,12 +111,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } on AuthException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyNetworkErrorMessage(e))),
       );
     } finally {
       if (mounted) {
@@ -97,7 +136,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final textColor = isDark ? AppTheme.white : AppTheme.black;
     final boxBg = isDark ? AppTheme.darkCard : AppTheme.lightGray;
 
-    return Scaffold(
+    return SecureScreenGuard(
+      // Phase 6: authentication on screen - screenshots, screen
+      // recording and the recent-apps thumbnail are blocked while this
+      // screen is mounted (Android; see SecureScreen for the iOS limits).
+      child: Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -121,7 +164,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Sign up to start generating AI styled photos',
                   style: TextStyle(color: AppTheme.mediumGray, fontSize: 14, height: 1.4),
                 ),
@@ -137,8 +180,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'Your Name',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.person_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -161,8 +204,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: 'you@example.com',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.accentPurple, width: 2)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -186,8 +229,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     filled: true,
                     fillColor: boxBg,
                     hintText: '••••••••',
-                    hintStyle: TextStyle(color: AppTheme.mediumGray),
-                    prefixIcon: Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
+                    hintStyle: const TextStyle(color: AppTheme.mediumGray),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.mediumGray, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: AppTheme.mediumGray, size: 20),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -220,12 +263,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                          style: const TextStyle(color: AppTheme.mediumGray, fontSize: 13),
                           children: [
                             const TextSpan(text: 'I agree to the '),
-                            TextSpan(text: 'Terms & Conditions', style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
+                            TextSpan(
+                              text: 'Terms & Conditions',
+                              style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold),
+                              recognizer: _termsRecognizer,
+                            ),
                             const TextSpan(text: ' and '),
-                            TextSpan(text: 'Privacy Policy', style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold)),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: const TextStyle(color: AppTheme.accentPurple, fontWeight: FontWeight.bold),
+                              recognizer: _privacyRecognizer,
+                            ),
                           ],
                         ),
                       ),
@@ -268,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Already have an account? ', style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
+                    const Text('Already have an account? ', style: TextStyle(color: AppTheme.mediumGray, fontSize: 14)),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Text('Sign In', style: TextStyle(color: AppTheme.accentPurple, fontSize: 14, fontWeight: FontWeight.bold)),
@@ -281,6 +332,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

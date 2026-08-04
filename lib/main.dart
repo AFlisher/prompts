@@ -17,18 +17,42 @@ import 'data/profile_manager.dart';
 import 'data/notifications_manager.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
+import 'services/auth_service.dart';
+import 'services/certificate_pinning.dart';
+import 'services/device_integrity_service.dart';
+import 'services/device_integrity_token_service.dart';
 import 'services/theme_preference_service.dart';
 import 'services/haptic_service.dart';
+import 'services/feedback_prompt_service.dart';
+import 'utils/release_logging.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await ThemePreferenceService.load();
-  await HapticService.load();
+  // Phase 6: first thing, before anything can log. `debugPrint` is not stripped
+  // in release builds despite its name, so without this the app narrates its
+  // session handling into logcat on every production device. No-op in debug.
+  configureReleaseLogging();
+
+  // Three independent SharedPreferences-backed reads - none depends on
+  // another's result, so load them concurrently instead of one after another.
+  await Future.wait([
+    ThemePreferenceService.load(),
+    HapticService.load(),
+    FeedbackPromptService.load(),
+  ]);
 
   try {
     // تحميل ملف .env
     await dotenv.load(fileName: ".env");
+
+    // SEC-12.1: build the pinned HTTP client before anything can reach the
+    // backend. Awaited deliberately - the trust anchors are a bundled asset, so
+    // this is a local read, and a backend call that raced ahead of it would
+    // fail closed rather than fall back to the platform trust store.
+    await CertificatePinning.initialize(
+      environment: dotenv.env[CertificatePinning.environmentKey],
+    );
 
     // تهيئة Supabase
     await Supabase.initialize(
@@ -211,18 +235,53 @@ class _PrombtAppState extends State<PrombtApp> {
   final _profileManager = ProfileManager();
   final _notificationsManager = NotificationsManager();
 
+  // SEC-13.4: lets the post-first-frame device-integrity notice reach a
+  // ScaffoldMessenger without any screen having to know this check exists.
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   @override
   void initState() {
     super.initState();
+
+    // Single choke point for every sign-out path (explicit Sign Out button,
+    // auto-signout on refresh failure, unverified-email rejection - see
+    // AuthService.onSignedOut) to wipe every account-scoped manager. Without
+    // this, a manager only got cleared if whichever screen triggered
+    // sign-out happened to remember to do it manually, and the next account
+    // to log in would see the previous account's credits/gallery/favorites
+    // until the app was fully restarted (the underlying cause of a
+    // cross-account state leak - see clear()/clearPersonalizedState() on
+    // each manager below for what's actually being wiped and why).
+    AuthService.onSignedOut = _clearAllUserState;
+
+    // Deliberately does NOT init any account-scoped manager here (favorites,
+    // styles/categories, credits, creations, profile, notifications) - this
+    // runs on every cold start, before LandingScreen has even determined
+    // whether a session exists, so an unconditional init here would fetch
+    // Categories/Styles for a guest who never logged in. MainShell.init()
+    // is the actual gate: it only mounts once currentUser is confirmed
+    // non-null, so that's the one place these managers get initialized.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _favoritesManager.init();
-      _styleManager.init();
-      _creditManager.init();
-      _creationsManager.init();
-      _profileManager.loadProfile();
-      _notificationsManager.init();
       _setHighRefreshRate();
+      _checkDeviceIntegrity();
+      // SEC-0.1: warm up the Play Integrity provider off the critical path.
+      // Google reports warm-up taking a few seconds, most under 10s, so it must
+      // never sit in front of the first frame. Fire-and-forget by design - the
+      // app is fully usable whether or not it succeeds.
+      DeviceIntegrityTokenService.warmUp();
     });
+  }
+
+  void _clearAllUserState() {
+    _profileManager.clear();
+    _notificationsManager.clear();
+    _creditManager.clear();
+    _creationsManager.clear();
+    _favoritesManager.clear();
+    // Full clear (not just clearPersonalizedState) - a signed-out user lands
+    // on the Guest Home screen, which must never show or silently retain any
+    // previously-fetched category/style data.
+    _styleManager.clear();
   }
 
   // Android defaults every app's window to 60Hz regardless of the display's
@@ -241,8 +300,39 @@ class _PrombtAppState extends State<PrombtApp> {
     }
   }
 
+  // SEC-13.4: one-time courtesy notice on a rooted device, and nothing more.
+  //
+  // The result is attacker-controlled - see DeviceIntegrityService's class doc
+  // - so it gates nothing. Login, generation, rewarded ads, the wallet and
+  // credits all behave identically whether this fires or not, no header is
+  // added, and nothing is reported to the backend. Server-trusted device
+  // integrity is Play Integrity's job (SEC-0.1/0.2), not this.
+  //
+  // Runs after the first frame, alongside _setHighRefreshRate above, so it can
+  // never extend cold start.
+  Future<void> _checkDeviceIntegrity() async {
+    await DeviceIntegrityService.check();
+    if (!mounted || !DeviceIntegrityService.shouldShowNotice) return;
+
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: const Text(
+          'This device appears to be rooted. Credentials stored on rooted '
+          'devices are easier for other apps to read.',
+        ),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(label: 'Got it', onPressed: () {}),
+      ),
+    );
+
+    await DeviceIntegrityService.markNoticeShown();
+  }
+
   @override
   void dispose() {
+    if (identical(AuthService.onSignedOut, _clearAllUserState)) {
+      AuthService.onSignedOut = null;
+    }
     _favoritesManager.dispose();
     _styleManager.dispose();
     _creditManager.dispose();
@@ -273,6 +363,7 @@ class _PrombtAppState extends State<PrombtApp> {
                 child: AnnotatedRegion<SystemUiOverlayStyle>(
                   value: SystemUiOverlayStyle.light,
                   child: MaterialApp(
+                    scaffoldMessengerKey: _scaffoldMessengerKey,
                     title: 'StyliAI — AI Photo Styles',
                     debugShowCheckedModeBanner: false,
                     theme: AppTheme.lightTheme,

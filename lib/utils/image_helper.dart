@@ -12,6 +12,14 @@ import '../theme/app_theme.dart';
 /// size is a common cause of scroll jank when many cards build at once -
 /// callers rendering a small, known-size box (e.g. a grid/list card) should
 /// always pass these.
+/// [cacheKey] decouples the cache entry from the URL string (SEC-8.1B-2).
+/// Leave it null for catalog images, whose URLs are permanent and public;
+/// pass one for user creations, whose URLs are going to change form. See
+/// [creationCacheKey].
+///
+/// [httpHeaders] is forwarded to `CachedNetworkImage` and should come from
+/// [imageAuthHeaders], which returns nothing at all for a URL that is not
+/// ours - so today this stays null and the request is unchanged.
 Widget buildStyleImage(
   String path, {
   BoxFit fit = BoxFit.cover,
@@ -19,10 +27,14 @@ Widget buildStyleImage(
   double? height,
   int? memCacheWidth,
   int? memCacheHeight,
+  String? cacheKey,
+  Map<String, String>? httpHeaders,
 }) {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return CachedNetworkImage(
       imageUrl: path,
+      cacheKey: cacheKey,
+      httpHeaders: httpHeaders,
       fit: fit,
       width: width,
       height: height,

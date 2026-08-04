@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
 import '../services/local_cache_service.dart';
+import '../utils/image_delivery.dart';
 
 class CreationItem {
   final String id;
@@ -135,8 +136,21 @@ class CreationsManager extends ChangeNotifier {
       final alreadyMigrated = await _cacheService.getCachedData(_migratedFlagKey);
       if (alreadyMigrated == true) return;
 
-      if (_creations.isNotEmpty) {
-        final payload = _creations
+      // SEC-8.1B-2: never repost a URL that points at our own backend.
+      //
+      // This sends locally-stored image URLs back to the server, where they
+      // are written into creations.image_url verbatim. That is fine for the
+      // legacy values it exists for (bundled asset paths and permanent public
+      // object URLs), and wrong for a stable backend delivery URL: the column
+      // is an object reference that erasure and reconciliation both resolve
+      // against storage, so a row pointing at an API route would reference no
+      // object at all. Filtering here means the migration path needs no
+      // further change when delivery moves.
+      final migratable =
+          _creations.where((c) => !isBackendImageUrl(c.imagePath)).toList();
+
+      if (migratable.isNotEmpty) {
+        final payload = migratable
             .map((c) => {
                   'styleId': c.styleId.isEmpty ? null : c.styleId,
                   'styleName': c.styleName,
@@ -195,6 +209,29 @@ class CreationsManager extends ChangeNotifier {
     if (_currentTab != index) {
       _currentTab = index;
       notifyListeners();
+    }
+  }
+
+  /// Wipes this account's creations on sign-out - both in memory and the
+  /// on-device cache file. Deleting the file (not just resetting
+  /// [isInitialized]) matters just as much as resetting the flag: [init]
+  /// reads that file straight into memory *before* it syncs with the
+  /// backend, so leaving Account A's file on disk would let it flash on
+  /// screen for the next account the moment [init] runs again, even though
+  /// the in-memory list was already cleared here.
+  Future<void> clear() async {
+    _creations = [];
+    _currentTab = 0;
+    _isInitialized = false;
+    notifyListeners();
+
+    try {
+      final file = await _localFile;
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint("[CreationsManager] Error deleting local creations cache: $e");
     }
   }
 }

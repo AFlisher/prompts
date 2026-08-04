@@ -12,9 +12,25 @@ class GenerationResult {
   final String? thumbnailUrl;
   final ImageGenerationProviderType provider;
 
+  /// The creations row id the backend recorded for this generation, if the
+  /// server-side history write succeeded. Round-tripped back on the
+  /// post-generation feedback submission (POST /api/feedback). Only
+  /// populated for style-transfer generations - null for text-to-image.
+  final String? generationId;
+
+  /// The generated style's category id, for the same feedback round-trip.
+  final String? categoryId;
+
+  /// Server-side AI provider call duration in milliseconds, for the same
+  /// feedback round-trip.
+  final int? generationTimeMs;
+
   const GenerationResult({
     required this.imageUrl,
     this.thumbnailUrl,
     required this.provider,
+    this.generationId,
+    this.categoryId,
+    this.generationTimeMs,
   });
 }

@@ -214,8 +214,8 @@ void main() {
 
   // ── EMAIL VERIFICATION SCREEN ─────────────────────────────────────────────
   group('EmailVerificationScreen', () {
-    Widget buildVerification() => MaterialApp(
-          home: const EmailVerificationScreen(email: 'ahmed@test.com'),
+    Widget buildVerification() => const MaterialApp(
+          home: EmailVerificationScreen(email: 'ahmed@test.com'),
         );
 
     testWidgets('renders Verify Email title', (tester) async {
@@ -246,6 +246,109 @@ void main() {
       await tester.pumpWidget(buildVerification());
       await tester.pump();
       expect(find.text('Back to Sign In'), findsOneWidget);
+    });
+
+    // ── SEC-19.4 — polling backoff, deadline and manual re-check ────────────
+    //
+    // In the widget test environment there is no pinned HTTP client, so
+    // AuthService.checkVerificationStatus throws on every attempt. That is
+    // precisely the scenario the finding is about: BEFORE this change the
+    // failure was swallowed into a debugPrint and the timer kept firing every
+    // 2 seconds forever, so a struggling backend received exactly as much
+    // traffic as a healthy one and the loop could never self-correct.
+    group('SEC-19.4 polling behaviour', () {
+      /// Advances the fake clock until [finder] matches, or gives up.
+      ///
+      /// Driven by the condition rather than by a fixed pump count on purpose:
+      /// the number of polls before the deadline is a consequence of the
+      /// backoff curve, so hard-coding it would make the test restate the
+      /// implementation and break whenever the curve is tuned. Returns whether
+      /// the condition was reached.
+      Future<bool> pumpUntil(
+        WidgetTester tester,
+        Finder finder, {
+        int maxSteps = 80,
+        Duration step = const Duration(seconds: 30),
+      }) async {
+        for (var i = 0; i < maxSteps; i++) {
+          if (finder.evaluate().isNotEmpty) return true;
+          await tester.pump(step);
+        }
+        return finder.evaluate().isNotEmpty;
+      }
+
+      testWidgets('keeps polling (no Check Again) before the deadline', (tester) async {
+        await tester.pumpWidget(buildVerification());
+        await tester.pump();
+
+        // Well past the old 2s interval but far short of the 5-minute deadline.
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(seconds: 30));
+        }
+
+        expect(find.text('Check Again'), findsNothing);
+        expect(
+          find.text('Waiting for verification link detection...'),
+          findsOneWidget,
+        );
+
+        // Let any pending timer settle so the test does not leak one.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+
+      testWidgets('stops polling after the deadline and offers a manual re-check',
+          (tester) async {
+        await tester.pumpWidget(buildVerification());
+        await tester.pump();
+
+        // Advance past the 5-minute deadline.
+        final stopped = await pumpUntil(tester, find.text('Check Again'));
+
+        // The screen must not keep claiming it is waiting when it has stopped.
+        expect(stopped, isTrue);
+        expect(find.text('Check Again'), findsOneWidget);
+        expect(
+          find.text('Waiting for verification link detection...'),
+          findsNothing,
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+
+      testWidgets('the manual re-check restarts polling', (tester) async {
+        await tester.pumpWidget(buildVerification());
+        await tester.pump();
+
+        expect(await pumpUntil(tester, find.text('Check Again')), isTrue);
+
+        await tester.tap(find.text('Check Again'));
+        await tester.pump();
+
+        // Back to the waiting state - the user is never stranded by the
+        // deadline, which is what makes stopping acceptable in the first place.
+        expect(find.text('Check Again'), findsNothing);
+        expect(
+          find.text('Waiting for verification link detection...'),
+          findsOneWidget,
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+
+      testWidgets('cancels its timer on dispose, leaving nothing pending',
+          (tester) async {
+        await tester.pumpWidget(buildVerification());
+        await tester.pump(const Duration(seconds: 5));
+
+        // Replacing the widget disposes the state. If the poll timer were not
+        // cancelled, flutter_test would fail the test with a pending-timer
+        // error - which is the assertion here.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(minutes: 2));
+      });
     });
   });
 }

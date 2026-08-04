@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'device_integrity_token_service.dart';
+import 'network_client.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -20,6 +22,20 @@ class AuthService {
   static const String _emailConfirmedAtKey = 'custom_email_confirmed_at';
 
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  /// Invoked at the end of every [signOut] - explicit (Profile screen's Sign
+  /// Out button), or an internal auto-signout after a failed token refresh
+  /// (see [_ensureValidSessionInternal]) or an unverified-email rejection
+  /// (LoginScreen). This class has no access to the ChangeNotifier managers
+  /// (CreditManager, CreationsManager, etc.) that hold the signed-in
+  /// account's credits/gallery/favorites/profile - they live above it in the
+  /// widget tree - so main.dart registers a single callback here once, at
+  /// startup, that clears all of them. Without this, only whichever call
+  /// site happened to remember to clear providers manually would do so,
+  /// and every other sign-out path (auto-signout on expiry in particular)
+  /// would leave the previous account's data in memory for the next login -
+  /// a cross-account privacy leak, not just a UI bug.
+  static VoidCallback? onSignedOut;
 
   String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
 
@@ -84,8 +100,8 @@ class AuthService {
     required String password,
     required String fullName,
   }) async {
-    debugPrint("[AuthService] Attempting registration to backend for email: $email");
-    final response = await http.post(
+    debugPrint("[AuthService] Attempting registration to backend...");
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
@@ -93,6 +109,9 @@ class AuthService {
         'password': password,
         'fullName': fullName,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Registration request timed out'),
     );
 
     if (response.statusCode != 201) {
@@ -110,14 +129,37 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    debugPrint("[AuthService] Attempting login to backend for email: $email");
-    final response = await http.post(
+    debugPrint("[AuthService] Attempting login to backend...");
+
+    // SEC-0.1. Login is attested here rather than through AuthorizedHttpClient
+    // because the pre-auth endpoints never go through that client - there is no
+    // Bearer token yet for it to build headers from.
+    //
+    // The hash binds the account being signed into, not the password: the
+    // backend has to recompute this string, and putting a credential inside a
+    // value that exists to be compared is gratuitous. Swapping the email is the
+    // tamper this actually needs to catch.
+    //
+    // As everywhere else, a missing token is not an error here. The header is
+    // simply absent and SEC-0.2 decides what that means.
+    final integrityToken = await DeviceIntegrityTokenService.tokenFor(
+      DeviceIntegrityTokenService.requestHashFor('POST /api/auth/login\n$email'),
+    );
+
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        if (integrityToken != null && integrityToken.isNotEmpty)
+          AuthorizedHttpClient.integrityHeader: integrityToken,
+      },
       body: json.encode({
         'email': email,
         'password': password,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Sign-in request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -154,10 +196,13 @@ class AuthService {
   /// Sign In with Google via custom backend — verifies idToken server-side and issues custom JWTs
   Future<AuthResponse> signInWithGoogle(String idToken) async {
     debugPrint("[AuthService] Sending Google idToken to backend for verification...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'idToken': idToken}),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Google sign-in request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -194,12 +239,15 @@ class AuthService {
   /// Refreshes the access token using the refresh token
   Future<void> refreshSession(String refreshToken) async {
     debugPrint("[AuthService] Token Refresh Attempt. Sending refresh request to backend...");
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/refresh'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'refreshToken': refreshToken,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Token refresh request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -224,9 +272,21 @@ class AuthService {
 
   static Future<bool>? _activeSessionCheck;
 
-  /// Ensures current session is valid; auto-refreshes if access token is expired.
-  /// Returns true if the session is successfully verified and restored locally.
-  Future<bool> ensureValidSession() async {
+  /// Ensures current session is valid; auto-refreshes if access token is
+  /// expired. Returns true if the session is successfully verified and
+  /// restored locally.
+  ///
+  /// [forceRefresh] skips the client-side expiry check and always attempts
+  /// a refresh via the refresh token - used by [AuthorizedHttpClient] after
+  /// a server-returned 401, since the server can reject a token the local
+  /// JWT `exp` check still considers valid (e.g. server-side revocation).
+  /// A forceRefresh call always runs fresh rather than sharing/polluting the
+  /// dedup slot a concurrent plain call might already be using.
+  Future<bool> ensureValidSession({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      return _ensureValidSessionInternal(forceRefresh: true);
+    }
+
     if (_activeSessionCheck != null) {
       debugPrint("[AuthService] Reusing active ensureValidSession check future.");
       return _activeSessionCheck!;
@@ -242,10 +302,16 @@ class AuthService {
     }
   }
 
-  Future<bool> _ensureValidSessionInternal() async {
+  Future<bool> _ensureValidSessionInternal({bool forceRefresh = false}) async {
     debugPrint("[AuthService] Calling ensureValidSession()...");
-    final accessToken = await _readToken(_accessTokenKey);
-    final refreshToken = await _readToken(_refreshTokenKey);
+    // Two independent keys in secure storage - no shared state between them,
+    // so read both concurrently instead of one after another.
+    final tokens = await Future.wait([
+      _readToken(_accessTokenKey),
+      _readToken(_refreshTokenKey),
+    ]);
+    final accessToken = tokens[0];
+    final refreshToken = tokens[1];
 
     debugPrint("[AuthService] Token Load Complete. Loaded custom_access_token exists: ${accessToken != null}, custom_refresh_token exists: ${refreshToken != null}");
 
@@ -254,8 +320,8 @@ class AuthService {
       return false;
     }
 
-    if (_isTokenExpired(accessToken)) {
-      debugPrint("[AuthService] Access token is expired. Refresh required.");
+    if (forceRefresh || _isTokenExpired(accessToken)) {
+      debugPrint("[AuthService] Access token is expired or refresh forced. Refresh required.");
       if (refreshToken != null && refreshToken.isNotEmpty) {
         try {
           await refreshSession(refreshToken);
@@ -297,10 +363,10 @@ class AuthService {
     final accessToken = await _readToken(_accessTokenKey);
 
     if (accessToken == null) {
-      throw AuthException("User is not authenticated.");
+      throw const AuthException("User is not authenticated.");
     }
 
-    final response = await http.post(
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/change-password'),
       headers: {
         'Content-Type': 'application/json',
@@ -310,6 +376,9 @@ class AuthService {
         'currentPassword': currentPassword,
         'newPassword': newPassword,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Change password request timed out'),
     );
 
     final data = json.decode(response.body);
@@ -341,14 +410,26 @@ class AuthService {
       await Supabase.instance.client.auth.signOut();
       debugPrint("[AuthService] Supabase client signed out.");
     } catch (_) {}
+
+    // Runs even if the Supabase call above threw - the account-scoped
+    // providers must be cleared regardless of whether the remote session
+    // teardown itself succeeded.
+    try {
+      onSignedOut?.call();
+    } catch (e) {
+      debugPrint("[AuthService] onSignedOut callback failed: $e");
+    }
   }
 
   /// Polls verification status from custom backend
   Future<bool> checkVerificationStatus(String email) async {
     try {
-      final response = await http.get(
+      final response = await backendClient.get(
         Uri.parse('$_backendUrl/api/auth/status?email=${Uri.encodeComponent(email)}'),
         headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        NetworkTimeouts.auth,
+        onTimeout: () => throw TimeoutException('Verification status check timed out'),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -362,13 +443,16 @@ class AuthService {
 
   /// Requests a password reset link
   Future<void> forgotPassword(String email) async {
-    debugPrint("[AuthService] Requesting forgot password reset link for: $email");
-    final response = await http.post(
+    debugPrint("[AuthService] Requesting forgot password reset link...");
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'email': email,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Forgot password request timed out'),
     );
 
     if (response.statusCode != 200) {
@@ -380,13 +464,16 @@ class AuthService {
 
   /// Resends the email verification link
   Future<void> resendVerification(String email) async {
-    debugPrint("[AuthService] Requesting email verification link resend for: $email");
-    final response = await http.post(
+    debugPrint("[AuthService] Requesting email verification link resend...");
+    final response = await backendClient.post(
       Uri.parse('$_backendUrl/api/auth/resend-verification'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'email': email,
       }),
+    ).timeout(
+      NetworkTimeouts.auth,
+      onTimeout: () => throw TimeoutException('Resend verification request timed out'),
     );
 
     if (response.statusCode != 200) {
@@ -449,7 +536,7 @@ class AuthService {
       });
 
       final authRes = await Supabase.instance.client.auth.recoverSession(sessionJson);
-      debugPrint("[AuthService] Session successfully injected locally. Current user: ${authRes.user?.email}");
+      debugPrint("[AuthService] Session successfully injected locally.");
       return authRes;
     } catch (e) {
       debugPrint("[AuthService] Error in _injectSession: $e");

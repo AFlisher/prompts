@@ -98,8 +98,8 @@ class _IOSAppStoreSheetState extends State<_IOSAppStoreSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final paddingBottom = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final paddingBottom = MediaQuery.paddingOf(context).bottom;
 
     return Container(
       margin: EdgeInsets.fromLTRB(10, 0, 10, 10 + bottomInset + paddingBottom),
@@ -410,8 +410,8 @@ class _AndroidPlayStoreSheetState extends State<_AndroidPlayStoreSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final paddingBottom = MediaQuery.of(context).padding.bottom;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final paddingBottom = MediaQuery.paddingOf(context).bottom;
     final sheetBg = widget.isDarkMode ? const Color(0xFF202124) : Colors.white;
     final textColor = widget.isDarkMode ? Colors.white : Colors.black87;
     final subColor = widget.isDarkMode ? Colors.white54 : Colors.black54;

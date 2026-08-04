@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
 import '../utils/gallery_saver.dart';
+import '../utils/image_delivery.dart';
 import '../widgets/success_hud.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../theme/app_button_styles.dart';
@@ -70,7 +71,7 @@ class MyCreationsScreen extends StatelessWidget {
               color: isDarkMode ? AppTheme.darkCard : AppTheme.lightGray,
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.auto_awesome_mosaic_outlined,
               color: AppTheme.mediumGray,
               size: 36,
@@ -86,7 +87,7 @@ class MyCreationsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Your styled photos will appear here',
             style: TextStyle(
               color: AppTheme.mediumGray,
@@ -138,7 +139,7 @@ class MyCreationsScreen extends StatelessWidget {
     Color textColor,
   ) {
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         24,
         8,
         24,
@@ -191,9 +192,16 @@ class MyCreationsScreen extends StatelessWidget {
               // path for pre-migration local-only ones, so this must dispatch
               // on scheme like every other image in the app instead of
               // assuming one or the other.
-              buildStyleImage(
-                item.displayThumbnail,
-                fit: BoxFit.cover,
+              // SEC-8.1B-2: keyed on the creation, not on the URL, so the
+              // cached bytes survive delivery moving behind the backend.
+              AuthorizedImage(
+                url: item.displayThumbnail,
+                builder: (headers) => buildStyleImage(
+                  item.displayThumbnail,
+                  fit: BoxFit.cover,
+                  cacheKey: creationCacheKey(item.id, thumbnail: true),
+                  httpHeaders: headers,
+                ),
               ),
 
               // Bottom gradient overlay for readability
@@ -344,6 +352,7 @@ class MyCreationsScreen extends StatelessWidget {
                         assetPath: item.imagePath,
                         thumbnailPath: item.displayThumbnail,
                         title: item.styleName,
+                        creationId: item.id,
                       ),
                     ),
                   );
@@ -367,11 +376,33 @@ class MyCreationsScreen extends StatelessWidget {
                         // Styled generation output photo - progressive: the
                         // thumbnail (already cached from the grid) shows
                         // immediately while the full-resolution original
-                        // loads in behind it.
-                        ProgressiveNetworkImage(
-                          thumbnailUrl: item.displayThumbnail,
-                          originalUrl: item.imagePath,
-                          fit: BoxFit.cover,
+                        // loads in behind it. This box is a fixed 340px-tall
+                        // card, never zoomable itself (tapping it opens a
+                        // separate ImagePreviewScreen, which decodes its own
+                        // full-res copy independently) - so the original only
+                        // needs decoding at this box's actual on-screen size.
+                        // Width matches showAppBottomSheet's default
+                        // horizontal padding (24px each side).
+                        // SEC-8.1B-2: same credential requirement as the grid
+                        // card above - without it the original layer 401s and
+                        // this card never upgrades past the thumbnail.
+                        AuthorizedImage(
+                          url: item.imagePath,
+                          builder: (headers) => ProgressiveNetworkImage(
+                            thumbnailUrl: item.displayThumbnail,
+                            originalUrl: item.imagePath,
+                            thumbnailCacheKey:
+                                creationCacheKey(item.id, thumbnail: true),
+                            originalCacheKey:
+                                creationCacheKey(item.id, thumbnail: false),
+                            fit: BoxFit.cover,
+                            memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                            memCacheHeight:
+                                (340 * MediaQuery.devicePixelRatioOf(context)).round(),
+                            httpHeaders: headers,
+                          ),
                         ),
 
                       // Before (Original photo) small floating container
@@ -466,7 +497,13 @@ class MyCreationsScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () async {
                         HapticService.light();
-                        final bytes = await GallerySaver.loadBytes(item.imagePath);
+                        // SEC-8.1B-2: loadImageBytes attaches credentials when
+                        // the URL is ours and reports the server's own content
+                        // type, which a stable backend URL carries no
+                        // extension to guess from.
+                        final loaded =
+                            await GallerySaver.loadImageBytes(item.imagePath);
+                        final bytes = loaded?.bytes;
 
                         if (!context.mounted) return;
 
@@ -486,7 +523,10 @@ class MyCreationsScreen extends StatelessWidget {
                               XFile.fromData(
                                 bytes,
                                 name: 'StyliAI_${item.id}',
-                                mimeType: GallerySaver.mimeTypeFor(item.imagePath),
+                                mimeType: GallerySaver.mimeTypeFor(
+                                  item.imagePath,
+                                  serverContentType: loaded?.contentType,
+                                ),
                               ),
                             ],
                             text: 'Check out my ${item.styleName} photo, made with StyliAI!',
@@ -498,7 +538,7 @@ class MyCreationsScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.ios_share_rounded),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
