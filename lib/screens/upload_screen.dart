@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
@@ -23,6 +24,7 @@ import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../services/generation/image_generation_service.dart';
 import '../services/network_client.dart';
+import '../services/idempotency_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
@@ -197,6 +199,11 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _startGenerationActual(CreditManager creditManager) async {
+    // Declared outside the try so the success path can clear it. Null until
+    // the key is resolved, so a failure before that point clears nothing -
+    // which is correct: there is no key to invalidate yet.
+    String? operationId;
+
     HapticService.medium();
     setState(() {
       _isGenerating = true;
@@ -231,14 +238,38 @@ class _UploadScreenState extends State<UploadScreen> {
       // balance. Which provider actually runs (Nano Banana, Stability AI,
       // ...) is decided entirely by ImageGenerationConfig - this screen
       // never knows or cares which one it is.
+      // Sprint 2 / B-5. The operation id is derived from what actually
+      // defines this generation, so a retry of THIS request reuses the stored
+      // key (the server replays, charging once) while a genuinely different
+      // generation gets a fresh one. Resolved before the call and cleared only
+      // after success - see below.
+      operationId = IdempotencyService.operationIdFrom([
+        'POST /api/generate',
+        widget.style.id,
+        json.encode(_fieldValues),
+        ..._selectedImagePaths,
+      ]);
+      final idempotencyKey = await IdempotencyService.keyFor(operationId);
+
       final result = await ImageGenerationService.generate(
         prompt: widget.style.prompt,
         styleId: widget.style.id,
         imagePaths: List<String>.from(_selectedImagePaths),
         fieldValues: _fieldValues,
+        idempotencyKey: idempotencyKey,
       );
       final generatedImageUrl = result.imageUrl;
       final generatedThumbnailUrl = result.thumbnailUrl;
+
+      // Sprint 2 / B-5. Cleared ONLY here, on a definitive success. Clearing
+      // in a finally block would drop the key on exactly the failures it
+      // exists for - a timeout whose request actually succeeded server-side -
+      // and the retry would then be charged a second time.
+      //
+      // Awaited rather than fire-and-forget: if the user immediately retries
+      // an identical generation, the key must already be gone or the server
+      // would replay this image instead of making a new one.
+      await IdempotencyService.clear(operationId);
 
       // Cancel local animation timer and sync wallet stats from server
       _generationTimer?.cancel();

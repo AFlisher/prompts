@@ -67,6 +67,7 @@ flutter symbolize -i <stack_trace.txt> -d build/symbols/<version>/app.android-ar
 **Build**
 - [ ] Built with `--obfuscate --split-debug-info=…` (§1).
 - [ ] `build/symbols/<version>` archived with the release.
+- [ ] iOS: `--dart-define=ADMOB_IOS_REWARDED_UNIT_ID=…` supplied, or accept that rewarded ads are off for this build (Sprint 2 / B-4 — the alternative was shipping Google's sample unit, which earns nothing while still paying out credits).
 
 **Verify the artifact**
 - [ ] Install the release build on a device and confirm sign-in, generation, and avatar upload work against production.
@@ -82,8 +83,10 @@ Full detail and the console-side steps are in **[`STORE_COMPLIANCE.md`](STORE_CO
 - [ ] Privacy screen → Privacy Policy and Terms of Service both open the **hosted** pages in a browser (not the bundled fallback). If they open the in-app reader, `BACKEND_URL` is missing from `.env`.
 - [ ] Paywall footer → Terms and Privacy links open the hosted pages.
 - [ ] The three `/legal/...` URLs return 200 from a signed-out browser against production.
-- [ ] **The simulated purchase flow is not reachable** in this build (B-3). Shipping it violates App Store 3.1.1 and Google Play Payments policy.
-- [ ] iOS only: the AdMob App ID and rewarded unit are the real ones, not Google's test IDs (B-6).
+- [ ] A real purchase completes end to end against a **licence tester** account, and the credits appear only after the server confirms it. `credit_packs.product_id` must be set for the pack under test, or it is refused with `unknown_product`.
+- [ ] Killing the app mid-purchase and relaunching credits the purchase with no user action (the platform re-delivers anything left unfinished).
+- [ ] **Restore Purchases** on a reinstalled build grants nothing twice.
+- [ ] iOS only: built with `--dart-define=ADMOB_IOS_REWARDED_UNIT_ID=…`, and `GADApplicationIdentifier` in `ios/Runner/Info.plist` is the real App ID, not Google's sample. Without the define, rewarded ads are **disabled** on iOS by design — no test ad can serve.
 
 ---
 

@@ -243,10 +243,31 @@ class ApiService {
     return jsonMap['unreadCount'] as int? ?? 0;
   }
 
-  /// GET /api/creations
-  Future<List<Map<String, dynamic>>> getCreations() async {
+  /// GET /api/creations?limit=&cursor=
+  ///
+  /// Sprint 2 / B-6. This used to request the bare path and read only the body.
+  /// The backend has always been paginated - it returns at most
+  /// `CREATIONS_PAGE_SIZE_DEFAULT` (50) rows and reports the rest through
+  /// `X-Next-Cursor` / `X-Has-More` headers, kept OUT of the body specifically
+  /// so pagination could be added without breaking installed clients. Nothing
+  /// read those headers, so a user's gallery silently stopped at their 50 most
+  /// recent images and the older ones - which they had spent credits to create -
+  /// were unreachable with no indication that anything was missing.
+  ///
+  /// [limit] is always sent explicitly rather than relying on the server
+  /// default: an unbounded page is exactly what this endpoint refuses to
+  /// serve, and stating the size here means the client's memory use is a
+  /// property of this file rather than of a server constant it cannot see.
+  Future<({List<Map<String, dynamic>> items, String? nextCursor, bool hasMore})>
+      getCreationsPage({int limit = 30, String? cursor}) async {
+    final query = <String, String>{
+      'limit': '$limit',
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final uri = Uri.parse('$_backendUrl/api/creations').replace(queryParameters: query);
+
     final response = await _client.send(
-      (headers) => backendClient.get(Uri.parse('$_backendUrl/api/creations'), headers: headers),
+      (headers) => backendClient.get(uri, headers: headers),
       timeout: NetworkTimeouts.api,
     );
 
@@ -255,7 +276,26 @@ class ApiService {
     }
 
     final List<dynamic> jsonList = json.decode(response.body);
-    return jsonList.map((item) => item as Map<String, dynamic>).toList();
+
+    // Header names are case-insensitive per RFC 9110, and http's response
+    // headers map is already lower-cased - read them lower-case so this does
+    // not silently return "no more pages" if a proxy re-cases them.
+    final next = response.headers['x-next-cursor'];
+    final hasMore = response.headers['x-has-more'] == 'true';
+
+    return (
+      items: jsonList.map((item) => item as Map<String, dynamic>).toList(),
+      nextCursor: (next != null && next.isNotEmpty) ? next : null,
+      hasMore: hasMore,
+    );
+  }
+
+  /// The first page only. Retained for callers that genuinely want one page
+  /// (the background sync on app start), so they do not have to know the
+  /// pagination shape.
+  Future<List<Map<String, dynamic>>> getCreations() async {
+    final page = await getCreationsPage();
+    return page.items;
   }
 
   /// DELETE /api/creations/:id
@@ -315,6 +355,10 @@ class ApiService {
     List<String> imagePaths,
     String styleId, {
     Map<String, dynamic>? fieldValues,
+    /// Sprint 2 / B-5. Supplied by the caller and REUSED across retries of the
+    /// same logical generation, so a retry after a lost response replays the
+    /// server's stored result instead of buying a second image.
+    String? idempotencyKey,
   }) async {
     // SEC-0.1: the attested payload is the request's control fields, not the
     // uploaded image bytes. Hashing multiple megabytes on the critical path
@@ -330,6 +374,7 @@ class ApiService {
 
     final response = await _client.send(
       integrityPayload: integrityPayload,
+      idempotencyKey: idempotencyKey,
       (headers) async {
         // Rebuilt from scratch on every call (including a 401 retry) - a
         // MultipartRequest can only be sent once, but http.MultipartFile.
@@ -348,6 +393,15 @@ class ApiService {
         final integrity = headers[AuthorizedHttpClient.integrityHeader];
         if (integrity != null) {
           request.headers[AuthorizedHttpClient.integrityHeader] = integrity;
+        }
+        // Same reason as the integrity header above: this closure copies
+        // headers by hand, so anything AuthorizedHttpClient attaches has to be
+        // forwarded explicitly or it is silently dropped - which for this one
+        // would mean the idempotency guard appearing to be wired up while
+        // never actually reaching the server.
+        final idempotency = headers[AuthorizedHttpClient.idempotencyHeader];
+        if (idempotency != null) {
+          request.headers[AuthorizedHttpClient.idempotencyHeader] = idempotency;
         }
 
         request.fields['styleId'] = styleId;
@@ -401,6 +455,8 @@ class ApiService {
     String? negativePrompt,
     String? aspectRatio,
     String? style,
+    /// Sprint 2 / B-5. See generateStyleImage.
+    String? idempotencyKey,
   }) async {
     // Encoded once and reused for both the body and the SEC-0.1 request hash,
     // so the attested bytes and the sent bytes cannot drift apart.
@@ -414,6 +470,7 @@ class ApiService {
 
     final response = await _client.send(
       integrityPayload: 'POST /api/ai/generate\n$body',
+      idempotencyKey: idempotencyKey,
       (headers) => backendClient.post(
         Uri.parse('$_backendUrl/api/ai/generate'),
         headers: headers,

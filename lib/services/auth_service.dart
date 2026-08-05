@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'device_integrity_token_service.dart';
+import 'idempotency_service.dart';
 import 'network_client.dart';
 
 class AuthException implements Exception {
@@ -482,6 +483,14 @@ class AuthService {
   /// Sign Out
   Future<void> signOut() async {
     debugPrint("[AuthService] Signing out. Clearing saved tokens from secure storage...");
+    // Sprint 2 / B-5. Idempotency keys are recorded server-side against the
+    // user who issued them, so one left behind is dead weight at best and, on
+    // a shared device, a key belonging to somebody else's account at worst.
+    try {
+      await IdempotencyService.clearAll();
+    } catch (e) {
+      debugPrint("[AuthService] Failed to clear idempotency keys: $e");
+    }
     await _deleteToken(_accessTokenKey);
     await _deleteToken(_refreshTokenKey);
     await _deleteToken(_emailConfirmedAtKey);

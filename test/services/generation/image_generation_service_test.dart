@@ -12,6 +12,8 @@ class _FakeProvider implements ImageGenerationProvider {
   String? capturedNegativePrompt;
 
   Object? errorToThrow;
+  String? capturedIdempotencyKey;
+
   GenerationResult resultToReturn = const GenerationResult(
     imageUrl: 'https://example.com/fake.webp',
     provider: ImageGenerationProviderType.stability,
@@ -24,12 +26,14 @@ class _FakeProvider implements ImageGenerationProvider {
     List<String> imagePaths = const [],
     Map<String, dynamic>? fieldValues,
     String? negativePrompt,
+    String? idempotencyKey,
   }) async {
     capturedPrompt = prompt;
     capturedStyleId = styleId;
     capturedImagePaths = imagePaths;
     capturedFieldValues = fieldValues;
     capturedNegativePrompt = negativePrompt;
+    capturedIdempotencyKey = idempotencyKey;
 
     if (errorToThrow != null) {
       throw errorToThrow!;

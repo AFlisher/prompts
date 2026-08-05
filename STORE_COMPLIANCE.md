@@ -1,12 +1,12 @@
 # Store Compliance — Google Play & App Store
 
-**Sprint 1.** Companion to `RELEASE.md`. Scope is deliberately narrow: the
-legal and account-deletion requirements that block submission. It is not a
-general launch checklist.
+**Sprints 1–2.** Companion to `RELEASE.md`. Scope is deliberately narrow: the
+legal, account-deletion, purchase and advertising requirements that block
+submission. It is not a general launch checklist.
 
-> **How to read this.** §1 is done and in git. §2 cannot be done from a
-> repository — it needs a console, a domain, or a decision — and is the actual
-> remaining work. §3 is what is still blocking, honestly stated.
+> **How to read this.** §1 is done and in git. §2 and §4 cannot be done from a
+> repository — they need a console, a domain, or a decision — and are the
+> actual remaining work. §3 is what is still blocking, honestly stated.
 
 ---
 
@@ -22,6 +22,10 @@ general launch checklist.
 | App links to the hosted documents, not bundled text | `lib/services/legal_urls.dart`; Privacy screen and paywall footer | ✅ |
 | Paywall legal links functional | previously "not available yet" | ✅ |
 | iOS permission strings name the app correctly | `ios/Runner/Info.plist` — said "Prombt", now "StyliAI" | ✅ |
+| Real Google Play Billing (Sprint 2) | `lib/services/purchase_service.dart`; backend `POST /api/purchases/verify` | ✅ |
+| Simulated purchase flow removed (Sprint 2) | `simulated_store_pay.dart` deleted; `CreditManager.addCredits`/`useCredit` deleted | ✅ |
+| Purchase restoration (Sprint 2) | paywall footer → `InAppPurchase.restorePurchases()` → server verification | ✅ |
+| No Google test ad units in release (Sprint 2) | `lib/services/ad_config.dart` | ✅ mechanism |
 
 **Deletion behaviour, as implemented** — this is what the Data Safety form must
 be made to match:
@@ -104,9 +108,54 @@ Stated plainly so the checklist above is not mistaken for "ready to submit".
 
 | # | Blocker | Why it blocks |
 |---|---|---|
-| B-3 | **Simulated in-app purchases.** The paywall shows a fake Apple/Google purchase sheet and grants credits that exist only in device memory. | Violates App Store 3.1.1 and Google Play Payments policy. Imitating the stores' own purchase UI risks account termination, not just rejection. **The paywall must be hidden or the flow replaced with real IAP before any submission.** |
-| B-6 | **iOS ships Google's test AdMob IDs.** `Info.plist` `GADApplicationIdentifier` and the iOS rewarded unit in `ad_service.dart` are both Google's public sample IDs. | Zero iOS ad revenue, and test ads in production. iOS-only. |
-| H-10 | **Brand split.** `applicationId` is `com.prombt.prombt_app` and the iOS bundle is `com.prombt.prombtApp`, while everything user-facing says StyliAI. | `applicationId` is **immutable once published**. This must be decided before first submission, not after. Permission strings were corrected in this sprint; the identifiers deliberately were not, because changing them is a product decision. |
+| H-10 | **Brand split.** `applicationId` is `com.prombt.prombt_app` and the iOS bundle is `com.prombt.prombtApp`, while everything user-facing says StyliAI. | `applicationId` is **immutable once published**. This must be decided before first submission, not after. Permission strings were corrected in Sprint 1; the identifiers deliberately were not, because changing them is a product decision. |
 
-Sprint 1 removed the legal and deletion blockers. These three remain, and B-3
-is the one that would turn a rejection into an account-level problem.
+**B-3 (simulated purchases) and B-6 (iOS test ad units) were closed in Sprint 2**
+— but both carry console work before they are live. See §4.
+
+---
+
+## 4. Sprint 2 console work (the code is done; these are not)
+
+### 4.1 Google Play — products and verification
+
+The billing integration is complete and refuses to credit anything the Play
+API has not confirmed. It cannot work until:
+
+- [ ] **Create the in-app products** in Play Console → Monetise → In-app products. They must be **consumable** (credit packs are re-purchasable).
+- [ ] **Set `credit_packs.product_id`** for each pack to the SKU you created. Until then a purchase is refused with `unknown_product` (HTTP 422) rather than granted a guessed amount — deliberately, since guessing would credit the wrong number.
+- [ ] **Create a service account** with the *View financial data* and *Manage orders and subscriptions* permissions, link it to the app, and set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (the whole JSON) and `ANDROID_PACKAGE_NAME` in Railway.
+- [ ] **Verify with a licence tester** before release: Play Console → Setup → Licence testing.
+- [ ] Confirm `GET /api/purchases/config` reports `{"platforms":{"google":true}}`.
+
+> **The three-day rule.** Google auto-refunds any purchase not acknowledged
+> within 72 hours. The backend acknowledges after crediting and records the
+> outcome; find anything outstanding with
+> `SELECT * FROM processed_purchases WHERE NOT acknowledged;`
+
+### 4.2 Apple — prepared, not active
+
+`src/services/purchases/appleVerifier.js` implements the interface, the error
+taxonomy and the claim contract, and **refuses every purchase** until the
+signature-chain verification is finished. That refusal is deliberate: a
+verifier that decodes a JWS payload without checking its chain accepts anything
+an attacker types.
+
+- [ ] Create an App Store Connect API key with the **In-App Purchase** role.
+- [ ] Set `APPLE_IAP_KEY_ID`, `APPLE_IAP_ISSUER_ID`, `APPLE_IAP_PRIVATE_KEY`, `APPLE_BUNDLE_ID`.
+- [ ] Implement steps 2–4 in that file's header (sign the ES256 JWT, fetch the transaction, **verify the JWS chain against Apple's root CA**).
+- [ ] Create the matching consumable products in App Store Connect.
+
+**Setting the four variables alone does not enable iOS purchases** — the
+verifier still refuses and logs `apple_verify_not_implemented`.
+
+### 4.3 AdMob — iOS
+
+`AdConfig` refuses to return a Google sample unit in a release build. Android's
+production unit is committed; iOS has none, so **iOS release builds have
+rewarded ads disabled** rather than serving test ads that earn nothing while
+still granting credits.
+
+- [ ] Create the iOS AdMob app and rewarded unit.
+- [ ] Build with `--dart-define=ADMOB_IOS_REWARDED_UNIT_ID=ca-app-pub-…/…`.
+- [ ] Replace `GADApplicationIdentifier` in `ios/Runner/Info.plist` — it still carries Google's sample App ID. The runtime guard means no test *ad unit* can serve, but the App ID itself is a build-time plist value and must be swapped by hand.

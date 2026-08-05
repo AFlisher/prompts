@@ -35,6 +35,7 @@ dependencies:
   package_info_plus: ^10.2.1
   safe_device: ^1.4.1
   crypto: ^3.0.3
+  in_app_purchase: ^3.3.0
 dev_dependencies:
   # SEC-12.2: parses the Android network security config in tests.
   xml: ^7.0.1

@@ -71,7 +71,14 @@ class CreationsManager extends ChangeNotifier {
   bool shouldSaveToFile = true;
   bool shouldSyncWithBackend = true;
 
-  final ApiService _apiService = ApiService();
+  /// Sprint 2 / B-6. Injectable so the pagination logic can be tested without
+  /// a backend - the same test-seam convention PaywallScreen.fetchPacksOverride
+  /// and ImageGenerationService.debugProviderOverride already use. Defaults to
+  /// a real ApiService, so app code is unchanged.
+  CreationsManager({ApiService? apiService})
+      : _apiService = apiService ?? ApiService();
+
+  final ApiService _apiService;
   final LocalCacheService _cacheService = LocalCacheService();
   static const String _migratedFlagKey = 'creations_migrated_v1';
 
@@ -81,9 +88,25 @@ class CreationsManager extends ChangeNotifier {
   // recommendations instead of serving a stale one from before the change.
   static const String _recommendedCacheKey = 'styles_cache_recommended';
 
+  // ─── Sprint 2 / B-6: cursor pagination ────────────────────────────────────
+  //
+  // The backend has always paginated this endpoint; nothing read the cursor, so
+  // the gallery stopped at the 50 most recent images with no indication that
+  // older ones existed. These three fields are the whole client half.
+  String? _nextCursor;
+  bool _hasMore = false;
+  bool _isLoadingMore = false;
+
   List<CreationItem> get creations => List.unmodifiable(_creations);
   int get currentTab => _currentTab;
   bool get isInitialized => _isInitialized;
+
+  /// True when the server reported further pages. Drives the list footer.
+  bool get hasMore => _hasMore;
+
+  /// True while [loadMore] is in flight. Prevents the scroll listener firing a
+  /// second request for the same page.
+  bool get isLoadingMore => _isLoadingMore;
 
   Future<File> get _localFile async {
     final directory = await getApplicationDocumentsDirectory();
@@ -115,16 +138,69 @@ class CreationsManager extends ChangeNotifier {
     }
   }
 
+  /// Reloads the first page from the backend, discarding any pages already
+  /// scrolled into. Sprint 2 / B-6: this is the "start over" half of
+  /// pagination, and the only way a deletion made on another device
+  /// disappears here.
+  Future<void> refresh() => _syncWithBackend();
+
   Future<void> _syncWithBackend() async {
     try {
       await _migrateLegacyCreationsIfNeeded();
 
-      final remote = await _apiService.getCreations();
-      _creations = remote.map((json) => CreationItem.fromJson(json)).toList();
+      // The FIRST page replaces the local cache; later pages append. Replacing
+      // on page one is what lets a deletion made on another device disappear
+      // here, which appending would never achieve.
+      final page = await _apiService.getCreationsPage();
+      _creations = page.items.map((json) => CreationItem.fromJson(json)).toList();
+      _nextCursor = page.nextCursor;
+      _hasMore = page.hasMore;
       await save();
       notifyListeners();
     } catch (e) {
       debugPrint("[CreationsManager] Background sync failed, keeping local cache: $e");
+    }
+  }
+
+  /// Sprint 2 / B-6. Appends the next page.
+  ///
+  /// Safe to call repeatedly and from a scroll listener: it returns
+  /// immediately when there is nothing more to fetch or a fetch is already in
+  /// flight, which is what stops a fling near the bottom firing five identical
+  /// requests.
+  ///
+  /// A failure is deliberately quiet - it leaves `_hasMore` true so the next
+  /// scroll retries, and keeps the pages already loaded rather than clearing
+  /// the gallery over a dropped connection.
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMore || _nextCursor == null) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final page = await _apiService.getCreationsPage(cursor: _nextCursor);
+
+      // De-duplicate by id. A creation added locally between pages (the user
+      // generated an image while scrolling) would otherwise appear twice: once
+      // from the local insert, once from the server page that also contains it.
+      final existing = _creations.map((c) => c.id).toSet();
+      final incoming = page.items
+          .map((json) => CreationItem.fromJson(json))
+          .where((c) => !existing.contains(c.id));
+
+      _creations.addAll(incoming);
+      _nextCursor = page.nextCursor;
+      _hasMore = page.hasMore;
+
+      // Persisted so a relaunch shows everything already paged in rather than
+      // silently dropping back to the first page.
+      await save();
+    } catch (e) {
+      debugPrint("[CreationsManager] loadMore failed, keeping what is loaded: $e");
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
     }
   }
 
@@ -221,6 +297,9 @@ class CreationsManager extends ChangeNotifier {
   /// the in-memory list was already cleared here.
   Future<void> clear() async {
     _creations = [];
+    _nextCursor = null;
+    _hasMore = false;
+    _isLoadingMore = false;
     _currentTab = 0;
     _isInitialized = false;
     notifyListeners();

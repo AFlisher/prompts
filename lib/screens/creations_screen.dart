@@ -50,7 +50,7 @@ class MyCreationsScreen extends StatelessWidget {
             Expanded(
               child: creations.isEmpty
                   ? _buildEmptyState(context)
-                  : _buildCreationsGrid(context, creations, textColor),
+                  : _buildCreationsGrid(context, creationsManager, creations, textColor),
             ),
           ],
         ),
@@ -133,30 +133,93 @@ class MyCreationsScreen extends StatelessWidget {
     );
   }
 
+  /// Sprint 2 / B-6. Infinite scroll over the backend's cursor pagination.
+  ///
+  /// A [NotificationListener] rather than a [ScrollController] because this
+  /// screen is a StatelessWidget: a controller would need a State to own and
+  /// dispose it, and converting the widget for that would be a larger change
+  /// than the feature. The notification carries the same metrics.
+  ///
+  /// The [PageStorageKey] is what preserves scroll position. Without it,
+  /// switching tabs and coming back resets the user to the top of a gallery
+  /// they may have paged a long way into - which, with pagination, is now a
+  /// real amount of lost progress rather than a cosmetic jump.
   Widget _buildCreationsGrid(
     BuildContext context,
+    CreationsManager manager,
     List<CreationItem> creations,
     Color textColor,
   ) {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(
-        24,
-        8,
-        24,
-        24 + FloatingNavBarMetrics.scrollClearance,
-      ),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: creations.length,
-      itemBuilder: (context, index) {
-        final item = creations[index];
-        return _buildCreationCard(context, item, textColor);
+    // One extra cell for the footer (spinner or end-of-list), only when there
+    // is something to say.
+    final showFooter = manager.hasMore || manager.isLoadingMore;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        // depth 0 only: this grid's own scrollable, not a nested one.
+        if (notification.depth != 0) return false;
+        if (notification is! ScrollUpdateNotification &&
+            notification is! ScrollEndNotification) {
+          return false;
+        }
+
+        final metrics = notification.metrics;
+        if (!metrics.hasContentDimensions) return false;
+
+        // Fetch a screen-height early so the next page is usually already
+        // there by the time the user reaches the end.
+        final remaining = metrics.maxScrollExtent - metrics.pixels;
+        if (remaining <= metrics.viewportDimension) {
+          // loadMore() self-guards against re-entry and against having nothing
+          // left to fetch, so calling it on every scroll frame is cheap and
+          // cannot stampede.
+          manager.loadMore();
+        }
+        return false;
       },
+      child: GridView.builder(
+        key: const PageStorageKey<String>('creations_grid'),
+        padding: const EdgeInsets.fromLTRB(
+          24,
+          8,
+          24,
+          24 + FloatingNavBarMetrics.scrollClearance,
+        ),
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.75,
+        ),
+        itemCount: creations.length + (showFooter ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= creations.length) {
+            return _buildLoadMoreFooter(manager, textColor);
+          }
+          final item = creations[index];
+          return _buildCreationCard(context, item, textColor);
+        },
+      ),
+    );
+  }
+
+  /// Occupies one grid cell so the loading state does not reflow the layout.
+  Widget _buildLoadMoreFooter(CreationsManager manager, Color textColor) {
+    return Center(
+      child: manager.isLoadingMore
+          ? const SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            )
+          : Text(
+              'Scroll for more',
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.5),
+                fontSize: 12,
+              ),
+            ),
     );
   }
 

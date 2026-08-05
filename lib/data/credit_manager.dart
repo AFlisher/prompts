@@ -92,20 +92,34 @@ class CreditManager extends ChangeNotifier {
 
   bool shouldSaveToFile = true;
 
-  /// Legacy simulation compatibility methods:
-  Future<void> addCredits(int amount) async {
-    _balance += amount;
-    notifyListeners();
-  }
+  // ─── Sprint 2 / B-3: the local credit-granting methods are GONE ───────────
+  //
+  // `addCredits(int)` and `useCredit()` used to live here. They mutated
+  // `_balance` directly and were the client half of the simulated paywall:
+  // tapping "buy" incremented a number in device memory, showed a success
+  // dialog, and then had the credits silently vanish on the next
+  // fetchWallet() - which overwrites `_balance` from the server. To a user
+  // that is indistinguishable from being charged and robbed.
+  //
+  // Nothing replaces them by design. There is now exactly ONE way this field
+  // can change: a value the SERVER returned. Purchases go through
+  // PurchaseService -> POST /api/purchases/verify, ad rewards through
+  // walletService.rewardAd(), and both land in [applyServerBalance] below.
+  //
+  // If you are here because you want to optimistically bump the balance for a
+  // snappier UI: don't. The whole class of bug this sprint removed was a local
+  // number that disagreed with the server's.
 
-  bool useCredit() {
-    if (_balance > 0) {
-      _balance -= 1;
-      _generatedImages += 1; // Increment local count too during simulation
-      notifyListeners();
-      return true;
-    }
-    return false;
+  /// Applies a balance the SERVER reported. The only writer of [_balance]
+  /// besides [fetchWallet] and [clear].
+  ///
+  /// Takes the authoritative value rather than a delta on purpose - a delta
+  /// applied twice (a retry, a rebuilt widget) silently doubles, whereas
+  /// setting an absolute value the server just told us is idempotent.
+  void applyServerBalance(int balance) {
+    if (balance < 0) return;
+    _balance = balance;
+    notifyListeners();
   }
 
   /// Wipes this account's wallet state on sign-out. Resets [isInitialized]

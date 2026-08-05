@@ -107,8 +107,11 @@ void main() {
       '(reproduces: Account A logs out, Account B logs in, sees stale data)',
       () async {
         // ---- Step 1-2: Account A has a live session with credits and generated images ----
-        await creditManager.addCredits(42);
-        creditManager.useCredit(); // also increments generatedImages, mirroring a real generation
+        // Sprint 2 / B-3: addCredits()/useCredit() are gone. The balance can
+        // now only be set from a server response, which is exactly what this
+        // simulates - and it leaves the leak this test reproduces unchanged,
+        // because what leaked was the manager's state, not how it got there.
+        creditManager.applyServerBalance(41);
         await creationsManager.init(); // cache-only (shouldSyncWithBackend: false) - sets isInitialized
         await creationsManager.addCreation(CreationItem(
           id: 'account-a-creation',
@@ -127,7 +130,11 @@ void main() {
 
         // Sanity check: Account A's session really did leave this state behind.
         expect(creditManager.credits, equals(41));
-        expect(creditManager.generatedImages, equals(1));
+        // `generatedImages` is deliberately not asserted here any more. It used
+        // to be set by useCredit(), which Sprint 2 deleted; it now only ever
+        // arrives from fetchWallet(), which this test does not exercise because
+        // it has no backend. The leak being reproduced is the manager retaining
+        // Account A's state at all, and `credits` demonstrates that.
         expect(creationsManager.creations, hasLength(1));
         expect(creationsManager.isInitialized, isTrue);
         expect(favoritesManager.favoriteIds, contains('account-a-favorite-style'));

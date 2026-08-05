@@ -4,7 +4,8 @@ import '../theme/app_button_styles.dart';
 import '../main.dart';
 import '../models/credit_pack.dart';
 import '../services/api_service.dart';
-import '../widgets/simulated_store_pay.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import '../services/purchase_service.dart';
 import '../services/haptic_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/status_bar_style.dart';
@@ -19,7 +20,17 @@ class PaywallScreen extends StatefulWidget {
   /// which have no real backend to fetch from.
   final Future<List<CreditPack>> Function()? fetchPacksOverride;
 
-  const PaywallScreen({super.key, required this.isDarkMode, this.fetchPacksOverride});
+  /// Sprint 2 / B-3. Overrides the store integration. Widget tests have no
+  /// billing service to talk to, and a test that reached a real store would be
+  /// both flaky and capable of charging somebody.
+  final PurchaseService? purchaseServiceOverride;
+
+  const PaywallScreen({
+    super.key,
+    required this.isDarkMode,
+    this.fetchPacksOverride,
+    this.purchaseServiceOverride,
+  });
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
@@ -28,9 +39,20 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   final ApiService _apiService = ApiService();
 
+  /// Sprint 2 / B-3. Overridable so widget tests can drive the purchase flow
+  /// without a store, matching the fetchPacksOverride convention above.
+  late final PurchaseService _purchaseService =
+      widget.purchaseServiceOverride ?? PurchaseService();
+
   List<CreditPack> _packs = [];
   bool _isLoadingPacks = true;
   String? _packsError;
+
+  /// Store metadata, keyed by SKU. Empty when the store is unavailable or the
+  /// products have not been created yet - in which case nothing is purchasable
+  /// and the UI says so instead of offering a dead button.
+  final Map<String, ProductDetails> _storeProducts = {};
+  bool _storeAvailable = false;
 
   String? _selectedPackId;
   bool _isLoading = false;
@@ -38,7 +60,77 @@ class _PaywallScreenState extends State<PaywallScreen> {
   @override
   void initState() {
     super.initState();
+    // Started before any purchase can begin so a purchase re-delivered from a
+    // previous session - one left unfinished because verification failed - is
+    // picked up and credited with no user action.
+    _purchaseService.start();
     _fetchPacks();
+  }
+
+  @override
+  void dispose() {
+    _purchaseService.dispose();
+    super.dispose();
+  }
+
+  /// The store product backing [pack], or null when it has no SKU or the store
+  /// does not sell it.
+  ProductDetails? _productFor(CreditPack pack) {
+    if (!pack.isPurchasable) return null;
+    return _storeProducts[pack.productId];
+  }
+
+  /// The price to show: the store's localised value when we have it (correct
+  /// currency, regional pricing and tax for THIS buyer), falling back to the
+  /// admin-entered label only when the store has no matching product.
+  String _priceFor(CreditPack pack) => _productFor(pack)?.price ?? pack.priceDisplay;
+
+  /// Whether the currently selected pack can actually be bought right now.
+  ///
+  /// Both halves matter: a device with no billing service, and a pack whose SKU
+  /// does not exist in the store. Either way the CTA is disabled rather than
+  /// failing after the user commits to it.
+  bool get _canPurchase {
+    if (!_storeAvailable) return false;
+    final id = _selectedPackId;
+    if (id == null) return false;
+    final pack = _packs.where((p) => p.id == id).firstOrNull;
+    return pack != null && _productFor(pack) != null;
+  }
+
+  /// Loads store metadata for the SKUs the catalogue advertises.
+  ///
+  /// Failure here is not fatal and is not surfaced as an error: it means
+  /// nothing is purchasable, which the pack cards already communicate.
+  Future<void> _loadStoreProducts(List<CreditPack> packs) async {
+    final skus = packs
+        .where((p) => p.isPurchasable)
+        .map((p) => p.productId!)
+        .toSet();
+
+    try {
+      // Availability is checked even when no pack carries a SKU. Skipping it
+      // would leave _storeAvailable false and make the UI blame the device
+      // ("in-app purchases are unavailable here") for what is actually an
+      // unfinished catalogue - two different problems with two different
+      // owners, and telling the user the wrong one is worse than saying
+      // nothing.
+      final available = await _purchaseService.isStoreAvailable();
+      if (!mounted) return;
+      setState(() => _storeAvailable = available);
+
+      if (!available || skus.isEmpty) return;
+
+      final products = await _purchaseService.loadProducts(skus);
+      if (!mounted) return;
+      setState(() {
+        _storeProducts
+          ..clear()
+          ..addEntries(products.map((p) => MapEntry(p.id, p)));
+      });
+    } catch (e) {
+      debugPrint('[PaywallScreen] store products unavailable: $e');
+    }
   }
 
   Future<void> _fetchPacks() async {
@@ -58,6 +150,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             : packs.firstWhere((p) => p.badge != null, orElse: () => packs.first).id;
         _isLoadingPacks = false;
       });
+      await _loadStoreProducts(packs);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -67,44 +160,90 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
   }
 
+  /// Sprint 2 / B-3. Real store purchase, credited only by the server.
+  ///
+  /// What used to be here: a simulated Apple/Google purchase sheet followed by
+  /// `creditManager.addCredits()`, which incremented a number in device memory
+  /// that the next wallet fetch overwrote. No money moved and the credits
+  /// vanished. Both the sheet and addCredits() are deleted.
   void _handlePurchase(BuildContext context) async {
     final selectedPack = _packs.firstWhere((p) => p.id == _selectedPackId);
-    final creditsToAdded = selectedPack.credits;
+    final product = _productFor(selectedPack);
 
-    HapticService.medium();
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Show simulated iOS App Store or Google Play Store billing sheet
-    final purchased = await showSimulatedStorePaySheet(
-      context: context,
-      packTitle: selectedPack.name,
-      price: selectedPack.priceDisplay,
-      credits: creditsToAdded,
-      isDarkMode: widget.isDarkMode,
-      platform: Theme.of(context).platform,
-    );
-
-    if (!mounted) return;
-
-    if (!purchased) {
-      setState(() {
-        _isLoading = false;
-      });
+    if (product == null) {
+      // Either the SKU is unset on the pack or the store does not know it.
+      // Saying so is better than a button that appears to work and cannot.
+      _showMessage('This pack is not available for purchase yet.');
       return;
     }
 
-    final creditManager = CreditProvider.of(context);
-    await creditManager.addCredits(creditsToAdded);
+    HapticService.medium();
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = false;
-    });
+    final result = await _purchaseService.buy(product);
 
-    HapticService.vibrate();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    // Show a success dialog
+    switch (result.outcome) {
+      case PurchaseOutcome.cancelled:
+        return;
+
+      case PurchaseOutcome.credited:
+      case PurchaseOutcome.alreadyCredited:
+        // The balance comes from the server's response - never computed here.
+        final creditManager = CreditProvider.of(context);
+        if (result.balance != null) {
+          creditManager.applyServerBalance(result.balance!);
+        } else {
+          await creditManager.fetchWallet();
+        }
+        if (!mounted) return;
+        HapticService.vibrate();
+        _showPurchaseSuccess(result);
+        return;
+
+      case PurchaseOutcome.retryable:
+        _showMessage(result.message ??
+            'We could not confirm your purchase yet. It is safe - we will retry automatically.');
+        return;
+
+      case PurchaseOutcome.failed:
+        _showMessage(result.message ?? 'This purchase could not be completed.');
+        return;
+    }
+  }
+
+  /// Sprint 2 / B-3. Re-presents purchases the store still holds for this
+  /// account. Required by both stores and expected by anyone who reinstalls.
+  void _handleRestore(BuildContext context) async {
+    HapticService.light();
+    setState(() => _isLoading = true);
+
+    try {
+      await _purchaseService.restore();
+      if (!mounted) return;
+      // Restored purchases arrive on the purchase stream and are verified
+      // individually; the balance is re-read rather than guessed at.
+      await CreditProvider.of(context).fetchWallet();
+      if (!mounted) return;
+      _showMessage('Restore complete. Any missing credits have been added.');
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Could not restore purchases. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  void _showPurchaseSuccess(PurchaseResult result) {
+    final added = result.creditsGranted;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -118,15 +257,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-              ),
+              decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
               child: const Icon(Icons.check, color: Colors.white, size: 36),
             ),
             const SizedBox(height: 24),
             Text(
-              'Purchase Successful!',
+              added > 0 ? 'Purchase Successful!' : 'Already Credited',
               style: TextStyle(
                 color: widget.isDarkMode ? AppTheme.white : AppTheme.black,
                 fontSize: 22,
@@ -135,23 +271,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Added $creditsToAdded credits to your balance successfully.',
+              added > 0
+                  ? 'Added $added credits to your balance.'
+                  : 'This purchase was already added to your balance.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.mediumGray,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: AppTheme.mediumGray, fontSize: 14),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(ctx); // Close dialog
-                Navigator.pop(context); // Close Purchase Screen
+                Navigator.pop(ctx);
+                Navigator.pop(context);
               },
               style: AppButtonStyles.primary(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               ),
-              child: const Text('Start Creating', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: const Text('Start Creating',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 12),
           ],
@@ -405,7 +541,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                 packId: pack.id,
                                 title: pack.name,
                                 credits: pack.credits,
-                                price: pack.priceDisplay,
+                                price: _priceFor(pack),
                                 badge: pack.badge,
                                 desc: pack.description ?? '',
                                 textColor: textColor,
@@ -418,12 +554,37 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 40)),
 
+                  // Sprint 2 / B-3: says why purchasing is unavailable rather
+                  // than presenting a button that cannot work. Reached when the
+                  // device has no billing service, or before the SKUs exist in
+                  // the store consoles - which is the state every seeded pack
+                  // ships in today.
+                  if (!_isLoadingPacks && _packs.isNotEmpty && !_canPurchase)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(26, 0, 26, 16),
+                        child: Text(
+                          _storeAvailable
+                              ? 'Credit packs are not available for purchase yet. You can still earn credits by watching ads.'
+                              : 'In-app purchases are unavailable on this device. You can still earn credits by watching ads.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppTheme.mediumGray,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+
                   // Action button
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 26),
                       child: ElevatedButton(
-                        onPressed: (_isLoading || _selectedPackId == null) ? null : () => _handlePurchase(context),
+                        onPressed: (_isLoading || _selectedPackId == null || !_canPurchase)
+                            ? null
+                            : () => _handlePurchase(context),
                         style: AppButtonStyles.primary(
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           elevation: 4,
@@ -467,7 +628,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           _buildFooterLink(
                             'Restore Purchases',
                             textColor,
-                            () => _showNotYetAvailable(context, 'Restore Purchases', reason: 'real purchases are not live yet'),
+                            () => _handleRestore(context),
                           ),
                         ],
                       ),

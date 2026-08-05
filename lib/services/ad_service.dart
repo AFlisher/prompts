@@ -4,32 +4,50 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Loads and shows AdMob rewarded ads using the production ad unit ID.
+import 'ad_config.dart';
+
+/// Loads and shows AdMob rewarded ads.
+///
+/// Sprint 2 / B-4: the unit id now comes from [AdConfig], which refuses to
+/// return a Google test unit in a release build. When it returns null this
+/// service becomes inert - [preload] and [showRewardedAd] no-op - rather than
+/// falling back to a test ad. See AdConfig for why disabling beats
+/// substituting.
 class AdService {
-  static String get _rewardedAdUnitId {
+  /// Null on an unsupported platform or when ads must be disabled.
+  static String? get _rewardedAdUnitId {
+    final AdPlatform platform;
     if (Platform.isAndroid) {
-      return kDebugMode
-          ? 'ca-app-pub-3940256099942544/5224354917' // Test
-          : 'ca-app-pub-6702560936975523/1997493396'; // Production
+      platform = AdPlatform.android;
+    } else if (Platform.isIOS) {
+      platform = AdPlatform.ios;
+    } else {
+      return null;
     }
-
-    if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/1712485313';
-    }
-
-    throw UnsupportedError('Rewarded ads are not supported on this platform.');
+    return AdConfig.rewardedAdUnitId(platform: platform);
   }
+
+  /// Whether rewarded ads can run at all in this build. The paywall and the
+  /// watch-ad button use this to hide a control that cannot work.
+  static bool get isAvailable => _rewardedAdUnitId != null;
 
   RewardedAd? _rewardedAd;
   bool _isLoading = false;
 
   /// Preloads a rewarded ad so it's ready to show without a delay later.
   Future<void> preload() async {
+    final unitId = _rewardedAdUnitId;
+    if (unitId == null) {
+      // Logged once per attempt rather than silently: an unconfigured release
+      // build losing its ad-reward path should be visible to whoever ships it.
+      debugPrint('[AdService] rewarded ads disabled - no production unit configured');
+      return;
+    }
     if (_rewardedAd != null || _isLoading) return;
     _isLoading = true;
 
     await RewardedAd.load(
-      adUnitId: _rewardedAdUnitId,
+      adUnitId: unitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -51,6 +69,8 @@ class AdService {
   Future<bool> showRewardedAd({
     required void Function() onUserEarnedReward,
   }) async {
+    if (_rewardedAdUnitId == null) return false;
+
     if (_rewardedAd == null) {
       await preload();
     }

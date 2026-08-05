@@ -21,11 +21,16 @@ class StabilityProvider implements ImageGenerationProvider {
     List<String> imagePaths = const [],
     Map<String, dynamic>? fieldValues,
     String? negativePrompt,
+    /// Sprint 2 / B-5. Reused across retries of the same logical generation so
+    /// a lost response cannot become a second charge. Providers forward it
+    /// unchanged; only the charged backend endpoints act on it.
+    String? idempotencyKey,
   }) async {
     final result = await _apiService.generateStabilityImage(
       prompt: prompt,
       styleId: styleId,
       negativePrompt: negativePrompt,
+      idempotencyKey: idempotencyKey,
     );
     return GenerationResult(
       imageUrl: result.imageUrl,

@@ -30,61 +30,52 @@ void main() {
       expect(manager.isInitialized, isFalse);
     });
 
-    test('useCredit decrements credits by 1 when credits are available', () async {
-      await manager.addCredits(5);
-      final initial = manager.credits;
-      manager.useCredit();
-      expect(manager.credits, equals(initial - 1));
+    // Sprint 2 / B-3. The tests that used to live here exercised
+    // addCredits()/useCredit() - the local credit-granting methods that backed
+    // the simulated paywall. Both are deleted, so the tests are replaced rather
+    // than adapted: what is worth asserting now is that no local path can move
+    // the balance at all, and that the only writer is a value the server gave us.
+
+    test('applyServerBalance sets the balance the server reported', () {
+      manager.applyServerBalance(42);
+      expect(manager.balance, equals(42));
+      expect(manager.credits, equals(42));
     });
 
-    test('useCredit returns true when credits available', () async {
-      await manager.addCredits(1);
-      final result = manager.useCredit();
-      expect(result, isTrue);
+    test('applyServerBalance is idempotent - applying twice does not double', () {
+      manager.applyServerBalance(42);
+      manager.applyServerBalance(42);
+
+      // The whole reason it takes an absolute value rather than a delta: a
+      // retry or a rebuilt widget must not inflate the balance.
+      expect(manager.balance, equals(42));
     });
 
-    test('useCredit returns false when credits are 0', () {
-      // Drain all credits
-      while (manager.credits > 0) {
-        manager.useCredit();
-      }
-      final result = manager.useCredit();
-      expect(result, isFalse);
+    test('applyServerBalance can decrease the balance', () {
+      manager.applyServerBalance(50);
+      manager.applyServerBalance(10);
+      expect(manager.balance, equals(10));
     });
 
-    test('credits never go below 0', () {
-      // Drain all credits
-      while (manager.credits > 0) {
-        manager.useCredit();
-      }
-      manager.useCredit(); // should not go below 0
-      expect(manager.credits, equals(0));
+    test('applyServerBalance ignores a negative balance', () {
+      manager.applyServerBalance(10);
+      manager.applyServerBalance(-5);
+      expect(manager.balance, equals(10));
     });
 
-    test('addCredits increases credit balance', () async {
-      final before = manager.credits;
-      await manager.addCredits(10);
-      expect(manager.credits, equals(before + 10));
-    });
-
-    test('addCredits with large amount works correctly', () async {
-      await manager.addCredits(100);
-      expect(manager.credits, equals(100)); // 0 initial + 100
-    });
-
-    test('notifyListeners is called after useCredit', () async {
-      await manager.addCredits(1);
+    test('applyServerBalance notifies listeners', () {
       int notifyCount = 0;
       manager.addListener(() => notifyCount++);
-      manager.useCredit();
+      manager.applyServerBalance(7);
       expect(notifyCount, greaterThan(0));
     });
 
-    test('notifyListeners is called after addCredits', () async {
-      int notifyCount = 0;
-      manager.addListener(() => notifyCount++);
-      await manager.addCredits(5);
-      expect(notifyCount, greaterThan(0));
+    test('clear resets the balance and the initialized flag', () {
+      manager.applyServerBalance(99);
+      manager.clear();
+      expect(manager.balance, equals(0));
+      expect(manager.isInitialized, isFalse);
     });
+
   });
 }

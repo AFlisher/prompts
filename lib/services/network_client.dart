@@ -161,10 +161,14 @@ class AuthorizedHttpClient {
   /// attacker stripping the header from a device whose Play Services is
   /// broken, and it can only do that if this client stops guessing on its
   /// behalf.
+  /// Sprint 2 / B-5. The header name the backend's Phase 7 middleware reads.
+  static const String idempotencyHeader = 'Idempotency-Key';
+
   Future<http.Response> send(
     Future<http.Response> Function(Map<String, String> headers) request, {
     required Duration timeout,
     String? integrityPayload,
+    String? idempotencyKey,
   }) async {
     // Minted once per user action. Reused verbatim on the 401 retry below,
     // because the request being attested has not changed - and because a
@@ -177,6 +181,7 @@ class AuthorizedHttpClient {
 
     final initialHeaders = await headers();
     _attachIntegrity(initialHeaders, integrityToken);
+    _attachIdempotency(initialHeaders, idempotencyKey);
     var response = await _withTimeout(request(initialHeaders), timeout);
 
     if (response.statusCode == 401) {
@@ -185,6 +190,10 @@ class AuthorizedHttpClient {
       if (refreshed) {
         final retryHeaders = await headers();
         _attachIntegrity(retryHeaders, integrityToken);
+        // The SAME key on the retry, deliberately. A refreshed token does not
+        // make this a different logical request, and minting a second key here
+        // would turn the 401 recovery path into a second charge.
+        _attachIdempotency(retryHeaders, idempotencyKey);
         response = await _withTimeout(request(retryHeaders), timeout);
       }
 
@@ -203,6 +212,15 @@ class AuthorizedHttpClient {
   static void _attachIntegrity(Map<String, String> headers, String? token) {
     if (token != null && token.isNotEmpty) {
       headers[integrityHeader] = token;
+    }
+  }
+
+  /// Sprint 2 / B-5. Absent key means the request behaves exactly as it always
+  /// did - the backend middleware no-ops without the header - so this is safe
+  /// to leave off the many read endpoints that cannot double-charge anything.
+  static void _attachIdempotency(Map<String, String> headers, String? key) {
+    if (key != null && key.isNotEmpty) {
+      headers[idempotencyHeader] = key;
     }
   }
 
