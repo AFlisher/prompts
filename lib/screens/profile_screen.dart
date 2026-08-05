@@ -13,6 +13,7 @@ import 'notifications_screen.dart';
 import '../services/haptic_service.dart';
 import 'privacy_screen.dart';
 import 'change_password_screen.dart';
+import 'delete_account_screen.dart';
 import '../main.dart';
 import 'paywall_screen.dart';
 import 'wallet_history_screen.dart';
@@ -74,6 +75,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       fadeSlidePageRoute((_) => NotificationsScreen(isDarkMode: _isDark)),
+    );
+  }
+
+  /// Sprint 1 / B-1. `requiresPassword` follows the same `provider == 'email'`
+  /// test the Change Password tile already uses, so the two account types are
+  /// distinguished in one consistent way rather than two.
+  void _openDeleteAccount(bool requiresPassword) {
+    HapticService.light();
+    Navigator.push(
+      context,
+      fadeSlidePageRoute(
+        (_) => DeleteAccountScreen(
+          isDarkMode: _isDark,
+          requiresPassword: requiresPassword,
+          onDeleted: () {
+            // AuthService.deleteAccount() has already signed out and cleared
+            // every account-scoped manager. All that remains is to leave a
+            // navigation stack whose screens belong to an account that no
+            // longer exists.
+            //
+            // Guarded even though this screen sits directly beneath the one
+            // invoking it: the callback crosses an await on the caller's side,
+            // and this State is the wrong thing to navigate from if it has
+            // gone away in the meantime.
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
+              (route) => false,
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -445,6 +479,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   );
                 },
+              ),
+              // Sprint 1 / B-1. Placed last and visually separated from Sign
+              // Out: they are adjacent red actions with very different
+              // consequences, and putting them side by side is how a user
+              // reaching for one hits the other.
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'DANGER ZONE',
+                  style: TextStyle(
+                    color: Colors.redAccent.withValues(alpha: 0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _SettingsTile(
+                icon: Icons.delete_forever_rounded,
+                label: 'Delete Account',
+                isDark: _isDark,
+                textColor: Colors.redAccent,
+                surface: surfaceColor,
+                onTap: () => _openDeleteAccount(profile?.provider == 'email'),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Permanently erases your account, images and credits. '
+                  'This cannot be undone.',
+                  style: TextStyle(
+                    color: AppTheme.mediumGray,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
               ),
             ],
           ),

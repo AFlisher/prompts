@@ -400,6 +400,85 @@ class AuthService {
     debugPrint("[AuthService] Password changed successfully.");
   }
 
+  /// Sprint 1 / B-1 — irreversibly deletes the signed-in user's account.
+  ///
+  /// Required by Google Play's data deletion policy and App Store Guideline
+  /// 5.1.1(v): an app that offers account creation must offer deletion from
+  /// inside the app.
+  ///
+  /// [currentPassword] is required for password accounts and ignored for
+  /// Google accounts, which have no local password for the backend to verify.
+  /// The caller decides which case applies; the backend enforces it.
+  ///
+  /// ─── Local state is cleared even if the network call's RESPONSE is lost ──
+  ///
+  /// The success path always ends in [signOut], which wipes the tokens and
+  /// every account-scoped manager. That matters more than it looks: the
+  /// backend deletes the user row, which makes every access token this device
+  /// holds fail on its next use. Leaving them in secure storage would give the
+  /// user an app that appears signed in and 401s on every screen, which reads
+  /// as "the deletion broke my app" rather than "the deletion worked".
+  ///
+  /// A 401 is therefore treated as SUCCESS, not failure: the only way to reach
+  /// this method is with a live session, so a 401 in reply means the account
+  /// was already gone — a retry after a lost response, or a concurrent
+  /// deletion. Reporting that as an error would ask the user to delete an
+  /// account that no longer exists.
+  ///
+  /// Throws [AuthException] with the backend's own message on 400/403 (wrong
+  /// password, missing confirmation), so the UI can tell the user what to fix.
+  Future<void> deleteAccount({String? currentPassword}) async {
+    await ensureValidSession();
+
+    final accessToken = await _readToken(_accessTokenKey);
+    if (accessToken == null) {
+      throw const AuthException("User is not authenticated.");
+    }
+
+    final body = <String, dynamic>{'confirmation': 'DELETE'};
+    if (currentPassword != null && currentPassword.isNotEmpty) {
+      body['currentPassword'] = currentPassword;
+    }
+
+    final response = await backendClient
+        .post(
+          Uri.parse('$_backendUrl/api/auth/delete-account'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+          body: json.encode(body),
+        )
+        .timeout(
+          NetworkTimeouts.auth,
+          onTimeout: () =>
+              throw TimeoutException('Delete account request timed out'),
+        );
+
+    // 401 means the account is already gone - see the doc comment above.
+    if (response.statusCode == 200 || response.statusCode == 401) {
+      await signOut();
+      return;
+    }
+
+    // Deliberately does NOT sign out on any other failure. A 500 means the
+    // transaction rolled back and the account is intact, so the user must be
+    // left signed in and able to try again rather than locked out of an
+    // account that still exists.
+    String message = 'Failed to delete account.';
+    try {
+      final data = json.decode(response.body);
+      if (data is Map && data['message'] is String) {
+        message = data['message'] as String;
+      }
+    } catch (_) {
+      // A non-JSON body (a proxy error page) must not turn into a parse crash
+      // on top of a failed deletion.
+    }
+
+    throw AuthException(message);
+  }
+
   /// Sign Out
   Future<void> signOut() async {
     debugPrint("[AuthService] Signing out. Clearing saved tokens from secure storage...");

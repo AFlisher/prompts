@@ -73,6 +73,18 @@ flutter symbolize -i <stack_trace.txt> -d build/symbols/<version>/app.android-ar
 - [ ] `adb logcat` while exercising sign-in shows **no** app debug output (see §3).
 - [ ] Screenshotting the login and profile screens is blocked; screenshotting a generated image still works (see §4).
 
+**Store submission gates** (Sprint 1 — only for a build going to a store)
+
+Full detail and the console-side steps are in **[`STORE_COMPLIANCE.md`](STORE_COMPLIANCE.md)**.
+
+- [ ] `grep -rn "\[\[PLACEHOLDER" ../backend/public/legal/` returns **nothing**, and all three documents carry a real effective date.
+- [ ] Profile → Danger Zone → **Delete Account** exercised end-to-end against a throwaway production account: the account is gone, the app returns to the signed-out screen, and signing in again fails.
+- [ ] Privacy screen → Privacy Policy and Terms of Service both open the **hosted** pages in a browser (not the bundled fallback). If they open the in-app reader, `BACKEND_URL` is missing from `.env`.
+- [ ] Paywall footer → Terms and Privacy links open the hosted pages.
+- [ ] The three `/legal/...` URLs return 200 from a signed-out browser against production.
+- [ ] **The simulated purchase flow is not reachable** in this build (B-3). Shipping it violates App Store 3.1.1 and Google Play Payments policy.
+- [ ] iOS only: the AdMob App ID and rewarded unit are the real ones, not Google's test IDs (B-6).
+
 ---
 
 ## 3. Logging in release builds

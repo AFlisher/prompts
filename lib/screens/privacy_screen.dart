@@ -8,6 +8,8 @@ import '../services/feedback_prompt_service.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/status_bar_style.dart';
 import 'legal_document_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/legal_urls.dart';
 
 class PrivacyScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -125,6 +127,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   onTap: () => _openLegalDocument(
                     title: 'Privacy Policy',
                     sections: LegalDocuments.privacyPolicy,
+                    url: LegalUrls.privacyPolicy,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -137,6 +140,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   onTap: () => _openLegalDocument(
                     title: 'Terms of Service',
                     sections: LegalDocuments.termsOfService,
+                    url: LegalUrls.termsOfService,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -206,10 +210,37 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     );
   }
 
-  void _openLegalDocument({
+  /// Sprint 1 / B-2. The hosted copy at [url] is now the CANONICAL version -
+  /// it is the URL submitted to both app stores, so it is the text a reviewer
+  /// and a regulator will read, and the in-app copy must never be the one that
+  /// disagrees with it.
+  ///
+  /// The bundled reader is kept as a fallback rather than deleted, for the two
+  /// cases where a link is useless: no `BACKEND_URL` configured in this build,
+  /// and no browser able to handle the launch (or no connectivity - the app has
+  /// no offline detection, so a failed launch is the only signal available
+  /// here). A legal document the user cannot read at all is a worse outcome
+  /// than one that is a version behind.
+  Future<void> _openLegalDocument({
     required String title,
     required List<LegalSection> sections,
-  }) {
+    required String url,
+  }) async {
+    HapticService.light();
+
+    if (LegalUrls.isConfigured) {
+      try {
+        final launched = await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
+        if (launched) return;
+      } catch (_) {
+        // Fall through to the bundled copy below.
+      }
+    }
+
+    if (!mounted) return;
     Navigator.push(
       context,
       fadeSlidePageRoute(

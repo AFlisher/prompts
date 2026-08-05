@@ -9,6 +9,8 @@ import '../services/haptic_service.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/status_bar_style.dart';
 import '../utils/secure_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/legal_urls.dart';
 
 class PaywallScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -455,12 +457,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           _buildFooterLink(
                             'Terms of Service',
                             textColor,
-                            () => _showNotYetAvailable(context, 'Terms of Service'),
+                            () => _openLegal(context, LegalUrls.termsOfService, 'Terms of Service'),
                           ),
                           _buildFooterLink(
                             'Privacy Policy',
                             textColor,
-                            () => _showNotYetAvailable(context, 'Privacy Policy'),
+                            () => _openLegal(context, LegalUrls.privacyPolicy, 'Privacy Policy'),
                           ),
                           _buildFooterLink(
                             'Restore Purchases',
@@ -624,6 +626,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
   // LEGAL_REQUIREMENTS.md - a release blocker), and real purchases aren't
   // live yet either - these links are honestly non-functional rather than
   // pointing at an invented URL.
+  /// Sprint 1 / B-2. These two footer links were honestly non-functional
+  /// because no hosted documents existed (LEGAL_REQUIREMENTS.md). They now
+  /// exist, so the links open them. `Restore Purchases` keeps its
+  /// not-yet-available message, because real purchases genuinely are not live
+  /// and inventing a working-looking control for them would be the same
+  /// dishonesty this method was written to avoid.
+  Future<void> _openLegal(BuildContext context, String url, String label) async {
+    HapticService.light();
+
+    if (!LegalUrls.isConfigured) {
+      _showNotYetAvailable(context, label, reason: 'this build has no backend URL configured');
+      return;
+    }
+
+    try {
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (launched) return;
+    } catch (_) {
+      // Falls through to the message below.
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Couldn't open $label. It is available at $url"),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showNotYetAvailable(BuildContext context, String label, {String? reason}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
