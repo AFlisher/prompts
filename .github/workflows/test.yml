@@ -1,0 +1,78 @@
+# Sprint 3 / H-4 — run the tests.
+#
+# Until this existed, the only workflow in this repository was a secret scan,
+# so 465 tests and a clean `flutter analyze` gated nothing at all.
+#
+# ─── Why `analyze --fatal-infos` is NOT used ─────────────────────────────────
+#
+# This project carries a known, deliberate baseline of 9 info-level analyzer
+# results (deprecated `withOpacity`, `cacheExtent`, and three
+# `use_build_context_synchronously` in pre-existing code). Failing on infos
+# would make every run red until that backlog is cleared, and a workflow that
+# is always red is a workflow nobody reads. `--fatal-warnings` catches
+# everything that actually matters - errors and warnings - and the baseline
+# stays visible in the run log rather than blocking it.
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: flutter test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          # Pinned to the version this project is developed against. `stable`
+          # would silently move the toolchain under the tests and turn an
+          # upstream release into a mystery CI failure.
+          flutter-version: '3.44.4'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # The app reads BACKEND_URL and the Supabase keys from a bundled .env,
+      # which is gitignored and correctly absent here. A placeholder file is
+      # written so `main()`'s dotenv.load succeeds; no test talks to a real
+      # backend, and LegalUrls has its own test for the unconfigured case.
+      - name: Write a placeholder .env
+        run: |
+          cat > .env <<'EOF'
+          BACKEND_URL=https://ci.invalid
+          SUPABASE_URL=https://ci.invalid
+          SUPABASE_ANON_KEY=ci-only-not-a-real-key
+          EOF
+
+      - name: Analyze
+        run: flutter analyze --fatal-warnings
+
+      - name: Test
+        run: flutter test --reporter expanded
+
+      # Sprint 2 / B-4: the guard that stops a Google sample ad unit reaching a
+      # release build is worth asserting in CI as well as in the unit tests,
+      # because the consequence of losing it is silent - test ads that serve
+      # normally, earn nothing, and still pay out credits.
+      - name: No Google test ad unit can reach a release build
+        run: |
+          if grep -rn "ca-app-pub-3940256099942544" lib/ --include="*.dart" | grep -v "ad_config.dart"; then
+            echo "::error::A Google sample AdMob id appears outside ad_config.dart"
+            exit 1
+          fi
+          echo "OK: sample ad ids are confined to ad_config.dart, which refuses them in release."
