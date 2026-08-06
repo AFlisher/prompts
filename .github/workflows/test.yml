@@ -3,15 +3,24 @@
 # Until this existed, the only workflow in this repository was a secret scan,
 # so 465 tests and a clean `flutter analyze` gated nothing at all.
 #
-# ─── Why `analyze --fatal-infos` is NOT used ─────────────────────────────────
+# ─── `--no-fatal-infos`, and why the flag alone was not enough ───────────────
 #
 # This project carries a known, deliberate baseline of 9 info-level analyzer
 # results (deprecated `withOpacity`, `cacheExtent`, and three
 # `use_build_context_synchronously` in pre-existing code). Failing on infos
 # would make every run red until that backlog is cleared, and a workflow that
-# is always red is a workflow nobody reads. `--fatal-warnings` catches
-# everything that actually matters - errors and warnings - and the baseline
-# stays visible in the run log rather than blocking it.
+# is always red is a workflow nobody reads.
+#
+# `flutter analyze --help` states the actual default: `--fatal-infos` is ON
+# by default, same as `--fatal-warnings`. Passing `--fatal-warnings` alone -
+# what this line originally did - changes nothing, since that was already the
+# default; it never touches `--fatal-infos`, which stays on and fails the run
+# on the very infos this comment claimed were non-fatal. Reproduced locally:
+# `flutter analyze --fatal-warnings` on the 9-info baseline exits 1;
+# `flutter analyze --no-fatal-infos --fatal-warnings` on the same tree exits 0,
+# still printing all 9 in the log. `--fatal-warnings` is kept, redundant
+# default or not, so the intent reads correctly from the command itself
+# without relying on this comment to explain what the flags alone do not.
 name: Tests
 
 on:
@@ -60,7 +69,7 @@ jobs:
           EOF
 
       - name: Analyze
-        run: flutter analyze --fatal-warnings
+        run: flutter analyze --no-fatal-infos --fatal-warnings
 
       - name: Test
         run: flutter test --reporter expanded
