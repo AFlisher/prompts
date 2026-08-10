@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
@@ -17,7 +18,8 @@ class EmailVerificationScreen extends StatefulWidget {
   });
 
   @override
-  State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen>
@@ -208,7 +210,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
     _checkInFlight = true;
     try {
-      final isVerified = await AuthService().checkVerificationStatus(widget.email);
+      final isVerified =
+          await AuthService().checkVerificationStatus(widget.email);
       if (!mounted) return;
       if (isVerified) {
         _pollingStopped = true;
@@ -273,7 +276,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: textColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -313,16 +317,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                             height: 1.4,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         // Custom holographic indicator
                         const Center(
                           child: _HologramVerificationIndicator(),
                         ),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         // SEC-19.4: the copy has to tell the truth about which
                         // state the screen is in. Once automatic polling has
                         // stopped, saying "waiting..." while nothing is
@@ -356,7 +360,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                               ),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.accentPurple,
-                                side: const BorderSide(color: AppTheme.accentPurple),
+                                side: const BorderSide(
+                                    color: AppTheme.accentPurple),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -371,29 +376,32 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                         SizedBox(
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: (_canResend && !_isLoading) ? _handleResendLink : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.accentPurple,
-                              disabledBackgroundColor: AppTheme.accentPurple.withOpacity(0.2),
-                              foregroundColor: Colors.white,
+                            onPressed: (_canResend && !_isLoading)
+                                ? _handleResendLink
+                                : null,
+                            style: AppButtonStyles.primary(
+                              disabledBackgroundColor:
+                                  AppTheme.accentPurple.withOpacity(0.2),
                               disabledForegroundColor: Colors.white38,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
                             ),
                             child: _isLoading
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 3),
                                   )
                                 : Text(
-                                    _canResend ? 'Resend Link' : 'Resend in ${_cooldownSeconds}s',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    _canResend
+                                        ? 'Resend Link'
+                                        : 'Resend in ${_cooldownSeconds}s',
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
                                   ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 16),
 
                         // Back to Sign In Option
@@ -402,10 +410,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                           child: OutlinedButton(
                             onPressed: () {
                               HapticService.light();
-                              Navigator.popUntil(context, (route) => route.isFirst);
+                              Navigator.popUntil(
+                                  context, (route) => route.isFirst);
                             },
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                              side: BorderSide(
+                                  color:
+                                      isDark ? Colors.white12 : Colors.black12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -438,10 +449,12 @@ class _HologramVerificationIndicator extends StatefulWidget {
   const _HologramVerificationIndicator();
 
   @override
-  State<_HologramVerificationIndicator> createState() => _HologramVerificationIndicatorState();
+  State<_HologramVerificationIndicator> createState() =>
+      _HologramVerificationIndicatorState();
 }
 
-class _HologramVerificationIndicatorState extends State<_HologramVerificationIndicator>
+class _HologramVerificationIndicatorState
+    extends State<_HologramVerificationIndicator>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _rotationController;
@@ -494,7 +507,8 @@ class _HologramVerificationIndicatorState extends State<_HologramVerificationInd
                 alignment: Alignment.center,
                 children: List.generate(3, (index) {
                   final scale = 1.0 + (index * 0.45) + (t * 0.45);
-                  final opacity = (0.45 - (index * 0.15) - (t * 0.15)).clamp(0.0, 0.45);
+                  final opacity =
+                      (0.45 - (index * 0.15) - (t * 0.15)).clamp(0.0, 0.45);
                   return Container(
                     width: 90 * scale,
                     height: 90 * scale,
@@ -510,7 +524,7 @@ class _HologramVerificationIndicatorState extends State<_HologramVerificationInd
               );
             },
           ),
-          
+
           // Rotating outer ring
           AnimatedBuilder(
             animation: _rotationAnimation,
@@ -597,7 +611,7 @@ class _RadarRingPainter extends CustomPainter {
     final dotPaint = Paint()
       ..color = AppTheme.accentPink
       ..style = PaintingStyle.fill;
-    
+
     final dotX = center.dx + radius * math.cos(math.pi * 0.35);
     final dotY = center.dy + radius * math.sin(math.pi * 0.35);
     canvas.drawCircle(Offset(dotX, dotY), 4, dotPaint);

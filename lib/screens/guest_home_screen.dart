@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 /// The only screen an unauthenticated user ever sees. Deliberately shows no
 /// Categories/Styles/Trending/Recommended content and never touches
@@ -18,7 +19,7 @@ class GuestHomeScreen extends StatelessWidget {
     HapticService.light();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      fadeSlidePageRoute((_) => const LoginScreen()),
     );
   }
 
@@ -26,7 +27,7 @@ class GuestHomeScreen extends StatelessWidget {
     HapticService.light();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+      fadeSlidePageRoute((_) => const RegisterScreen()),
     );
   }
 

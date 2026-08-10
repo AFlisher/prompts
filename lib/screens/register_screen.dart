@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
 import '../utils/secure_screen.dart';
+import '../utils/page_transitions.dart';
 class RegisterScreen extends StatefulWidget {
   final String? prefilledEmail;
   const RegisterScreen({super.key, this.prefilledEmail});
@@ -65,8 +66,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LegalDocumentScreen(
+      fadeSlidePageRoute(
+        (_) => LegalDocumentScreen(
           isDarkMode: isDark,
           title: title,
           lastUpdated: LegalDocuments.lastUpdated,
@@ -104,8 +105,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       HapticService.medium();
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
+        fadeSlidePageRoute(
+          (_) => EmailVerificationScreen(
             email: _emailController.text.trim(),
           ),
         ),

@@ -7,6 +7,7 @@ import '../main.dart';
 import '../screens/paywall_screen.dart';
 import '../services/haptic_service.dart';
 import '../utils/image_delivery.dart';
+import '../utils/page_transitions.dart';
 
 /// How long the capsule's theme-driven color/shadow/text/icon transitions
 /// take - shared by every animated piece here so they all move in lockstep.
@@ -77,8 +78,8 @@ class AppHeader extends StatelessWidget {
                   HapticService.light();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => PaywallScreen(isDarkMode: isDarkMode),
+                    fadeSlidePageRoute(
+                      (context) => PaywallScreen(isDarkMode: isDarkMode),
                     ),
                   );
                 },

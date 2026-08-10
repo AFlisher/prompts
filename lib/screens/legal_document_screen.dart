@@ -45,23 +45,37 @@ class LegalDocumentScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticService.light();
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDarkMode ? AppTheme.white : AppTheme.black,
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: OverflowBox(
+                        minWidth: 44,
+                        minHeight: 44,
+                        maxWidth: 44,
+                        maxHeight: 44,
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticService.light();
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppTheme.white
+                                    : AppTheme.black,
+                              ),
+                            ),
+                            child: Icon(Icons.arrow_back_ios_new_rounded,
+                                color: isDarkMode
+                                    ? AppTheme.white
+                                    : AppTheme.black,
+                                size: 16),
                           ),
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded,
-                            color: isDarkMode ? AppTheme.white : AppTheme.black,
-                            size: 16),
                       ),
                     ),
                     const SizedBox(width: 16),

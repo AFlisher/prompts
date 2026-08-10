@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../models/style_model.dart';
 import '../widgets/app_header.dart';
 import '../widgets/search_bar_widget.dart' as custom;
@@ -12,6 +13,7 @@ import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../services/haptic_service.dart';
 import '../widgets/category_filter_sheet.dart';
+import '../utils/page_transitions.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -154,13 +156,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => styleManager.fetchFromApi(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentPurple,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
+                  onPressed: () {
+                    HapticService.light();
+                    styleManager.fetchFromApi();
+                  },
+                  style: AppButtonStyles.primary(),
                   child: const Text('Retry', style: TextStyle(color: Colors.white)),
                 )
               ],
@@ -506,8 +506,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => AllStylesScreen(
+      fadeSlidePageRoute(
+        (context) => AllStylesScreen(
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
           title: title,
@@ -527,8 +527,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StyleDetailsScreen(
+      fadeSlidePageRoute(
+        (context) => StyleDetailsScreen(
           style: style,
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,

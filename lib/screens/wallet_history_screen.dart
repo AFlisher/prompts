@@ -68,25 +68,39 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticService.light();
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: textColor),
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: OverflowBox(
+                        minWidth: 44,
+                        minHeight: 44,
+                        maxWidth: 44,
+                        maxHeight: 44,
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticService.light();
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: textColor),
+                            ),
+                            child: Icon(Icons.arrow_back_ios_new_rounded,
+                                color: textColor, size: 16),
+                          ),
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 16),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Text(
                       'Transaction History',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: textColor),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(color: textColor),
                     ),
                   ],
                 ),
@@ -104,7 +118,8 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
 
   Widget _buildBody(Color textColor, Color surfaceColor) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.accentPurple));
+      return const Center(
+          child: CircularProgressIndicator(color: AppTheme.accentPurple));
     }
 
     if (_error != null) {
@@ -114,12 +129,15 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: textColor)),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: textColor)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadHistory,
                 style: AppButtonStyles.primary(),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                child:
+                    const Text('Retry', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -131,7 +149,8 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
       return Center(
         child: Text(
           'No transactions yet.',
-          style: TextStyle(color: textColor.withValues(alpha: 0.6), fontSize: 14),
+          style:
+              TextStyle(color: textColor.withValues(alpha: 0.6), fontSize: 14),
         ),
       );
     }
@@ -173,17 +192,41 @@ class _TransactionTile extends StatelessWidget {
   ({IconData icon, Color color, String label}) get _typeMeta {
     switch (transaction.type) {
       case 'reward':
-        return (icon: Icons.play_circle_fill_rounded, color: Colors.green, label: 'Ad Reward');
+        return (
+          icon: Icons.play_circle_fill_rounded,
+          color: Colors.green,
+          label: 'Ad Reward'
+        );
       case 'purchase':
-        return (icon: Icons.shopping_bag_rounded, color: Colors.blue, label: 'Purchase');
+        return (
+          icon: Icons.shopping_bag_rounded,
+          color: Colors.blue,
+          label: 'Purchase'
+        );
       case 'generation':
-        return (icon: Icons.auto_awesome_rounded, color: AppTheme.accentPurple, label: 'Style Generation');
+        return (
+          icon: Icons.auto_awesome_rounded,
+          color: AppTheme.accentPurple,
+          label: 'Style Generation'
+        );
       case 'refund':
-        return (icon: Icons.replay_rounded, color: Colors.orange, label: 'Refund');
+        return (
+          icon: Icons.replay_rounded,
+          color: Colors.orange,
+          label: 'Refund'
+        );
       case 'admin':
-        return (icon: Icons.admin_panel_settings_rounded, color: Colors.grey, label: 'Admin Adjustment');
+        return (
+          icon: Icons.admin_panel_settings_rounded,
+          color: Colors.grey,
+          label: 'Admin Adjustment'
+        );
       default:
-        return (icon: Icons.receipt_long_rounded, color: Colors.grey, label: transaction.type);
+        return (
+          icon: Icons.receipt_long_rounded,
+          color: Colors.grey,
+          label: transaction.type
+        );
     }
   }
 
@@ -198,8 +241,18 @@ class _TransactionTile extends StatelessWidget {
     if (difference.inDays < 7) return '${difference.inDays}d ago';
 
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[local.month - 1]} ${local.day}, ${local.year}';
   }
@@ -232,15 +285,21 @@ class _TransactionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.description?.isNotEmpty == true ? transaction.description! : meta.label,
-                  style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 14),
+                  transaction.description?.isNotEmpty == true
+                      ? transaction.description!
+                      : meta.label,
+                  style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _formatDate(transaction.createdAt),
-                  style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 12),
+                  style: TextStyle(
+                      color: textColor.withValues(alpha: 0.5), fontSize: 12),
                 ),
               ],
             ),

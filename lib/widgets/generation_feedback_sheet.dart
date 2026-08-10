@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../services/haptic_service.dart';
 import 'app_bottom_sheet.dart';
 import 'star_rating_input.dart';
@@ -34,7 +35,8 @@ Future<GenerationFeedbackSheetResult?> showGenerationFeedbackSheet(
     context,
     isDarkMode: isDarkMode,
     isScrollControlled: true,
-    contentBuilder: (ctx) => _GenerationFeedbackSheetContent(isDarkMode: isDarkMode),
+    contentBuilder: (ctx) =>
+        _GenerationFeedbackSheetContent(isDarkMode: isDarkMode),
   );
 }
 
@@ -44,10 +46,12 @@ class _GenerationFeedbackSheetContent extends StatefulWidget {
   const _GenerationFeedbackSheetContent({required this.isDarkMode});
 
   @override
-  State<_GenerationFeedbackSheetContent> createState() => _GenerationFeedbackSheetContentState();
+  State<_GenerationFeedbackSheetContent> createState() =>
+      _GenerationFeedbackSheetContentState();
 }
 
-class _GenerationFeedbackSheetContentState extends State<_GenerationFeedbackSheetContent> {
+class _GenerationFeedbackSheetContentState
+    extends State<_GenerationFeedbackSheetContent> {
   int _rating = 0;
   bool _dontAskAgain = false;
   final _commentController = TextEditingController();
@@ -67,7 +71,8 @@ class _GenerationFeedbackSheetContentState extends State<_GenerationFeedbackShee
     HapticService.light();
     Navigator.pop(
       context,
-      GenerationFeedbackSheetResult(submitted: false, dontAskAgain: _dontAskAgain),
+      GenerationFeedbackSheetResult(
+          submitted: false, dontAskAgain: _dontAskAgain),
     );
   }
 
@@ -117,7 +122,8 @@ class _GenerationFeedbackSheetContentState extends State<_GenerationFeedbackShee
           style: TextStyle(fontSize: 14, color: textColor),
           decoration: InputDecoration(
             hintText: 'Add a comment (optional)',
-            hintStyle: const TextStyle(fontSize: 14, color: AppTheme.mediumGray),
+            hintStyle:
+                const TextStyle(fontSize: 14, color: AppTheme.mediumGray),
             filled: true,
             fillColor: fieldBg,
             contentPadding: const EdgeInsets.all(14),
@@ -163,24 +169,20 @@ class _GenerationFeedbackSheetContentState extends State<_GenerationFeedbackShee
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                 ),
-                child: const Text('Skip', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Skip',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: ElevatedButton(
                 onPressed: _rating > 0 ? _submit : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentPurple,
-                  disabledBackgroundColor: AppTheme.accentPurple.withValues(alpha: 0.4),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  elevation: 0,
+                style: AppButtonStyles.primary(
+                  disabledBackgroundColor:
+                      AppTheme.accentPurple.withValues(alpha: 0.4),
                 ),
-                child: const Text('Submit', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Submit',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
           ],

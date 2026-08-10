@@ -8,6 +8,7 @@ import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/status_bar_style.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 /// The "View All" destination for every horizontal preview row on Home
 /// (a category, Trending, or Recommended For You).
@@ -65,7 +66,9 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
         if (!mounted) return;
         final styleManager = StyleProvider.read(context);
         final category = _findCategory(styleManager.categories, categoryId);
-        if (category == null || (!category.hasLoadedStyles && !styleManager.isCategoryLoading(categoryId))) {
+        if (category == null ||
+            (!category.hasLoadedStyles &&
+                !styleManager.isCategoryLoading(categoryId))) {
           styleManager.loadStylesForCategory(categoryId);
         }
       });
@@ -116,13 +119,15 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
         // "Still resolving" only while nothing is on screen yet - once any
         // styles are showing (from cache or a prior load), a background
         // refresh must never blank the grid out from under the user.
-        final showLoadingState = styles.isEmpty && (isLoading || category == null || !category.hasLoadedStyles);
+        final showLoadingState = styles.isEmpty &&
+            (isLoading || category == null || !category.hasLoadedStyles);
 
         return _buildScaffold(
           context,
           styles,
           isLoading: showLoadingState,
-          onRefresh: () => styleManager.loadStylesForCategory(categoryId, forceRefresh: true),
+          onRefresh: () => styleManager.loadStylesForCategory(categoryId,
+              forceRefresh: true),
         );
       },
     );
@@ -195,23 +200,33 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
             padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: () {
-                    HapticService.light();
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _isDark ? AppTheme.white : AppTheme.black,
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: OverflowBox(
+                    minWidth: 44,
+                    minHeight: 44,
+                    maxWidth: 44,
+                    maxHeight: 44,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticService.light();
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                          ),
+                        ),
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
+                            color: _isDark ? AppTheme.white : AppTheme.black,
+                            size: 16),
                       ),
                     ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: _isDark ? AppTheme.white : AppTheme.black,
-                        size: 16),
                   ),
                 ),
                 const SizedBox(width: 25),
@@ -290,8 +305,8 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StyleDetailsScreen(
+      fadeSlidePageRoute(
+        (context) => StyleDetailsScreen(
           style: style,
           isDarkMode: _isDark,
           onToggleDarkMode: _toggleDark,

@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'guest_home_screen.dart';
 import 'main_shell.dart';
+import '../utils/page_transitions.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -43,7 +44,7 @@ class _LandingScreenState extends State<LandingScreen> {
       debugPrint("[LandingScreen] Auto-login successful. Navigating to Home.");
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
+        fadeSlidePageRoute((_) => const MainShell()),
       );
     } else {
       debugPrint("[LandingScreen] Auto-login failed or no session. Navigating to Guest Home.");
@@ -52,7 +53,7 @@ class _LandingScreenState extends State<LandingScreen> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
+        fadeSlidePageRoute((_) => const GuestHomeScreen()),
       );
     }
   }

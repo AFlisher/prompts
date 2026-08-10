@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../utils/gallery_saver.dart';
 import '../widgets/progressive_network_image.dart';
 import '../utils/image_delivery.dart';
@@ -40,6 +40,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   bool _isSaving = false;
 
   void _handleSave() async {
+    HapticService.light();
     setState(() {
       _isSaving = true;
     });
@@ -96,14 +97,17 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     ? AuthorizedImage(
                         url: widget.assetPath!,
                         builder: (headers) => ProgressiveNetworkImage(
-                          thumbnailUrl: widget.thumbnailPath ?? widget.assetPath!,
+                          thumbnailUrl:
+                              widget.thumbnailPath ?? widget.assetPath!,
                           originalUrl: widget.assetPath!,
                           thumbnailCacheKey: widget.creationId == null
                               ? null
-                              : creationCacheKey(widget.creationId!, thumbnail: true),
+                              : creationCacheKey(widget.creationId!,
+                                  thumbnail: true),
                           originalCacheKey: widget.creationId == null
                               ? null
-                              : creationCacheKey(widget.creationId!, thumbnail: false),
+                              : creationCacheKey(widget.creationId!,
+                                  thumbnail: false),
                           fit: BoxFit.contain,
                           httpHeaders: headers,
                         ),
@@ -111,7 +115,8 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
                     : Image.file(
                         File(widget.filePath!),
                         fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
                           Icons.broken_image_rounded,
                           color: Colors.white24,
                           size: 64,
@@ -127,7 +132,8 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
             left: 0,
             right: 0,
             child: Container(
-              padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 8, 16, 16),
+              padding: EdgeInsets.fromLTRB(
+                  16, MediaQuery.paddingOf(context).top + 8, 16, 16),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.black54, Colors.transparent],
@@ -138,7 +144,8 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 8),
@@ -165,7 +172,8 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
             left: 0,
             right: 0,
             child: Container(
-              padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.paddingOf(context).bottom),
+              padding: EdgeInsets.fromLTRB(
+                  24, 24, 24, 24 + MediaQuery.paddingOf(context).bottom),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.transparent, Colors.black87],
@@ -176,27 +184,25 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
               child: Center(
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _handleSave,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
+                  style: AppButtonStyles.primary(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 16),
                   ),
                   child: _isSaving
                       ? const SizedBox(
                           width: 24,
                           height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 3),
                         )
                       : const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.download_rounded),
                             SizedBox(width: 8),
-                            Text('Save to Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text('Save to Gallery',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15)),
                           ],
                         ),
                 ),
