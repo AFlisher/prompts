@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../data/dynamic_style_manager.dart';
 import '../services/haptic_service.dart';
 import 'app_bottom_sheet.dart';
@@ -38,15 +39,18 @@ class _CategoryFilterSheetContent extends StatefulWidget {
   });
 
   @override
-  State<_CategoryFilterSheetContent> createState() => _CategoryFilterSheetContentState();
+  State<_CategoryFilterSheetContent> createState() =>
+      _CategoryFilterSheetContentState();
 }
 
-class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent> {
+class _CategoryFilterSheetContentState
+    extends State<_CategoryFilterSheetContent> {
   // Local draft selection - the real DynamicStyleManager filter only updates
   // when "Apply" is pressed, so Cancel/back-gesture/tap-outside leaves the
   // active filter untouched.
   late Set<String> _draftSelected;
-  final TextEditingController _categorySearchController = TextEditingController();
+  final TextEditingController _categorySearchController =
+      TextEditingController();
   String _categorySearch = '';
 
   @override
@@ -64,7 +68,9 @@ class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent
   List<CategoryModel> get _filteredCategories {
     if (_categorySearch.isEmpty) return widget.categories;
     final q = _categorySearch.toLowerCase();
-    return widget.categories.where((c) => c.name.toLowerCase().contains(q)).toList();
+    return widget.categories
+        .where((c) => c.name.toLowerCase().contains(q))
+        .toList();
   }
 
   void _toggle(String categoryId) {
@@ -112,8 +118,10 @@ class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent
           style: TextStyle(fontSize: 14, color: textColor),
           decoration: InputDecoration(
             hintText: 'Search categories...',
-            hintStyle: const TextStyle(fontSize: 14, color: AppTheme.mediumGray),
-            prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.mediumGray, size: 20),
+            hintStyle:
+                const TextStyle(fontSize: 14, color: AppTheme.mediumGray),
+            prefixIcon: const Icon(Icons.search_rounded,
+                color: AppTheme.mediumGray, size: 20),
             filled: true,
             fillColor: fieldBg,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -132,7 +140,8 @@ class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent
                   child: Center(
                     child: Text(
                       'No categories match "$_categorySearch"',
-                      style: const TextStyle(color: AppTheme.mediumGray, fontSize: 13),
+                      style: const TextStyle(
+                          color: AppTheme.mediumGray, fontSize: 13),
                     ),
                   ),
                 )
@@ -173,22 +182,15 @@ class _CategoryFilterSheetContentState extends State<_CategoryFilterSheetContent
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                 ),
-                child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const Text('Reset',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: ElevatedButton(
                 onPressed: _apply,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  elevation: 0,
-                ),
+                style: AppButtonStyles.primary(),
                 child: Text(
                   'Apply (${_draftSelected.length})',
                   style: const TextStyle(fontWeight: FontWeight.w700),
@@ -225,7 +227,9 @@ class _CategoryChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-      avatar: selected ? const Icon(Icons.check_rounded, size: 18, color: Colors.white) : null,
+      avatar: selected
+          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+          : null,
       labelStyle: TextStyle(
         color: selected ? Colors.white : unselectedText,
         fontWeight: FontWeight.w600,

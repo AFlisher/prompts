@@ -11,9 +11,10 @@ class AppButtonStyles {
     Color? shadowColor,
     Color? disabledBackgroundColor,
     Color? disabledForegroundColor,
+    Color? backgroundColor,
   }) {
     return ElevatedButton.styleFrom(
-      backgroundColor: AppTheme.accentPurple,
+      backgroundColor: backgroundColor ?? AppTheme.accentPurple,
       foregroundColor: Colors.white,
       disabledBackgroundColor: disabledBackgroundColor,
       disabledForegroundColor: disabledForegroundColor,

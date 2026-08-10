@@ -14,6 +14,7 @@ import 'image_preview_screen.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../widgets/progressive_network_image.dart';
 import '../utils/image_helper.dart';
+import '../utils/page_transitions.dart';
 
 class MyCreationsScreen extends StatelessWidget {
   final bool isDarkMode;
@@ -107,7 +108,8 @@ class MyCreationsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
                 boxShadow: [
                   BoxShadow(
-                    color: (isDarkMode ? AppTheme.white : AppTheme.black).withValues(alpha: 0.15),
+                    color: (isDarkMode ? AppTheme.white : AppTheme.black)
+                        .withValues(alpha: 0.15),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -160,7 +162,8 @@ class MyCreationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCreationCard(BuildContext context, CreationItem item, Color textColor) {
+  Widget _buildCreationCard(
+      BuildContext context, CreationItem item, Color textColor) {
     final cardBg = isDarkMode ? AppTheme.darkCard : AppTheme.lightGray;
 
     return GestureDetector(
@@ -279,7 +282,8 @@ class MyCreationsScreen extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: Colors.grey[800],
-                          child: const Icon(Icons.person, color: Colors.white60, size: 16),
+                          child: const Icon(Icons.person,
+                              color: Colors.white60, size: 16),
                         ),
                       ),
                     ),
@@ -301,109 +305,113 @@ class MyCreationsScreen extends StatelessWidget {
       isScrollControlled: true,
       contentBuilder: (context) {
         return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Creation details title
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.styleName,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Creation details title
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.styleName,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Created on ${item.createdAt.day}/${item.createdAt.month}/${item.createdAt.year} at ${item.createdAt.hour}:${item.createdAt.minute.toString().padLeft(2, "0")}',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                    onPressed: () {
-                      HapticService.heavy();
-                      CreationsProvider.of(context).deleteCreation(item.id);
-                      Navigator.pop(context); // Close sheet
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              GestureDetector(
-                onTap: () {
-                  HapticService.medium();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ImagePreviewScreen(
-                        assetPath: item.imagePath,
-                        thumbnailPath: item.displayThumbnail,
-                        title: item.styleName,
-                        creationId: item.id,
                       ),
-                    ),
-                  );
-                },
-                child: Container(
-                  height: 340,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDarkMode ? 0.5 : 0.15),
-                        blurRadius: 16,
-                      )
+                      const SizedBox(height: 4),
+                      Text(
+                        'Created on ${item.createdAt.day}/${item.createdAt.month}/${item.createdAt.year} at ${item.createdAt.hour}:${item.createdAt.minute.toString().padLeft(2, "0")}',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Styled generation output photo - progressive: the
-                        // thumbnail (already cached from the grid) shows
-                        // immediately while the full-resolution original
-                        // loads in behind it. This box is a fixed 340px-tall
-                        // card, never zoomable itself (tapping it opens a
-                        // separate ImagePreviewScreen, which decodes its own
-                        // full-res copy independently) - so the original only
-                        // needs decoding at this box's actual on-screen size.
-                        // Width matches showAppBottomSheet's default
-                        // horizontal padding (24px each side).
-                        // SEC-8.1B-2: same credential requirement as the grid
-                        // card above - without it the original layer 401s and
-                        // this card never upgrades past the thumbnail.
-                        AuthorizedImage(
-                          url: item.imagePath,
-                          builder: (headers) => ProgressiveNetworkImage(
-                            thumbnailUrl: item.displayThumbnail,
-                            originalUrl: item.imagePath,
-                            thumbnailCacheKey:
-                                creationCacheKey(item.id, thumbnail: true),
-                            originalCacheKey:
-                                creationCacheKey(item.id, thumbnail: false),
-                            fit: BoxFit.cover,
-                            memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
-                                    MediaQuery.devicePixelRatioOf(context))
-                                .round(),
-                            memCacheHeight:
-                                (340 * MediaQuery.devicePixelRatioOf(context)).round(),
-                            httpHeaders: headers,
-                          ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      color: Colors.redAccent),
+                  onPressed: () {
+                    HapticService.heavy();
+                    CreationsProvider.of(context).deleteCreation(item.id);
+                    Navigator.pop(context); // Close sheet
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            GestureDetector(
+              onTap: () {
+                HapticService.medium();
+                Navigator.push(
+                  context,
+                  fadeSlidePageRoute(
+                    (context) => ImagePreviewScreen(
+                      assetPath: item.imagePath,
+                      thumbnailPath: item.displayThumbnail,
+                      title: item.styleName,
+                      creationId: item.id,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                height: 340,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black
+                          .withValues(alpha: isDarkMode ? 0.5 : 0.15),
+                      blurRadius: 16,
+                    )
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Styled generation output photo - progressive: the
+                      // thumbnail (already cached from the grid) shows
+                      // immediately while the full-resolution original
+                      // loads in behind it. This box is a fixed 340px-tall
+                      // card, never zoomable itself (tapping it opens a
+                      // separate ImagePreviewScreen, which decodes its own
+                      // full-res copy independently) - so the original only
+                      // needs decoding at this box's actual on-screen size.
+                      // Width matches showAppBottomSheet's default
+                      // horizontal padding (24px each side).
+                      // SEC-8.1B-2: same credential requirement as the grid
+                      // card above - without it the original layer 401s and
+                      // this card never upgrades past the thumbnail.
+                      AuthorizedImage(
+                        url: item.imagePath,
+                        builder: (headers) => ProgressiveNetworkImage(
+                          thumbnailUrl: item.displayThumbnail,
+                          originalUrl: item.imagePath,
+                          thumbnailCacheKey:
+                              creationCacheKey(item.id, thumbnail: true),
+                          originalCacheKey:
+                              creationCacheKey(item.id, thumbnail: false),
+                          fit: BoxFit.cover,
+                          memCacheWidth:
+                              ((MediaQuery.sizeOf(context).width - 48) *
+                                      MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
+                          memCacheHeight:
+                              (340 * MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
+                          httpHeaders: headers,
                         ),
+                      ),
 
                       // Before (Original photo) small floating container
                       if (item.originalImagePath != null)
@@ -428,17 +436,22 @@ class MyCreationsScreen extends StatelessWidget {
                                 width: 80,
                                 height: 80,
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.white, width: 2),
-                                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Image.file(
                                     File(item.originalImagePath!),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
                                       color: Colors.black54,
-                                      child: const Icon(Icons.image, color: Colors.white38),
+                                      child: const Icon(Icons.image,
+                                          color: Colors.white38),
                                     ),
                                   ),
                                 ),
@@ -453,101 +466,108 @@ class MyCreationsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
-              // Action buttons: Download & Share
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: isDarkMode ? Colors.white24 : Colors.black12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: () async {
-                        final savedPath = await GallerySaver.saveImage(
-                          assetPath: item.imagePath,
-                        );
-
-                        if (!context.mounted) return;
-
-                        if (savedPath != null) {
-                          HapticService.light();
-                          SuccessHUD.show(context);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to save image. Check storage permissions.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.download_rounded, color: textColor),
-                          const SizedBox(width: 8),
-                          Text('Save to Gallery', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+            // Action buttons: Download & Share
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                          color: isDarkMode ? Colors.white24 : Colors.black12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
+                    onPressed: () async {
+                      final savedPath = await GallerySaver.saveImage(
+                        assetPath: item.imagePath,
+                      );
+
+                      if (!context.mounted) return;
+
+                      if (savedPath != null) {
                         HapticService.light();
-                        // SEC-8.1B-2: loadImageBytes attaches credentials when
-                        // the URL is ours and reports the server's own content
-                        // type, which a stable backend URL carries no
-                        // extension to guess from.
-                        final loaded =
-                            await GallerySaver.loadImageBytes(item.imagePath);
-                        final bytes = loaded?.bytes;
-
-                        if (!context.mounted) return;
-
-                        if (bytes == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to share image.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                          return;
-                        }
-
-                        await SharePlus.instance.share(
-                          ShareParams(
-                            files: [
-                              XFile.fromData(
-                                bytes,
-                                name: 'StyliAI_${item.id}',
-                                mimeType: GallerySaver.mimeTypeFor(
-                                  item.imagePath,
-                                  serverContentType: loaded?.contentType,
-                                ),
-                              ),
-                            ],
-                            text: 'Check out my ${item.styleName} photo, made with StyliAI!',
+                        SuccessHUD.show(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Failed to save image. Check storage permissions.'),
+                            behavior: SnackBarBehavior.floating,
                           ),
                         );
-                      },
-                      style: AppButtonStyles.primary(),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.ios_share_rounded),
-                          SizedBox(width: 8),
-                          Text('Share', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                      }
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.download_rounded, color: textColor),
+                        const SizedBox(width: 8),
+                        Text('Save to Gallery',
+                            style: TextStyle(
+                                color: textColor, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ],
-          );
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      HapticService.light();
+                      // SEC-8.1B-2: loadImageBytes attaches credentials when
+                      // the URL is ours and reports the server's own content
+                      // type, which a stable backend URL carries no
+                      // extension to guess from.
+                      final loaded =
+                          await GallerySaver.loadImageBytes(item.imagePath);
+                      final bytes = loaded?.bytes;
+
+                      if (!context.mounted) return;
+
+                      if (bytes == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to share image.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+
+                      await SharePlus.instance.share(
+                        ShareParams(
+                          files: [
+                            XFile.fromData(
+                              bytes,
+                              name: 'StyliAI_${item.id}',
+                              mimeType: GallerySaver.mimeTypeFor(
+                                item.imagePath,
+                                serverContentType: loaded?.contentType,
+                              ),
+                            ),
+                          ],
+                          text:
+                              'Check out my ${item.styleName} photo, made with StyliAI!',
+                        ),
+                      );
+                    },
+                    style: AppButtonStyles.primary(),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.ios_share_rounded),
+                        SizedBox(width: 8),
+                        Text('Share',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
       },
     );
   }

@@ -10,6 +10,7 @@ import 'upload_screen.dart';
 import '../main.dart';
 import '../services/haptic_service.dart';
 import '../widgets/status_bar_style.dart';
+import '../utils/page_transitions.dart';
 
 class StyleDetailsScreen extends StatefulWidget {
   final StyleModel style;
@@ -80,7 +81,8 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                   child: _HeroStyleCard(
                     style: widget.style,
                     heroTag: heroTag,
-                    isFavorite: FavoritesProvider.of(context).isFavorite(widget.style.id),
+                    isFavorite: FavoritesProvider.of(context)
+                        .isFavorite(widget.style.id),
                     isDarkMode: isDark,
                     marginTop: 16,
                     onBack: () {
@@ -167,14 +169,15 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
                   child: _TryButton(
                     pressed: _tryButtonPressed,
                     onTapDown: () => setState(() => _tryButtonPressed = true),
-                    onTapCancel: () => setState(() => _tryButtonPressed = false),
+                    onTapCancel: () =>
+                        setState(() => _tryButtonPressed = false),
                     onTapUp: () {
                       setState(() => _tryButtonPressed = false);
                       HapticService.medium();
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => UploadScreen(
+                        fadeSlidePageRoute(
+                          (context) => UploadScreen(
                             style: widget.style,
                             isDarkMode: _isDark,
                             onToggleDarkMode: _toggleDark,
@@ -201,7 +204,8 @@ class _StyleDetailsScreenState extends State<StyleDetailsScreen> {
 
   void _toggleFavorite() {
     HapticService.light();
-    final nowFavorite = FavoritesProvider.of(context).toggleFavorite(widget.style.id);
+    final nowFavorite =
+        FavoritesProvider.of(context).toggleFavorite(widget.style.id);
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -254,7 +258,9 @@ class _SimilarStylesSectionState extends State<_SimilarStylesSection> {
   @override
   void initState() {
     super.initState();
-    StyleProvider.read(context).loadSimilarStyles(widget.anchorStyle.id).then((styles) {
+    StyleProvider.read(context)
+        .loadSimilarStyles(widget.anchorStyle.id)
+        .then((styles) {
       if (mounted) setState(() => _similarStyles = styles);
     });
   }
@@ -263,8 +269,8 @@ class _SimilarStylesSectionState extends State<_SimilarStylesSection> {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StyleDetailsScreen(
+      fadeSlidePageRoute(
+        (context) => StyleDetailsScreen(
           style: style,
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
@@ -381,8 +387,8 @@ class _HeroStyleCard extends StatelessWidget {
                     HapticService.light();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => FullScreenImageViewer(
+                      fadeSlidePageRoute(
+                        (context) => FullScreenImageViewer(
                           imagePath: style.displayImage,
                           thumbnailPath: style.displayThumbnail,
                           heroTag: heroTag,
@@ -436,7 +442,9 @@ class _HeroStyleCard extends StatelessWidget {
                   right: 10,
                   top: 10,
                   child: _GlassActionButton(
-                    icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    icon: isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                     iconColor: isFavorite ? Colors.redAccent : null,
                     onTap: onFavorite,
                     isDarkMode: isDarkMode,
@@ -552,22 +560,32 @@ class _GlassActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(100),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            width: 33,
-            height: 33,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.44),
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: Colors.black.withValues(alpha: 0.36), width: 1),
+    return SizedBox(
+      width: 33,
+      height: 33,
+      child: OverflowBox(
+        minWidth: 44,
+        minHeight: 44,
+        maxWidth: 44,
+        maxHeight: 44,
+        child: GestureDetector(
+          onTap: onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                width: 33,
+                height: 33,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.44),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.36), width: 1),
+                ),
+                child: Icon(icon, color: iconColor ?? AppTheme.black, size: 20),
+              ),
             ),
-            child: Icon(icon, color: iconColor ?? AppTheme.black, size: 20),
           ),
         ),
       ),
@@ -710,7 +728,8 @@ class _TryButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+              const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.white, size: 28),
               const SizedBox(width: 8),
               Text(
                 'Try This Style',
@@ -768,7 +787,7 @@ class FullScreenImageViewer extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Float close button
           Positioned(
             top: 20,
@@ -781,7 +800,8 @@ class FullScreenImageViewer extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.2)),
                   ),
                   child: const Icon(
                     Icons.close_rounded,

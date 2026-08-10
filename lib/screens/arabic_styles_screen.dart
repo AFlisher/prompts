@@ -55,14 +55,16 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     );
   }
 
-  Widget _buildScaffold(BuildContext context, DynamicStyleManager styleManager) {
+  Widget _buildScaffold(
+      BuildContext context, DynamicStyleManager styleManager) {
     final bgColor = _isDark ? AppTheme.black : AppTheme.lightBackground;
     final textColor = _isDark ? AppTheme.white : AppTheme.black;
 
     final categories = styleManager.categories;
     final arabicCategory = categories.firstWhere(
       (c) => c.id == 'arabic',
-      orElse: () => CategoryModel(id: 'arabic', name: 'Arabic Styles', styles: []),
+      orElse: () =>
+          CategoryModel(id: 'arabic', name: 'Arabic Styles', styles: []),
     );
     final styles = arabicCategory.styles;
     final isCategoryLoading = styleManager.isCategoryLoading('arabic');
@@ -92,23 +94,35 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                   padding: const EdgeInsets.fromLTRB(14, 16, 22, 18),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          HapticService.light();
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isDark ? AppTheme.white : AppTheme.black,
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: OverflowBox(
+                          minWidth: 44,
+                          minHeight: 44,
+                          maxWidth: 44,
+                          maxHeight: 44,
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticService.light();
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color:
+                                      _isDark ? AppTheme.white : AppTheme.black,
+                                ),
+                              ),
+                              child: Icon(Icons.arrow_back_ios_new_rounded,
+                                  color:
+                                      _isDark ? AppTheme.white : AppTheme.black,
+                                  size: 16),
                             ),
                           ),
-                          child: Icon(Icons.arrow_back_ios_new_rounded,
-                              color: _isDark ? AppTheme.white : AppTheme.black,
-                              size: 16),
                         ),
                       ),
                       const SizedBox(width: 25),
@@ -127,7 +141,8 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
               if (isCategoryLoading && styles.isEmpty)
                 const SliverFillRemaining(
                   child: Center(
-                    child: CircularProgressIndicator(color: AppTheme.accentPurple),
+                    child:
+                        CircularProgressIndicator(color: AppTheme.accentPurple),
                   ),
                 )
               else if (styles.isEmpty)
@@ -135,7 +150,8 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                   child: Center(
                     child: Text(
                       'No styles found.',
-                      style: TextStyle(color: AppTheme.mediumGray, fontSize: 15),
+                      style:
+                          TextStyle(color: AppTheme.mediumGray, fontSize: 15),
                     ),
                   ),
                 )
@@ -143,7 +159,8 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 16,
@@ -187,4 +204,3 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     );
   }
 }
-

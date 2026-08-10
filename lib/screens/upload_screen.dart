@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/style_model.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
 import '../widgets/app_header.dart';
 import '../main.dart';
 import '../data/creations_manager.dart';
@@ -23,6 +24,7 @@ import '../data/credit_manager.dart';
 import '../services/api_service.dart';
 import '../services/generation/image_generation_service.dart';
 import '../services/network_client.dart';
+import '../utils/page_transitions.dart';
 import '../widgets/watch_ad_button.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/dynamic_style_form.dart';
@@ -154,7 +156,9 @@ class _UploadScreenState extends State<UploadScreen> {
       if (!formOk || !_fieldsValid) {
         HapticService.medium();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete the required fields before generating.')),
+          const SnackBar(
+              content: Text(
+                  'Please complete the required fields before generating.')),
         );
         return;
       }
@@ -192,7 +196,8 @@ class _UploadScreenState extends State<UploadScreen> {
       _startGenerationActual(creditManager);
     } else {
       // 3. Otherwise, prompt Not Enough Credits bottom sheet
-      _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+      _showNotEnoughCreditsSheet(
+          context, creditManager, widget.style.creditCost);
     }
   }
 
@@ -206,7 +211,8 @@ class _UploadScreenState extends State<UploadScreen> {
 
     // Start local progress bar simulation for smooth UI rendering
     _generationTimer?.cancel();
-    _generationTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
+    _generationTimer =
+        Timer.periodic(const Duration(milliseconds: 120), (timer) {
       if (!mounted || !_isGenerating) {
         timer.cancel();
         return;
@@ -265,8 +271,9 @@ class _UploadScreenState extends State<UploadScreen> {
             styleName: widget.style.name,
             imagePath: generatedImageUrl,
             thumbnailUrl: generatedThumbnailUrl,
-            originalImagePath:
-                _selectedImagePaths.isNotEmpty ? _selectedImagePaths.first : null,
+            originalImagePath: _selectedImagePaths.isNotEmpty
+                ? _selectedImagePaths.first
+                : null,
             createdAt: DateTime.now(),
           ),
         );
@@ -283,7 +290,7 @@ class _UploadScreenState extends State<UploadScreen> {
     } catch (e) {
       debugPrint("[Generation] API Error: $e");
       _generationTimer?.cancel();
-      
+
       if (mounted) {
         setState(() {
           _isGenerating = false;
@@ -291,13 +298,15 @@ class _UploadScreenState extends State<UploadScreen> {
 
         if (e is ApiException) {
           if (e.code == 'INSUFFICIENT_BALANCE') {
-            _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+            _showNotEnoughCreditsSheet(
+                context, creditManager, widget.style.creditCost);
           } else if (e.code == 'PROVIDER_UNAVAILABLE') {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text(
                   'Image generation is temporarily unavailable.\nPlease try again later.',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
@@ -325,14 +334,17 @@ class _UploadScreenState extends State<UploadScreen> {
           // carry no structured code.
           final errorMsg = e.toString();
           final errorMsgLower = errorMsg.toLowerCase();
-          if (errorMsgLower.contains('insufficient balance') || errorMsgLower.contains('credits')) {
-            _showNotEnoughCreditsSheet(context, creditManager, widget.style.creditCost);
+          if (errorMsgLower.contains('insufficient balance') ||
+              errorMsgLower.contains('credits')) {
+            _showNotEnoughCreditsSheet(
+                context, creditManager, widget.style.creditCost);
           } else if (errorMsgLower.contains('temporarily unavailable')) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text(
                   'Image generation is temporarily unavailable.\nPlease try again later.',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
@@ -370,13 +382,15 @@ class _UploadScreenState extends State<UploadScreen> {
     String? categoryId,
     int? generationTimeMs,
   }) async {
-    final shouldPrompt = await FeedbackPromptService.recordGenerationAndShouldPrompt();
+    final shouldPrompt =
+        await FeedbackPromptService.recordGenerationAndShouldPrompt();
     if (!shouldPrompt || !mounted) return;
 
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    final result = await showGenerationFeedbackSheet(context, isDarkMode: _isDark);
+    final result =
+        await showGenerationFeedbackSheet(context, isDarkMode: _isDark);
     if (result == null) return;
 
     if (result.dontAskAgain) {
@@ -399,7 +413,8 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  void _showNotEnoughCreditsSheet(BuildContext context, CreditManager creditManager, int requiredCredits) {
+  void _showNotEnoughCreditsSheet(
+      BuildContext context, CreditManager creditManager, int requiredCredits) {
     showAppBottomSheet(
       context,
       isDarkMode: _isDark,
@@ -413,8 +428,8 @@ class _UploadScreenState extends State<UploadScreen> {
             Navigator.pop(context); // Close the bottom sheet
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => PaywallScreen(isDarkMode: _isDark),
+              fadeSlidePageRoute(
+                (context) => PaywallScreen(isDarkMode: _isDark),
               ),
             );
           },
@@ -430,6 +445,7 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   void _saveToGallery() async {
+    HapticService.light();
     // Always the just-generated creation's full-resolution original, never
     // the style's own preset cover image and never a thumbnail.
     final savedPath = await GallerySaver.saveImage(
@@ -474,114 +490,124 @@ class _UploadScreenState extends State<UploadScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                      AppHeader(
-                        isDarkMode: _isDark,
-                        onToggleDarkMode: _toggleDark,
-                      ),
-                      const SizedBox(height: 16),
-                      _PageTitleRow(
-                        textColor: textColor,
-                        onBack: () {
-                          HapticService.light();
-                          Navigator.pop(context);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _PhotoActionCard(
-                        isDark: _isDark,
-                        icon: Icons.camera_alt_outlined,
-                        title: 'Take a photo',
-                        subtitle: 'click here to use your camera to take pic',
-                        onTap: () => _showCameraPicker(),
-                      ),
-                      const SizedBox(height: 16),
-                      _PhotoActionCard(
-                        isDark: _isDark,
-                        icon: Icons.image_outlined,
-                        title: 'Upload photo',
-                        subtitle: 'click here to upload pic from your gallery',
-                        onTap: () => _showGalleryPicker(),
-                      ),
-                      const SizedBox(height: 24),
-                      _SectionTitle(text: 'Crop & adjust', color: textColor),
-                      if (_maxImages > 1) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          imageRequirementLabel(
-                            minImages: _minImages,
-                            maxImages: _maxImages,
-                            selectedCount: _selectedImagePaths.length,
-                          ),
-                          style: const TextStyle(
-                            color: AppTheme.mediumGray,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      // One tile per slot: filled tiles preview their image
-                      // (tap to replace, X to remove); empty tiles invite the
-                      // next photo. Single-image styles keep one full-width
-                      // card; multi-image styles lay square tiles out two per
-                      // row so the slots read as a set, not stacked boxes.
-                      LayoutBuilder(builder: (context, constraints) {
-                        final slots = visibleImageSlots(
-                          minImages: _minImages,
-                          maxImages: _maxImages,
-                          selectedCount: _selectedImagePaths.length,
-                        );
-                        final multi = _maxImages > 1;
-                        final tileWidth = multi
-                            ? (constraints.maxWidth - 14) / 2
-                            : constraints.maxWidth;
-                        return Wrap(
-                          spacing: 14,
-                          runSpacing: 14,
-                          children: [
-                            for (int slot = 0; slot < slots; slot++)
-                              SizedBox(
-                                width: tileWidth,
-                                child: GestureDetector(
-                                  onTap: () => _showGalleryPicker(slot: slot),
-                                  child: _CropPreview(
-                                    isDark: _isDark,
-                                    compact: multi,
-                                    label: multi ? 'Photo ${slot + 1}' : null,
-                                    imagePath: slot < _selectedImagePaths.length
-                                        ? _selectedImagePaths[slot]
-                                        : null,
-                                    onClear: slot < _selectedImagePaths.length
-                                        ? () {
-                                            HapticService.light();
-                                            setState(() => _selectedImagePaths
-                                                .removeAt(slot));
-                                          }
-                                        : null,
-                                  ),
+                            AppHeader(
+                              isDarkMode: _isDark,
+                              onToggleDarkMode: _toggleDark,
+                            ),
+                            const SizedBox(height: 16),
+                            _PageTitleRow(
+                              textColor: textColor,
+                              onBack: () {
+                                HapticService.light();
+                                Navigator.pop(context);
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _PhotoActionCard(
+                              isDark: _isDark,
+                              icon: Icons.camera_alt_outlined,
+                              title: 'Take a photo',
+                              subtitle:
+                                  'click here to use your camera to take pic',
+                              onTap: () => _showCameraPicker(),
+                            ),
+                            const SizedBox(height: 16),
+                            _PhotoActionCard(
+                              isDark: _isDark,
+                              icon: Icons.image_outlined,
+                              title: 'Upload photo',
+                              subtitle:
+                                  'click here to upload pic from your gallery',
+                              onTap: () => _showGalleryPicker(),
+                            ),
+                            const SizedBox(height: 24),
+                            _SectionTitle(
+                                text: 'Crop & adjust', color: textColor),
+                            if (_maxImages > 1) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                imageRequirementLabel(
+                                  minImages: _minImages,
+                                  maxImages: _maxImages,
+                                  selectedCount: _selectedImagePaths.length,
+                                ),
+                                style: const TextStyle(
+                                  color: AppTheme.mediumGray,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                          ],
-                        );
-                      }),
-                      if (widget.style.fields.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _SectionTitle(text: 'Customize', color: textColor),
-                        const SizedBox(height: 16),
-                        DynamicStyleForm(
-                          fields: widget.style.fields,
-                          formKey: _fieldsFormKey,
-                          isDarkMode: _isDark,
-                          onChanged: (values, isValid) {
-                            _fieldValues = values;
-                            if (isValid != _fieldsValid && mounted) {
-                              setState(() => _fieldsValid = isValid);
-                            } else {
-                              _fieldsValid = isValid;
-                            }
-                          },
-                        ),
-                      ],
+                            ],
+                            const SizedBox(height: 16),
+                            // One tile per slot: filled tiles preview their image
+                            // (tap to replace, X to remove); empty tiles invite the
+                            // next photo. Single-image styles keep one full-width
+                            // card; multi-image styles lay square tiles out two per
+                            // row so the slots read as a set, not stacked boxes.
+                            LayoutBuilder(builder: (context, constraints) {
+                              final slots = visibleImageSlots(
+                                minImages: _minImages,
+                                maxImages: _maxImages,
+                                selectedCount: _selectedImagePaths.length,
+                              );
+                              final multi = _maxImages > 1;
+                              final tileWidth = multi
+                                  ? (constraints.maxWidth - 14) / 2
+                                  : constraints.maxWidth;
+                              return Wrap(
+                                spacing: 14,
+                                runSpacing: 14,
+                                children: [
+                                  for (int slot = 0; slot < slots; slot++)
+                                    SizedBox(
+                                      width: tileWidth,
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _showGalleryPicker(slot: slot),
+                                        child: _CropPreview(
+                                          isDark: _isDark,
+                                          compact: multi,
+                                          label: multi
+                                              ? 'Photo ${slot + 1}'
+                                              : null,
+                                          imagePath:
+                                              slot < _selectedImagePaths.length
+                                                  ? _selectedImagePaths[slot]
+                                                  : null,
+                                          onClear:
+                                              slot < _selectedImagePaths.length
+                                                  ? () {
+                                                      HapticService.light();
+                                                      setState(() =>
+                                                          _selectedImagePaths
+                                                              .removeAt(slot));
+                                                    }
+                                                  : null,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }),
+                            if (widget.style.fields.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              _SectionTitle(
+                                  text: 'Customize', color: textColor),
+                              const SizedBox(height: 16),
+                              DynamicStyleForm(
+                                fields: widget.style.fields,
+                                formKey: _fieldsFormKey,
+                                isDarkMode: _isDark,
+                                onChanged: (values, isValid) {
+                                  _fieldValues = values;
+                                  if (isValid != _fieldsValid && mounted) {
+                                    setState(() => _fieldsValid = isValid);
+                                  } else {
+                                    _fieldsValid = isValid;
+                                  }
+                                },
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -604,7 +630,6 @@ class _UploadScreenState extends State<UploadScreen> {
                   ],
                 ),
               ),
-
             if (_generationComplete)
               SafeArea(
                 child: Padding(
@@ -617,9 +642,10 @@ class _UploadScreenState extends State<UploadScreen> {
                           HapticService.medium();
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => ImagePreviewScreen(
-                                assetPath: _generatedImageUrl ?? widget.style.imagePath,
+                            fadeSlidePageRoute(
+                              (context) => ImagePreviewScreen(
+                                assetPath: _generatedImageUrl ??
+                                    widget.style.imagePath,
                                 thumbnailPath: _generatedThumbnailUrl,
                                 title: widget.style.name,
                               ),
@@ -631,11 +657,13 @@ class _UploadScreenState extends State<UploadScreen> {
                           width: double.infinity,
                           decoration: BoxDecoration(
                             color: surfaceColor,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusLarge),
                             boxShadow: AppTheme.heavyShadow,
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusLarge),
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
@@ -658,18 +686,25 @@ class _UploadScreenState extends State<UploadScreen> {
                                 // headers for the off-origin style asset this
                                 // renders before a generation exists.
                                 AuthorizedImage(
-                                  url: _generatedImageUrl ?? widget.style.displayImage,
+                                  url: _generatedImageUrl ??
+                                      widget.style.displayImage,
                                   builder: (headers) => ProgressiveNetworkImage(
                                     thumbnailUrl: _generatedThumbnailUrl ??
                                         _generatedImageUrl ??
                                         widget.style.displayImage,
-                                    originalUrl: _generatedImageUrl ?? widget.style.displayImage,
+                                    originalUrl: _generatedImageUrl ??
+                                        widget.style.displayImage,
                                     fit: BoxFit.cover,
-                                    memCacheWidth: ((MediaQuery.sizeOf(context).width - 48) *
-                                            MediaQuery.devicePixelRatioOf(context))
+                                    memCacheWidth:
+                                        ((MediaQuery.sizeOf(context).width -
+                                                    48) *
+                                                MediaQuery.devicePixelRatioOf(
+                                                    context))
+                                            .round(),
+                                    memCacheHeight: (380 *
+                                            MediaQuery.devicePixelRatioOf(
+                                                context))
                                         .round(),
-                                    memCacheHeight:
-                                        (380 * MediaQuery.devicePixelRatioOf(context)).round(),
                                     httpHeaders: headers,
                                   ),
                                 ),
@@ -677,19 +712,25 @@ class _UploadScreenState extends State<UploadScreen> {
                                   bottom: 16,
                                   right: 16,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.6),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.6),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
+                                        Icon(Icons.zoom_in_rounded,
+                                            color: Colors.white, size: 16),
                                         SizedBox(width: 4),
                                         Text(
                                           'Tap to zoom',
-                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),
@@ -703,7 +744,10 @@ class _UploadScreenState extends State<UploadScreen> {
                       const SizedBox(height: 24),
                       Text(
                         'Generation Complete!',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
                               color: textColor,
                               fontWeight: FontWeight.w900,
                             ),
@@ -713,29 +757,29 @@ class _UploadScreenState extends State<UploadScreen> {
                         'Successfully applied ${widget.style.name} to your photo.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: _isDark ? Colors.grey[400] : Colors.grey[600],
+                              color:
+                                  _isDark ? Colors.grey[400] : Colors.grey[600],
                             ),
                       ),
                       const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _saveToGallery,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.accentPurple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _saveToGallery,
+                          style: AppButtonStyles.primary(
+                            padding: const EdgeInsets.symmetric(vertical: 18),
                           ),
-                          minimumSize: const Size(double.infinity, 0),
-                          elevation: 0,
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.download_rounded),
-                            SizedBox(width: 8),
-                            Text('Save to Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                          ],
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.download_rounded),
+                              SizedBox(width: 8),
+                              Text('Save to Gallery',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -755,12 +799,14 @@ class _UploadScreenState extends State<UploadScreen> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: textColor,
                                 side: BorderSide(
-                                  color: _isDark ? Colors.white24 : Colors.black12,
+                                  color:
+                                      _isDark ? Colors.white24 : Colors.black12,
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 18),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppTheme.radiusMedium),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusMedium),
                                 ),
                               ),
                               child: const Text(
@@ -774,18 +820,21 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: ElevatedButton(
                               onPressed: () {
                                 HapticService.medium();
-                                CreationsProvider.read(context).setTab(1); // Set active tab to creations
-                                Navigator.popUntil(context, (route) => route.isFirst);
+                                CreationsProvider.read(context)
+                                    .setTab(1); // Set active tab to creations
+                                Navigator.popUntil(
+                                    context, (route) => route.isFirst);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:
                                     _isDark ? AppTheme.white : AppTheme.black,
                                 foregroundColor:
                                     _isDark ? AppTheme.black : AppTheme.white,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 18),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppTheme.radiusMedium),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusMedium),
                                 ),
                               ),
                               child: const Text(
@@ -800,7 +849,6 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                 ),
               ),
-
             if (_isGenerating)
               Positioned.fill(
                 child: Container(
@@ -863,7 +911,8 @@ class _UploadScreenState extends State<UploadScreen> {
                         SizedBox(height: 16),
                         Text(
                           'Checking balance...',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -940,7 +989,8 @@ class _UploadScreenState extends State<UploadScreen> {
   void _showImageErrorSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("This photo couldn't be loaded. Please choose a different one."),
+        content: Text(
+            "This photo couldn't be loaded. Please choose a different one."),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -1037,16 +1087,27 @@ class _PageTitleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(
-          onTap: onBack,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: textColor, width: 1.5),
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: OverflowBox(
+            minWidth: 44,
+            minHeight: 44,
+            maxWidth: 44,
+            maxHeight: 44,
+            child: GestureDetector(
+              onTap: onBack,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: textColor, width: 1.5),
+                ),
+                child: Icon(Icons.arrow_back_ios_new_rounded,
+                    color: textColor, size: 16),
+              ),
             ),
-            child: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 16),
           ),
         ),
         const SizedBox(width: 12),
@@ -1425,10 +1486,12 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
                         height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                    : const Icon(Icons.auto_awesome_rounded,
+                        color: Colors.white, size: 28),
                 Expanded(
                   child: Text(
                     widget.isLoading ? 'Generating...' : 'Generate Style',
@@ -1440,7 +1503,7 @@ class _GenerateStyleButtonState extends State<_GenerateStyleButton> {
                         ),
                   ),
                 ),
-                const SizedBox(width: 52 ),
+                const SizedBox(width: 52),
               ],
             ),
           ),
@@ -1564,99 +1627,101 @@ class _NotEnoughCreditsSheet extends StatelessWidget {
     const secondaryTextColor = AppTheme.mediumGray;
 
     return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Star icon badge
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.accentPurple.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.stars_rounded,
-                color: AppTheme.accentPurple,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 20),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Star icon badge
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.accentPurple.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.stars_rounded,
+            color: AppTheme.accentPurple,
+            size: 40,
+          ),
+        ),
+        const SizedBox(height: 20),
 
-            // Title
-            Text(
-              'Not Enough Credits',
+        // Title
+        Text(
+          'Not Enough Credits',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Description
+        Text(
+          'You need $requiredCredits ${requiredCredits == 1 ? 'credit' : 'credits'} to generate this image.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: secondaryTextColor,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Action Buttons
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              HapticService.light();
+              onBuyCreditsTap();
+            },
+            icon: const Icon(Icons.credit_card_rounded,
+                color: Colors.white, size: 20),
+            label: const Text(
+              'Buy Credits',
               style: TextStyle(
-                color: textColor,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15),
             ),
-            const SizedBox(height: 10),
+            style: AppButtonStyles.primary(),
+          ),
+        ),
+        const SizedBox(height: 16),
 
-            // Description
-            Text(
-              'You need $requiredCredits ${requiredCredits == 1 ? 'credit' : 'credits'} to generate this image.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: secondaryTextColor,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 32),
+        AnimatedBuilder(
+          animation: creditManager,
+          builder: (context, _) {
+            if (creditManager.dailyLimitReached) return const SizedBox.shrink();
 
-            // Action Buttons
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onBuyCreditsTap,
-                icon: const Icon(Icons.credit_card_rounded, color: Colors.white, size: 20),
-                label: const Text(
-                  'Buy Credits',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+            return Column(
+              children: [
+                WatchAdButton(
+                  creditManager: creditManager,
+                  onRewarded: () => Navigator.pop(context),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentPurple,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        ),
 
-            AnimatedBuilder(
-              animation: creditManager,
-              builder: (context, _) {
-                if (creditManager.dailyLimitReached) return const SizedBox.shrink();
-
-                return Column(
-                  children: [
-                    WatchAdButton(
-                      creditManager: creditManager,
-                      onRewarded: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              },
+        TextButton(
+          onPressed: () {
+            HapticService.light();
+            Navigator.pop(context);
+          },
+          child: const Text(
+            'Cancel',
+            style: TextStyle(
+              color: secondaryTextColor,
+              fontWeight: FontWeight.w600,
             ),
-
-            TextButton(
-              onPressed: () {
-                HapticService.light();
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: secondaryTextColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        );
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
   }
 }
-

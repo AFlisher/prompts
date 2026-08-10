@@ -58,23 +58,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                     child: Row(
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            HapticService.light();
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _isDark ? AppTheme.white : AppTheme.black,
+                        SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: OverflowBox(
+                            minWidth: 44,
+                            minHeight: 44,
+                            maxWidth: 44,
+                            maxHeight: 44,
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticService.light();
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: _isDark
+                                        ? AppTheme.white
+                                        : AppTheme.black,
+                                  ),
+                                ),
+                                child: Icon(Icons.arrow_back_ios_new_rounded,
+                                    color: _isDark
+                                        ? AppTheme.white
+                                        : AppTheme.black,
+                                    size: 16),
                               ),
                             ),
-                            child: Icon(Icons.arrow_back_ios_new_rounded,
-                                color: _isDark ? AppTheme.white : AppTheme.black,
-                                size: 16),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -83,7 +97,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             'Notifications',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayLarge
+                                ?.copyWith(color: textColor),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -176,7 +193,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.notifications_none_rounded,
-                    color: AppTheme.mediumGray.withValues(alpha: 0.6), size: 48),
+                    color: AppTheme.mediumGray.withValues(alpha: 0.6),
+                    size: 48),
                 const SizedBox(height: 16),
                 Text(
                   'No notifications yet',
@@ -317,7 +335,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     showAppBottomSheet(
       context,
       isDarkMode: _isDark,
-      contentBuilder: (context) => _NotificationSettingsSheet(textColor: textColor),
+      contentBuilder: (context) =>
+          _NotificationSettingsSheet(textColor: textColor),
     );
   }
 }
@@ -490,7 +509,8 @@ class _NotificationItem extends StatelessWidget {
                           style: TextStyle(
                             color: textColor,
                             fontSize: 14,
-                            fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+                            fontWeight:
+                                isUnread ? FontWeight.w700 : FontWeight.w600,
                           ),
                         ),
                       ),

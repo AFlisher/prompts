@@ -298,19 +298,29 @@ class _UnfavoriteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.favorite_rounded,
-          color: AppTheme.accentPink,
-          size: 18,
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: OverflowBox(
+        minWidth: 44,
+        minHeight: 44,
+        maxWidth: 44,
+        maxHeight: 44,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.favorite_rounded,
+              color: AppTheme.accentPink,
+              size: 18,
+            ),
+          ),
         ),
       ),
     );
@@ -379,7 +389,8 @@ class StyleRowSkeleton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 26),
           scrollDirection: Axis.horizontal,
           physics: const NeverScrollableScrollPhysics(),
-          itemBuilder: (context, index) => const StyleCardSkeleton(cardWidth: 135),
+          itemBuilder: (context, index) =>
+              const StyleCardSkeleton(cardWidth: 135),
           separatorBuilder: (_, __) => const SizedBox(width: 20),
           itemCount: 4,
         ),

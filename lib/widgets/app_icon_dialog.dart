@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_button_styles.dart';
+import '../services/haptic_service.dart';
 
 /// The "icon badge + message + primary action" dialog shape already used by
 /// Paywall's purchase-success dialog and Forgot Password's confirmation.
@@ -41,7 +43,8 @@ Future<void> showAppIconDialog(
           Text(
             title,
             textAlign: TextAlign.center,
-            style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.w900),
+            style: TextStyle(
+                color: textColor, fontSize: 22, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
           Text(
@@ -59,22 +62,22 @@ Future<void> showAppIconDialog(
                       Navigator.pop(ctx);
                       onSecondaryPressed?.call();
                     },
-                    child: Text(secondaryLabel, style: const TextStyle(color: AppTheme.mediumGray)),
+                    child: Text(secondaryLabel,
+                        style: const TextStyle(color: AppTheme.mediumGray)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
+                      HapticService.medium();
                       Navigator.pop(ctx);
                       onPrimaryPressed();
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor ?? AppTheme.accentPurple,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: Text(primaryLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    style:
+                        AppButtonStyles.primary(backgroundColor: primaryColor),
+                    child: Text(primaryLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -84,16 +87,17 @@ Future<void> showAppIconDialog(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  HapticService.medium();
                   Navigator.pop(ctx);
                   onPrimaryPressed();
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor ?? AppTheme.accentPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                style: AppButtonStyles.primary(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  backgroundColor: primaryColor,
                 ),
-                child: Text(primaryLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(primaryLabel,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           const SizedBox(height: 12),

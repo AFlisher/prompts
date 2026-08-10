@@ -89,29 +89,44 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        HapticService.light();
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _isDark ? AppTheme.white : AppTheme.black,
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: OverflowBox(
+                        minWidth: 44,
+                        minHeight: 44,
+                        maxWidth: 44,
+                        maxHeight: 44,
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticService.light();
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    _isDark ? AppTheme.white : AppTheme.black,
+                              ),
+                            ),
+                            child: Icon(Icons.arrow_back_ios_new_rounded,
+                                color:
+                                    _isDark ? AppTheme.white : AppTheme.black,
+                                size: 16),
                           ),
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded,
-                            color: _isDark ? AppTheme.white : AppTheme.black,
-                            size: 16),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Text(
                       'Privacy',
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(color: textColor),
+                      style: Theme.of(context)
+                          .textTheme
+                          .displayLarge
+                          ?.copyWith(color: textColor),
                     ),
                   ],
                 ),
@@ -191,7 +206,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                 _ToggleTile(
                   icon: Icons.star_rounded,
                   label: 'Ask me to rate generated images',
-                  subtitle: 'Occasionally prompt for feedback after a generation',
+                  subtitle:
+                      'Occasionally prompt for feedback after a generation',
                   value: _askForRatingEnabled,
                   isDarkMode: _isDark,
                   surfaceColor: surfaceColor,
