@@ -12,6 +12,7 @@ import 'guest_home_screen.dart';
 import '../services/auth_service.dart';
 import '../services/theme_preference_service.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -148,7 +149,7 @@ class _MainShellState extends State<MainShell> {
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
+            fadeSlidePageRoute((_) => const GuestHomeScreen()),
             (route) => false,
           );
         }

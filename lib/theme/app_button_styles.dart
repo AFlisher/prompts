@@ -9,10 +9,14 @@ class AppButtonStyles {
     EdgeInsetsGeometry? padding,
     double elevation = 0,
     Color? shadowColor,
+    Color? disabledBackgroundColor,
+    Color? disabledForegroundColor,
   }) {
     return ElevatedButton.styleFrom(
       backgroundColor: AppTheme.accentPurple,
       foregroundColor: Colors.white,
+      disabledBackgroundColor: disabledBackgroundColor,
+      disabledForegroundColor: disabledForegroundColor,
       padding: padding ?? const EdgeInsets.symmetric(vertical: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),

@@ -369,7 +369,7 @@ class _HeroStyleCard extends StatelessWidget {
       children: [
         SizedBox(height: marginTop),
         ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           child: SizedBox(
             height: 220,
             width: double.infinity,

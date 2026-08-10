@@ -6,6 +6,7 @@ import 'style_details_screen.dart';
 import '../widgets/style_card.dart';
 import '../widgets/floating_nav_bar_metrics.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 class FavoritesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -156,8 +157,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         HapticService.selection();
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => StyleDetailsScreen(
+                          fadeSlidePageRoute(
+                            (_) => StyleDetailsScreen(
                               style: style,
                               isDarkMode: widget.isDarkMode,
                               onToggleDarkMode: widget.onToggleDarkMode,

@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/haptic_service.dart';
 import '../services/network_client.dart';
 import '../utils/secure_screen.dart';
+import '../utils/page_transitions.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -97,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       HapticService.medium();
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
+        fadeSlidePageRoute((_) => const MainShell()),
             (route) => false,
       );
     } on AuthException catch (e) {
@@ -125,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     HapticService.light();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+      fadeSlidePageRoute((_) => const RegisterScreen()),
     );
   }
 
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     HapticService.light();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+      fadeSlidePageRoute((_) => const ForgotPasswordScreen()),
     );
   }
 
@@ -173,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       HapticService.medium();
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
+        fadeSlidePageRoute((_) => const MainShell()),
         (route) => false,
       );
     } on AuthException catch (e) {

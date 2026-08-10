@@ -195,11 +195,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 // Action button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleSendOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
+                  style: AppButtonStyles.primary(),
                   child: _isLoading
                       ? const SizedBox(
                           width: 24,

@@ -8,6 +8,7 @@ import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/status_bar_style.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 class ArabicStylesScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -175,8 +176,8 @@ class _ArabicStylesScreenState extends State<ArabicStylesScreen> {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StyleDetailsScreen(
+      fadeSlidePageRoute(
+        (context) => StyleDetailsScreen(
           style: style,
           isDarkMode: _isDark,
           onToggleDarkMode: _toggleDark,

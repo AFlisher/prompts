@@ -266,7 +266,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     end: Alignment.bottomRight,
                                   )
                                 : null,
-                            borderRadius: BorderRadius.circular(30),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
                             image: _profileImage != null
                                 ? DecorationImage(
                                     image: FileImage(_profileImage!),

@@ -436,8 +436,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const GuestHomeScreen(),
+                          fadeSlidePageRoute(
+                            (_) => const GuestHomeScreen(),
                           ),
                           (route) => false,
                         );

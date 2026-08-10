@@ -302,7 +302,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               ),
@@ -314,7 +314,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               ),
@@ -337,7 +337,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               ),
@@ -349,7 +349,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 backgroundColor: Colors.redAccent,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               ),
@@ -1015,7 +1015,7 @@ class _UploadScreenState extends State<UploadScreen> {
         backgroundColor: AppTheme.darkSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
         ),
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         duration: const Duration(seconds: 4),
@@ -1529,7 +1529,7 @@ class _MetallicStyles {
               ],
         stops: const [0.0, 0.3, 0.55, 1.0],
       ),
-      borderRadius: BorderRadius.circular(30),
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
       border: Border.all(
         color: isDark ? Colors.white54 : AppTheme.black,
         width: 1.2,

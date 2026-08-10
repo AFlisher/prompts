@@ -8,6 +8,7 @@ import '../data/dynamic_style_manager.dart';
 import '../widgets/style_card.dart';
 import '../widgets/status_bar_style.dart';
 import '../services/haptic_service.dart';
+import '../utils/page_transitions.dart';
 
 /// The "View All" destination for every horizontal preview row on Home
 /// (a category, Trending, or Recommended For You).
@@ -290,8 +291,8 @@ class _AllStylesScreenState extends State<AllStylesScreen> {
     HapticService.selection();
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => StyleDetailsScreen(
+      fadeSlidePageRoute(
+        (context) => StyleDetailsScreen(
           style: style,
           isDarkMode: _isDark,
           onToggleDarkMode: _toggleDark,

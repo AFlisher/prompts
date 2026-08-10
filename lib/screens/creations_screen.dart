@@ -429,7 +429,7 @@ class MyCreationsScreen extends StatelessWidget {
                                 height: 80,
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.white, width: 2),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
